@@ -8,6 +8,7 @@ import timing
 import pathos.multiprocessing as mp
 
 isR=None
+pool=None
 
 def initR():
     global isR
@@ -384,6 +385,10 @@ def truncate(dist, trunc, data):
 
 # parallel implementation
 def parallel_truncate(dist, trunc, data):
+    global pool
+    if(pool is None):
+        print("creating pool")
+        pool=mp.ProcessingPool(4)
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
         return 1., dist
@@ -402,7 +407,7 @@ def parallel_truncate(dist, trunc, data):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             comp_list.append(comp)
         #n_process = mp.cpu_count()
-        pool = mp.ProcessingPool(4)
+        #pool = mp.ProcessingPool(8)
         trans_comp = pool.map(trunc_func, comp_list)
         assert(len(trans_comp)==len(comp_list))
         for k in range(dist.gm.n_comp()):

@@ -119,7 +119,7 @@ def runSOGA(program,tvars):
     c=None
     d=None
     try:
-        out=subprocess.check_output(["python3","../src/SOGA.py","-r","-f",program],text=True,
+        out=subprocess.check_output(["python3","../src/SOGA.py","-f",program],text=True,
             timeout=exp_timeout)
         
         rt_reg = r"\s*Runtime:\s*(\d+\.\d+)"
@@ -650,14 +650,14 @@ def sensVarExp():
     #     tvars+=[f"y{v+1}" for v in range(1,nvar+1)]        
     #     dname=p.name.replace(f"{nvar}","").split(".")[0]
     #     tableres["stan_%s"%(p.name.split(".")[0].lower())]=runSTAN(p,tvars,datFile=f"{p.parent}/{dname}.data.R")
-    logger.info("####################running PyMC3#####################")
-    for p in PYMC3Programs:
-        p=Path(p)
-        nvar=int(re.findall(r"(\d+)\.",p.name)[0])
-        tvars=["alpha","beta"]
-        tvars+=[f"y{v}" for v in range(1,nvar+1)]        
-        dname=p.name.replace(f"{nvar}","").split(".")[0]
-        tableres["pymc_%s"%(p.stem.lower())]=runPYMC3(p,tvars)
+    # logger.info("####################running PyMC3#####################")
+    # for p in PYMC3Programs:
+    #     p=Path(p)
+    #     nvar=int(re.findall(r"(\d+)\.",p.name)[0])
+    #     tvars=["alpha","beta"]
+    #     tvars+=[f"y{v}" for v in range(1,nvar+1)]        
+    #     dname=p.name.replace(f"{nvar}","").split(".")[0]
+    #     tableres["pymc_%s"%(p.stem.lower())]=runPYMC3(p,tvars)
     logger.info("####################running SOGA#####################")
     for p in programs:
         p=Path(p)
@@ -666,7 +666,7 @@ def sensVarExp():
         tableres["soga_%s"%(p.name.split(".")[0].replace("Prune","").lower())]=runSOGA(p,tvars=tvars)
 
     resFile=open(str(PurePath("./results/varSensitivity.csv")),"w+")
-    tools=["SOGA","PYMC"]
+    tools=["SOGA"]
 
     for p in programs:
         fileline=""

@@ -1,0 +1,8 @@
+x = gauss(0,1);
+y = x + gm([0.25, 0.75], [1,-1],[1,2]);
+
+if x + y - gauss(0,1) < 0 {
+    value = 1;
+} else {
+    value = 0;
+} end if;

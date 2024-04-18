@@ -12,14 +12,14 @@
 
 # AUXILIARY LIBRARIES 
 
-from copy import deepcopy
+from copy import deepcopy, copy
 from sympy import *
 import re
 import numpy as np
 from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import multivariate_normal as mvnorm
-from itertools import product
+from itertools import product, chain
 
 from time import time
 
@@ -110,17 +110,11 @@ class GaussianMix():
     
     # Moments of mixtures
     def mean(self):
-        return(sum([self.pi[k]*self.mu[k] for k in range(self.n_comp())]))
+        return np.array(self.pi).dot(np.array(self.mu))
     
     def cov(self):
-        d = self.n_dim()
-        cov = np.zeros((d,d))
-        for i in range(d):
-            for j in range(i+1):
-                v = sum([self.pi[k]*self.sigma[k][i,j] for k in range(self.n_comp())])
-                v = v + sum([self.pi[k]*self.mu[k][i]*self.mu[k][j] for k in range(self.n_comp())])
-                v = v - self.mean()[i]*self.mean()[j]
-                cov[i,j] = cov[j,i] = v
+        v = np.array(self.mu) - self.mean()
+        cov = np.tensordot(np.array(self.pi), np.array(self.sigma), axes=1) + np.transpose(v).dot((np.array(self.pi).reshape(-1,1)*v))
         return cov
 
 
@@ -146,11 +140,13 @@ def make_psd(sigma):
     eig, M = np.linalg.eigh(new_sigma)
     add = 0
     delta_eig = 1e-8
-    while not np.all(eig > 5e-12):
+    c_it = 0
+    while not np.all(eig > 1e-15):
     #while True:
+        c_it+=1
         add = add + delta_eig
         for i, e in enumerate(eig):
-            if e < 0:
+            if e <= 1e-15:
                 #if abs(e) > eig_tol:
                     #print('Warning: substituting eigenvelue {} can lead to a large error'.format(e))
                 eig[i] = add

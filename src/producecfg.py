@@ -37,8 +37,22 @@ class CFGnode:
     def __init__(self, node_name, node_type):
         self.name = node_name
         self.type = node_type
+        
+        self.dist = None
+        self.p = 1
+        self.trunc = None
+        
         self.parent = []
         self.children = []
+        
+    def set_dist(self, dist):
+        self.dist = dist
+        
+    def set_p(self, p):
+        self.p = p
+        
+    def set_trunc(self, trunc):
+        self.trunc = trunc
         
 class EntryNode(CFGnode):
     

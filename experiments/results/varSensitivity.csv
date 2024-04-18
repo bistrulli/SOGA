@@ -1,3 +1,4 @@
+model,time,value,c,#vars,time,value
 timeseries9,0.525,3.21674,2,13,to
 timeseries1,0.474,0.99768,2,5,264.21815,0.99406
 timeseries10,0.531,3.18213,2,14,to

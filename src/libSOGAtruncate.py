@@ -388,7 +388,7 @@ def parallel_truncate(dist, trunc, data):
     global pool
     if(pool is None):
         print("creating pool")
-        pool=mp.ProcessingPool(4)
+        pool=mp.ProcessingPool(10)
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
         return 1., dist

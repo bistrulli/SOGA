@@ -443,7 +443,7 @@ def parallel_truncate(dist, trunc, data,nproc):
         norm_factor = sum(np.array(new_pi))
         if norm_factor > prob_tol:
             new_dist.gm.pi = list(np.array(new_pi)/norm_factor)
-        print(f"total time:{time()-st}")
+        print(f"total time:{time()-gst}")
         return norm_factor, new_dist
     
     

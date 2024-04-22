@@ -6,7 +6,6 @@ from TRUNCParser import *
 from TRUNCListener import *
 import timing
 import pathos.multiprocessing as mp
-import time
 
 isR=None
 pool=None
@@ -396,9 +395,9 @@ def parallel_truncate(dist, trunc, data,nproc):
     elif trunc == 'false':
         return 0., dist
     else:
-        st=time.time()
+        st=time()
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
-        print(f"trunc_parse:{time.time()-st}")
+        print(f"trunc_parse:{time()-st}")
         trunc_func = trunc_rule.func
         trunc_type = trunc_rule.type
         trunc_idx = np.where(np.array(trunc_rule.coeff) != 0)[0][0]
@@ -407,22 +406,22 @@ def parallel_truncate(dist, trunc, data,nproc):
         new_pi = []
         comp_list = []
 
-        st=time.time()
+        st=time()
         for k in range(dist.gm.n_comp()):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             comp_list.append(comp)
-        print(f"loop time:{time.time()-st}")
+        print(f"loop time:{time()-st}")
 
-        st=time.time()
+        st=time()
         trans_comp = list(pool.map(trunc_func, comp_list))
-        print(f"map time:{time.time()-st}")
+        print(f"map time:{time()-st}")
 
-        st=time.time()
+        st=time()
         for k in range(dist.gm.n_comp()):
             if trunc_type == '==' and dist.gm.sigma[k][trunc_idx,trunc_idx] < delta_tol and sum(trans_comp[k].pi) > prob_tol:
                 hard.append(k)
-        print(f"second loop time:{time.time()-st}")
-        
+        print(f"second loop time:{time()-st}")
+
         if len(hard) == 0:
             for k in range(dist.gm.n_comp()):
                 new_mix = trans_comp[k]

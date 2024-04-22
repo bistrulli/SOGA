@@ -395,6 +395,7 @@ def parallel_truncate(dist, trunc, data,nproc):
     elif trunc == 'false':
         return 0., dist
     else:
+        print(f"##### ncomp={dist.gm.n_comp()}")
         st=time()
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
         print(f"trunc_parse:{time()-st}")

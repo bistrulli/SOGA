@@ -5,7 +5,8 @@ from TRUNCLexer import *
 from TRUNCParser import *
 from TRUNCListener import *
 import timing
-import pathos.multiprocessing as mp
+#import pathos.multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
 
 isR=None
 pool=None
@@ -389,7 +390,8 @@ def parallel_truncate(dist, trunc, data,nproc):
     gst=time()
     if(pool is None):
         print("creating pool")
-        pool=mp.ProcessingPool(nproc)
+        #pool=mp.ProcessingPool(nproc)
+        pool=ProcessPoolExecutor(max_workers=nproc)
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
         return 1., dist

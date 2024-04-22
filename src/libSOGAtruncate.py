@@ -417,7 +417,10 @@ def parallel_truncate(dist, trunc, data,nproc):
         print(f"loop time:{time()-st}")
 
         st=time()
-        trans_comp = pool.map(lambda x:trunc_func(x), comp_list)
+        def trunc_func2(x):
+            return trunc_func(x)
+
+        trans_comp = pool.map(trunc_func2, comp_list)
         print(f"map time:{time()-st}")
 
         st=time()

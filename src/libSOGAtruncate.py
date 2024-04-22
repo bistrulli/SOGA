@@ -406,10 +406,8 @@ def parallel_truncate(dist, trunc, data,nproc):
         for k in range(dist.gm.n_comp()):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             comp_list.append(comp)
-        #n_process = mp.cpu_count()
-        #pool = mp.ProcessingPool(8)
-        trans_comp = pool.map(trunc_func, comp_list)
-        assert(len(trans_comp)==len(comp_list))
+        trans_comp = list(pool.map(trunc_func, comp_list))
+        #assert(len(trans_comp)==len(comp_list))
         for k in range(dist.gm.n_comp()):
             if trunc_type == '==' and dist.gm.sigma[k][trunc_idx,trunc_idx] < delta_tol and sum(trans_comp[k].pi) > prob_tol:
                 hard.append(k)

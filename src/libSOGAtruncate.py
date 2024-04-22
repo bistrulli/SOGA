@@ -7,15 +7,11 @@ from TRUNCListener import *
 import timing
 #import pathos.multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
-isR=None
 pool=None
 
-def initR():
-    global isR
-    isR=True
-
-def ineq_func(comp):
+def ineq_func(self,comp):
     mu = comp.gm.mu[0]
     sigma = comp.gm.sigma[0]
     final_pi = []
@@ -137,9 +133,10 @@ class TruncRule(TRUNCListener):
     
     def enterLexpr(self, ctx):
         self.flag_sign = 1.
+
             
     def exitLexpr(self, ctx):
-        self.func = ineq_func
+        self.func = partial(ineq_func,self)
         
         
     def enterMonom(self,ctx):

@@ -419,7 +419,7 @@ def parallel_truncate(dist, trunc, data,nproc):
 
         st=time()
 
-        trans_comp = list(pool.map(, comp_list))
+        trans_comp = list(pool.map(trunc_func, comp_list))
         print(f"map time:{time()-st}")
 
         st=time()

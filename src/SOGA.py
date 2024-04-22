@@ -102,12 +102,14 @@ def SOGA():
 
     comp_start = time()
     #output_dist = start_SOGA(cfg)
-    q = Queue()
-    sogaProcess = Process(target=runSoga, args=(cfg,q,args.rmoments,args.parallel))
+    #q = Queue()
+    #sogaProcess = Process(target=runSoga, args=(cfg,q,args.rmoments,args.parallel))
     # Start the thread
-    sogaProcess.start()
+    #sogaProcess.start()
     # Wait for the process to finish 
-    output_dist=None
+    #output_dist=None
+
+    output_dist = start_SOGA(cfg,useR=useR,parallel=parallel)
     try:
         output_dist=q.get(timeout=args.timeout)
     except Exception as e:

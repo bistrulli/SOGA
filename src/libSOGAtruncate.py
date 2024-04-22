@@ -5,7 +5,8 @@ from TRUNCLexer import *
 from TRUNCParser import *
 from TRUNCListener import *
 import timing
-import pathos.multiprocessing as mp
+import multiprocessing as mp
+#import pathos.multiprocessing as mp
 #from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 

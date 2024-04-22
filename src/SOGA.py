@@ -18,6 +18,8 @@ from time import time
 random.seed(0)
 np.random.seed(0)
 
+sys.setrecursionlimit(10000)
+
 def runSoga(cfg,q,useR=False,parallel=False):
     output_dist = None
     output_dist = start_SOGA(cfg,useR=useR,parallel=parallel)

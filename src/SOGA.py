@@ -109,7 +109,7 @@ def SOGA():
     # Wait for the process to finish 
     #output_dist=None
 
-    output_dist = start_SOGA(cfg,useR=useR,parallel=parallel)
+    output_dist = start_SOGA(cfg,useR=args.rmoments,parallel=args.parallel)
     try:
         output_dist=q.get(timeout=args.timeout)
     except Exception as e:

@@ -17,9 +17,10 @@ import pandas as pd
 import argparse
 import logging
 from logging.handlers import RotatingFileHandler
+import psutil
 
 
-exp_timeout=1200
+exp_timeout=600
 logging.basicConfig(format='%(threadName)s - %(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
@@ -112,15 +113,19 @@ def getMatches(matches):
             res+=match.group(groupNum)
     return "".join(res) 
 
-def runSOGA(program,tvars):
+def runSOGA(program,tvars,parallel=None):
     logger.info(f"solving {program}")
     rt=None
     value=None
     c=None
     d=None
     try:
-        out=subprocess.check_output(["python3","../src/SOGA.py","-f",program],text=True,
-            timeout=exp_timeout)
+        if(parallel is None):
+            out=subprocess.check_output(["python3","../src/SOGA.py","-f",program],text=True,
+                timeout=exp_timeout)
+        else:
+            out=subprocess.check_output(["python3","../src/SOGA.py","-f",program,"-p",f"{parallel}"],text=True,
+                timeout=exp_timeout)
         
         rt_reg = r"\s*Runtime:\s*(\d+\.\d+)"
         c_reg= r"\s*c:\s*(\d+)"
@@ -725,12 +730,79 @@ def sensCmpExp():
     saveRes(programs=programs,tools=["SOGA"],
         outPath="./results/cmpSensitivity.csv",tableres=tableres)
 
+def sensParExp():
+    logger.info("Evaluating Pralellization Experiements")
+    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#branches/continuous/RandomWalk/RandomWalk19.soga",recursive=True)
+
+    parLevels=[par-2 for par in range(4,24,2)]
+
+    tableres={}
+    logger.info("####################running SOGA#####################")
+    tvars=["","x"]
+    for p in programs:
+        for pl in parLevels:
+            p=Path(p)
+            nvar=int(re.findall(r"(\d+)\.",p.name)[0])
+            tableres[f"soga_%s_{pl}"%(p.name.split(".")[0].replace("Prune","").lower())]=runSOGA(p,tvars=tvars,parallel=pl)
+
+    resFile=open(str(PurePath("./results/parSensitivity.csv")),"w+")
+    tools=["SOGA"]
+
+    for p in programs:
+        for pl in parLevels:
+            fileline=""
+            p=Path(p)
+            pname=p.name.split(".")[0].replace("Prune","").lower()
+            fileline+=f"{pname},{pl}"
+            for t in tools:
+                k="%s_%s_%s"%(t.lower(),pname,pl)
+                if(t.lower()!="soga"):
+                    if k in tableres:
+                        if(tableres[k][2]==True):
+                            fileline+=",mem"
+                        elif(tableres[k][3]==True):
+                            fileline+=",to"
+                        else:
+                            fileline+=",%s,%s"%(str(tableres[k][0]),str(tableres[k][1]))
+                    else:
+                        fileline+=",--"
+                else:
+                    if k in tableres:
+                        fileline+=f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
+                    else:
+                        fileline+=",--"
+                    
+            resFile.write(fileline+"\n")
+
+    resFile.flush()
+    resFile.close()
+
+def monitor_process_and_children(process_id, interval=None):
+    """Monitors CPU and memory utilization of the given process and its children."""
+    try:
+        parent_process = psutil.Process(process_id)
+        process_name = parent_process.name()
+
+        # Get CPU utilization (average across cores)
+        cpu_percent = parent_process.cpu_percent(interval=interval)
+
+        # Calculate total CPU and memory usage of child processes
+        children_cpu = 0
+        for child in parent_process.children(recursive=True):
+            children_cpu += child.cpu_percent(interval=interval)
+
+        return process_name, cpu_percent, children_cpu
+
+    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+        print(f"Error monitoring process {process_id}: {e}")
+        return  None
+
 
 def main():
     parser = argparse.ArgumentParser(description='SOGA Replication Scripts')
     
     # Adding a string parameter
-    parser.add_argument('--exp', required=True,type=str,choices=['t3', 't5', 't6','prune','branch','var','cmp'],
+    parser.add_argument('--exp', required=True,type=str,choices=['t3', 't5', 't6','prune','branch','var','cmp',"par"],
         help='Select the experiement to perform')
 
     args = parser.parse_args()
@@ -751,6 +823,9 @@ def main():
         sensVarExp()
     elif(exp=="cmp"):
         sensCmpExp()
+    elif(exp=="par"):
+        sensParExp()
+
 
     
 

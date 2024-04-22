@@ -400,6 +400,7 @@ def parallel_truncate(dist, trunc, data,nproc):
     else:
         print(f"##### ncomp={dist.gm.n_comp()}")
         st=time()
+        print(trunc)
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
         print(f"trunc_parse:{time()-st}")
         trunc_func = trunc_rule.func
@@ -417,10 +418,8 @@ def parallel_truncate(dist, trunc, data,nproc):
         print(f"loop time:{time()-st}")
 
         st=time()
-        def trunc_func2(x):
-            return trunc_func(x)
 
-        trans_comp = list(pool.map(trunc_func2, comp_list))
+        trans_comp = list(pool.map(, comp_list))
         print(f"map time:{time()-st}")
 
         st=time()

@@ -115,7 +115,8 @@ def SOGA():
     except Exception as e:
         pass
     finally:
-        sogaProcess.terminate()
+        if(sogaProcess):
+            sogaProcess.terminate()
         comp_end = time()
 
     preprocTime=f"{preproc_end-preproc_strt:<.3f}"

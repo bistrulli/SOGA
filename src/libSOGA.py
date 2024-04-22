@@ -16,7 +16,7 @@ from libSOGAupdate import *
 from libSOGAmerge import *
 import timing
 
-def start_SOGA(cfg, pruning=None, Kmax=None, parallel=False,useR=False):
+def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
         If pruning='classic' implements pruning at the merge nodes with maximum number of component Kmax.
         Returns an object Dist (defined in libSOGAshared) with the final computed distribution."""
@@ -112,8 +112,8 @@ def SOGA(node, data, parallel, exec_queue):
         if node.cond != None and not current_trunc is None:
             if node.cond == False:
                 current_trunc = negate(current_trunc) 
-            if parallel:
-                p, current_dist = parallel_truncate(current_dist, current_trunc, data)   ### see libSOGAtruncate
+            if parallel is not None and parallel >1:
+                p, current_dist = parallel_truncate(current_dist, current_trunc, data,parallel)   ### see libSOGAtruncate
             else:
                 p, current_dist = truncate(current_dist, current_trunc, data) 
             current_trunc = None

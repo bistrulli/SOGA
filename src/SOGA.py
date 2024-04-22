@@ -20,7 +20,7 @@ np.random.seed(0)
 
 sys.setrecursionlimit(10000)
 
-def runSoga(cfg,q,useR=False,parallel=False):
+def runSoga(cfg,q,useR=False,parallel=None):
     output_dist = None
     output_dist = start_SOGA(cfg,useR=useR,parallel=parallel)
     q.put(output_dist)
@@ -39,8 +39,7 @@ def getCliCmd():
     parser.add_argument("-c", "--covariance", action="store_true", help="Output covariance",required=False)
     parser.add_argument("-r", "--rmoments", action="store_true", help="Option for computing moments with R package. A running R process is required (default: False)",
         default=False,required=False)
-    parser.add_argument("-p", "--parallel", action="store_true", help="Option for activationg parallelization (default: False)",
-        default=False,required=False)
+    parser.add_argument("-p", "--parallel", type=int, help="Option for activationg parallelization (default: 1)",default=None,required=False)
 
     # Add list of strings
     parser.add_argument("-v","--vars", nargs="*", default=[],help="List of output variables",required=False)

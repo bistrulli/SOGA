@@ -635,9 +635,9 @@ def sensBranchesExp():
 
 def sensVarExp():
     logger.info("Computing sensisitvity to variables experiements")
-    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/simplified_ts/*.soga",recursive=True)
+    #programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/simplified_ts/*.soga",recursive=True)
     #stanPrograms=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/simplified_ts/STAN/*.stan",recursive=True)
-    #programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/timeseries/*.soga",recursive=True)
+    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/timeseries/*.soga",recursive=True)
     #stanPrograms=glob.glob("../**/programs/STAN/SensitivityExp/#variables/timeseries/*.stan",recursive=True)
     #PYMC3Programs=glob.glob("../**/programs/PYMC/timeseries*.py",recursive=True)
 

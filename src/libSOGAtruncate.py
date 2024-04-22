@@ -296,10 +296,10 @@ def parallel_truncate(dist, trunc, data,nproc):
     elif trunc == 'false':
         return 0., dist
     else:
-        print(f"##### ncomp={dist.gm.n_comp()}")
+        #print(f"##### ncomp={dist.gm.n_comp()}")
         st=time()
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
-        print(f"trunc_parse:{time()-st}")
+        #print(f"trunc_parse:{time()-st}")
         trunc_func = trunc_rule.func
         trunc_type = trunc_rule.type
         trunc_idx = np.where(np.array(trunc_rule.coeff) != 0)[0][0]
@@ -314,18 +314,18 @@ def parallel_truncate(dist, trunc, data,nproc):
         for k in range(dist.gm.n_comp()):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             comp_list.append(comp)
-        print(f"loop time:{time()-st}")
+        #print(f"loop time:{time()-st}")
 
         st=time()
 
         trans_comp = list(pool.map(trunc_func, comp_list))
-        print(f"map time:{time()-st}")
+        #print(f"map time:{time()-st}")
 
         st=time()
         for k in range(dist.gm.n_comp()):
             if trunc_type == '==' and dist.gm.sigma[k][trunc_idx,trunc_idx] < delta_tol and sum(trans_comp[k].pi) > prob_tol:
                 hard.append(k)
-        print(f"second loop time:{time()-st}")
+        #print(f"second loop time:{time()-st}")
 
         if len(hard) == 0:
             for k in range(dist.gm.n_comp()):
@@ -346,7 +346,7 @@ def parallel_truncate(dist, trunc, data,nproc):
         norm_factor = sum(np.array(new_pi))
         if norm_factor > prob_tol:
             new_dist.gm.pi = list(np.array(new_pi)/norm_factor)
-        print(f"total time:{time()-gst}")
+        #print(f"total time:{time()-gst}")
         return norm_factor, new_dist
     
     

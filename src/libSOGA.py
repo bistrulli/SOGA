@@ -133,8 +133,8 @@ def SOGA(node, data, parallel, exec_queue):
     # if observe truncates to LBC and calls on children
     if node.type == 'observe':
         current_trunc = node.LBC
-        if parallel:
-            p, current_dist = parallel_truncate(current_dist, current_trunc, data)
+        if parallel is not None and parallel >1:
+            p, current_dist = parallel_truncate(current_dist, current_trunc, data,parallel)
         else:
             p, current_dist = truncate(current_dist, current_trunc, data)
         #current_p = current_p*p

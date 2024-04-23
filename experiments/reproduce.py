@@ -735,7 +735,7 @@ def sensCmpExp():
 
 def sensParExp():
     logger.info("Evaluating Pralellization Experiements")
-    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#branches/continuous/RandomWalk/RandomWalk19.soga",recursive=True)
+    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#proc/continuous/**/*.soga",recursive=True)
 
     parLevels=[par-2 for par in range(4,24,2)]
 
@@ -744,6 +744,7 @@ def sensParExp():
     tvars=["","x"]
     for p in programs:
         for pl in parLevels:
+            logger.info(f"Analyzing {p} with concurrency level {pl}")
             p=Path(p)
             nvar=int(re.findall(r"(\d+)\.",p.name)[0])
             tableres[f"soga_%s_{pl}"%(p.name.split(".")[0].replace("Prune","").lower())]=runSOGA(p,tvars=tvars,parallel=pl)

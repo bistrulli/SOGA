@@ -85,6 +85,58 @@ def ineq_func(self,comp):
         final_sigma.append(new_sigma)
     return GaussianMix(final_pi, final_mu, final_sigma)
 
+def eq_func(self,comp):
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    eq_coeff = copy(self.coeff)
+    eq_const = self.const
+    # check if delta
+    i = np.where(np.array(self.coeff) != 0)[0][0]
+    if sigma[i,i] < delta_tol:
+        eq_const = eq_const - self.coeff[i]*mu[i]
+        eq_coeff[i] = 0.
+    # if delta return
+    if np.all(np.array(eq_coeff) == 0):
+        if (self.type == '==' and eq_const == 0) or (self.type == '!=' and eq_const != 0):
+            new_P = 1.
+        else:
+            new_P = 0.
+        new_mu = mu
+        new_sigma = sigma
+    else:
+        # STEP 1: selects indices to condition
+        indices = select_indices(eq_coeff, sigma)
+        if len(indices) == 1:
+            new_P = 0.
+            new_mu = mu
+            new_sigma = sigma
+        else:
+            # STEP 2: creates reduced vectors
+            red_mu = reduce_indices(mu, indices)
+            red_sigma = reduce_indices(sigma, indices) 
+            red_alpha = reduce_indices(eq_coeff, indices)
+            red_obs_idx = int(list(np.where(np.array(red_alpha)!=0))[0][0])
+            # STEP 3: computes cond_sigma (select is a mask containing the index of the conditioned variables)
+            select = (np.arange(len(red_mu))!=red_obs_idx)
+            cond_sigma = red_sigma[select,:][:,select]
+            cond_sigma = cond_sigma - (1/red_sigma[red_obs_idx,red_obs_idx])*(red_sigma[select,red_obs_idx].reshape(len(select)-1,1)).dot(red_sigma[red_obs_idx,select].reshape(1,len(select)-1))
+            # STEP 4: computes cond_mu
+            cond_mu = red_mu[select] + (1/red_sigma[red_obs_idx,red_obs_idx])*(eq_const-red_mu[red_obs_idx])*red_sigma[select,red_obs_idx]
+            # if conditioned matrix is Null, it is equivalent to observing a single independent component
+            if np.all(cond_sigma == 0):  
+                new_P = 0.
+            else:
+                new_P = 1.
+            # STEP 5: adds value for the observed variable (now a delta)
+            cond_mu, cond_sigma = insert_value(eq_const, red_obs_idx, cond_mu, cond_sigma)
+            # STEP 6: returns to the original set of variables
+            new_sigma = extend_indices(cond_sigma, sigma, indices)
+            new_mu = extend_indices(cond_mu, mu, indices) 
+    return GaussianMix([new_P], [new_mu], [new_sigma])
+
 def negate(trunc):
     """ Produces a string which is the logic negation of trunc """
     if '<' in trunc:
@@ -183,60 +235,7 @@ class TruncRule(TRUNCListener):
             elif not ctx.const().idd() is None:
                 self.const = ctx.const().idd().getValue(self.data)
             
-            
-        def eq_func(comp):
-            mu = comp.gm.mu[0]
-            sigma = comp.gm.sigma[0]
-            final_pi = []
-            final_mu = []
-            final_sigma = []
-            eq_coeff = copy(self.coeff)
-            eq_const = self.const
-            # check if delta
-            i = np.where(np.array(self.coeff) != 0)[0][0]
-            if sigma[i,i] < delta_tol:
-                eq_const = eq_const - self.coeff[i]*mu[i]
-                eq_coeff[i] = 0.
-            # if delta return
-            if np.all(np.array(eq_coeff) == 0):
-                if (self.type == '==' and eq_const == 0) or (self.type == '!=' and eq_const != 0):
-                    new_P = 1.
-                else:
-                    new_P = 0.
-                new_mu = mu
-                new_sigma = sigma
-            else:
-                # STEP 1: selects indices to condition
-                indices = select_indices(eq_coeff, sigma)
-                if len(indices) == 1:
-                    new_P = 0.
-                    new_mu = mu
-                    new_sigma = sigma
-                else:
-                    # STEP 2: creates reduced vectors
-                    red_mu = reduce_indices(mu, indices)
-                    red_sigma = reduce_indices(sigma, indices) 
-                    red_alpha = reduce_indices(eq_coeff, indices)
-                    red_obs_idx = int(list(np.where(np.array(red_alpha)!=0))[0][0])
-                    # STEP 3: computes cond_sigma (select is a mask containing the index of the conditioned variables)
-                    select = (np.arange(len(red_mu))!=red_obs_idx)
-                    cond_sigma = red_sigma[select,:][:,select]
-                    cond_sigma = cond_sigma - (1/red_sigma[red_obs_idx,red_obs_idx])*(red_sigma[select,red_obs_idx].reshape(len(select)-1,1)).dot(red_sigma[red_obs_idx,select].reshape(1,len(select)-1))
-                    # STEP 4: computes cond_mu
-                    cond_mu = red_mu[select] + (1/red_sigma[red_obs_idx,red_obs_idx])*(eq_const-red_mu[red_obs_idx])*red_sigma[select,red_obs_idx]
-                    # if conditioned matrix is Null, it is equivalent to observing a single independent component
-                    if np.all(cond_sigma == 0):  
-                        new_P = 0.
-                    else:
-                        new_P = 1.
-                    # STEP 5: adds value for the observed variable (now a delta)
-                    cond_mu, cond_sigma = insert_value(eq_const, red_obs_idx, cond_mu, cond_sigma)
-                    # STEP 6: returns to the original set of variables
-                    new_sigma = extend_indices(cond_sigma, sigma, indices)
-                    new_mu = extend_indices(cond_mu, mu, indices) 
-            return GaussianMix([new_P], [new_mu], [new_sigma])
-        
-        self.func = eq_func
+        self.func = partial(eq_func,self)
 
 
 def truncate(dist, trunc, data):

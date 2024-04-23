@@ -8,12 +8,13 @@ import getopt
 import argparse
 from multiprocessing import Process,Queue
 import sys
+import psutil
 
 from producecfg import *
 from libSOGA import *
 from sogaPreprocessor import compile2SOGA
 
-from time import time
+from time import time,sleep
 
 random.seed(0)
 np.random.seed(0)
@@ -88,6 +89,35 @@ def printBanner():
     print('/ ___| / _ \ / ___|  / \\\n\___ \| | | | |  _  / _ \\\n ___) | |_| | |_| |/ ___ \\\n|____/ \___/ \____/_/   \_\\\n')
 
 
+def get_process_cpu_usage(pid,pid2=None):
+  #print(pid,pid2)
+  try:
+    #Get CPU usage for the current process
+    proc = psutil.Process(pid)
+
+    proc.cpu_percent()
+    sleep(0.2)
+    cpuP=proc.cpu_percent()
+
+    # Check if it has child processes
+    if proc.children():
+      # Iterate through child processes and accumulate CPU usage
+      for child in proc.children(recursive=True):
+        if(pid2 is not None and child.pid==pid2):
+            #print(f"skipping {child.pid}")
+            continue
+        cpuP += get_process_cpu_usage(child.pid)
+    return cpuP
+  except (psutil.NoSuchProcess, psutil.AccessDenied):
+    raise ValueError("NoSuchProcess")
+
+def cpuMntProc(pid,q):
+    cpU=[]
+    while True:
+        cpU+=[get_process_cpu_usage(pid,psutil.Process().pid)-100.0]
+        #print(f"CPU Usage={np.mean(cpU)}%")
+        q.put(np.mean(cpU))
+
 def SOGA():
     printBanner()
 
@@ -109,13 +139,19 @@ def SOGA():
     # Wait for the process to finish 
     #output_dist=None
 
+    q = Queue()
+    mntProc = Process(target=cpuMntProc, args=(psutil.Process().pid,q))
+    #Start the mntProcess
+    mntProc.start()
+
     output_dist = start_SOGA(cfg,useR=args.rmoments,parallel=args.parallel)
     try:
-        output_dist=q.get(timeout=args.timeout)
+        cpuUsage=q.pop(timeout=args.timeout)
+        print(f"CPU Usage={cpuUsage}%")
     except Exception as e:
         pass
     finally:
-        #sogaProcess.terminate()
+        mntProc.terminate()
         comp_end = time()
 
     preprocTime=f"{preproc_end-preproc_strt:<.3f}"

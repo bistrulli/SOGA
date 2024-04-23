@@ -6,7 +6,8 @@ import numpy as np
 import sys
 import getopt
 import argparse
-from multiprocessing import Process,Queue
+#from multiprocessing import Process,Queue
+import threading
 import sys
 import psutil
 
@@ -20,6 +21,13 @@ random.seed(0)
 np.random.seed(0)
 
 sys.setrecursionlimit(10000)
+
+class CancellationToken:
+   def __init__(self):
+       self.is_cancelled = False
+
+   def cancel(self):
+       self.is_cancelled = True
 
 def runSoga(cfg,q,useR=False,parallel=None):
     output_dist = None
@@ -111,12 +119,11 @@ def get_process_cpu_usage(pid,pid2=None):
   except (psutil.NoSuchProcess, psutil.AccessDenied):
     raise ValueError("NoSuchProcess")
 
-def cpuMntProc(pid,q):
+def cpuMntProc(pid,cancelTkn):
     cpU=[]
-    while True:
-        cpU+=[get_process_cpu_usage(pid,psutil.Process().pid)-100.0]
-        #print(f"CPU Usage={np.mean(cpU)}%")
-        q.put(np.mean(cpU))
+    while not cancelTkn.is_cancelled:
+        cpU+=[get_process_cpu_usage(pid)]
+        print(f"CPU Usage={np.mean(cpU[1:])-100}%")
 
 def SOGA():
     printBanner()
@@ -139,19 +146,24 @@ def SOGA():
     # Wait for the process to finish 
     #output_dist=None
 
-    q = Queue()
-    mntProc = Process(target=cpuMntProc, args=(psutil.Process().pid,q))
+    #q = Queue()
+    #mntProc = Process(target=cpuMntProc, args=(psutil.Process().pid,q))
     #Start the mntProcess
-    mntProc.start()
+    #mntProc.start()
+
+    cancelTkn=CancellationToken()
+    #mntThread = threading.Thread(target=cpuMntProc,args=(psutil.Process().pid,cancelTkn))
+    #mntThread.start()
 
     output_dist = start_SOGA(cfg,useR=args.rmoments,parallel=args.parallel)
+    cancelTkn.cancel()
     try:
-        cpuUsage=q.pop(timeout=args.timeout)
-        print(f"CPU Usage={cpuUsage}%")
+        pass
+        #print(f"CPU Usage={cpuUsage}%")
     except Exception as e:
         pass
     finally:
-        mntProc.terminate()
+        #mntProc.terminate()
         comp_end = time()
 
     preprocTime=f"{preproc_end-preproc_strt:<.3f}"

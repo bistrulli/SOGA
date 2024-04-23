@@ -604,11 +604,14 @@ def sensPruningExp():
     tableres={}
     for p in programs:
         p=Path(p)
-        if("NormalMixtures" in p.name):
+        if(not "coinbias" in p.name.lower() or "NormalMixtures" in p.name):
+            print(f"skipped {p.name.lower()}")
             continue
+
         for idx,var in enumerate(tvars[:,0]):
             if(var.lower()==p.name.split(".")[0].lower()):
-                break
+                break    
+
         pname=p.name.split(".")[0].replace("Prune","").lower()
         expname=f"soga_{pname}_{p.parent.name}"
         tableres[expname]=runSOGA(p,tvars=tvars[idx,:])
@@ -718,13 +721,13 @@ def sensCmpExp():
         pname=p.name.split(".")[0].replace("Prune","").lower()
         t=tvars[tvars.iloc[:,0]==pname.replace(re.findall(r"(\d+)",pname)[0],"")].iloc[0,1]
         tableres["soga_%s"%(pname)]=runSOGA(p,tvars=["",t])
-    #logger.info("####################running PSI#####################")
-    # for p in psiPrograms:
-    #     p=Path(p)
-    #     pname=p.name.split(".")[0].replace("Prune","").lower()
-    #     expname=f"psi_{pname}"
-    #     t=tvars[tvars.iloc[:,0]==pname].iloc[0,1]
-    #     tableres[expname]=runPSI(p,tvars=["",t])
+    logger.info("####################running PSI#####################")
+    for p in psiPrograms:
+        p=Path(p)
+        pname=p.name.split(".")[0].replace("Prune","").lower()
+        expname=f"psi_{pname}"
+        t=tvars[tvars.iloc[:,0]==pname].iloc[0,1]
+        tableres[expname]=runPSI(p,tvars=["",t])
 
     
     saveRes(programs=programs,tools=["SOGA"],

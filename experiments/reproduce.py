@@ -622,7 +622,7 @@ def sensBranchesExp():
     logger.info("Computing sensisitvity to #baranches")
     programs=glob.glob("../**/programs/SOGA/SensitivityExp/#branches/**/*.soga",recursive=True)
     psiPrograms=glob.glob("../**/programs/PSI/SensitivityExp/#branches/**/*.psi",recursive=True)
-    tvars=["","x"]
+    dfvars=pd.read_csv("../programs/SOGA/SensitivityExp/#branches/observedVariables.csv",names=["model","var"])
 
     tableres={}
     logger.info("####################running SOGA#####################")
@@ -630,6 +630,7 @@ def sensBranchesExp():
         p=Path(p)
         pname=p.name.split(".")[0].replace("Prune","").lower()
         expname=f"soga_{pname}_{p.parent.name}"
+        tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0]
         tableres[expname]=runSOGA(p,tvars=tvars)
     logger.info("####################running PSI#####################")
     for p in psiPrograms:
@@ -639,7 +640,7 @@ def sensBranchesExp():
         tableres[expname]=runPSI(p,tvars=tvars)
 
     saveRes(programs=programs,tools=["SOGA","PSI"],
-        outPath="./results/branchSensitivity.csv",tableres=tableres)
+         outPath="./results/branchSensitivity.csv",tableres=tableres)
 
 def sensVarExp():
     logger.info("Computing sensisitvity to variables experiements")

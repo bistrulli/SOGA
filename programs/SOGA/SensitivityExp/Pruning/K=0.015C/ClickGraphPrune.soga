@@ -24,15 +24,17 @@ for i in range(5) {
     } else {
         click0 = 0;
     } end if;
-    observe(click0 == obs0[i]);
     prune(69);
+    observe(click0 == obs0[i]);
+    
 
     if  uniform([0,1],2) -  beta2 < 0 {
         click1 = 1;
     } else {
         click1 = 0;
     } end if;
-    observe(click1 == obs1[i]);
     prune(69);
+    observe(click1 == obs1[i]);
+    
     
 } end for;

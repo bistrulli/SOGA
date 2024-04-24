@@ -9,7 +9,7 @@ for i in range(5) {
     } else {
         sim = 0;
     } end if;
-    prune(35);
+    prune(69);
 
     beta1 = uniform([0,1],2);
     if sim == 1 {
@@ -17,24 +17,22 @@ for i in range(5) {
     } else {
         beta2 = uniform([0,1],2);
     } end if;
-    prune(35);
+    prune(69);
 
     if  uniform([0,1],2) -  beta1 < 0 {
         click0 = 1;
     } else {
         click0 = 0;
     } end if;
-    prune(35);
     observe(click0 == obs0[i]);
-    
+    prune(69);
 
     if  uniform([0,1],2) -  beta2 < 0 {
         click1 = 1;
     } else {
         click1 = 0;
     } end if;
-    prune(35);
     observe(click1 == obs1[i]);
-    
+    prune(69);
     
 } end for;

@@ -62,7 +62,7 @@ prune(31);
 
 observe(o0 == 5);
 observe(b0 == 1);
-
+prune(31);
 
 
 

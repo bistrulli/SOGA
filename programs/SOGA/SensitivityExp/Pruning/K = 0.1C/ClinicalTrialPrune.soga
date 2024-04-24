@@ -18,9 +18,8 @@ for i in range(5) {
     } else {
         ycontr = 0;
     } end if;
-    prune(89);
     observe(ycontr == contr[i]);
-   
+    prune(89);
 } end for;
 
 for i in range(5) {
@@ -28,8 +27,7 @@ for i in range(5) {
         ytreat = 1;
     } else {
         ytreat = 0;
-    } end if; 
-    prune(89);
+    } end if;    
     observe(ytreat == treat[i]);
-    
+    prune(89);
 } end for;

@@ -9,6 +9,7 @@ for i in range(10) {
     } else { 
         y = 0; 
     } end if;
-    observe(y == obs[i]);
     prune(30);
+    observe(y == obs[i]);
+    
 } end for;

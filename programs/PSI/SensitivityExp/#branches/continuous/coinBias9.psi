@@ -3,7 +3,7 @@
 def main(){
     observedResults := [1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0];
     bias := beta(2, 5);
-    tossResults := array(9);
+    tossResults := array(15);
     assert(observedResults.length == tossResults.length);
     for i in [0..9) { tossResults[i] = flip(bias); }
     // observe(tossResults == observedResults); // TODO

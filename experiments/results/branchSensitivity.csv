@@ -1,3 +1,4 @@
+model,time,value,c,d
 soga_randomwalk11_discrete,0.557,0.0,2048,1
 soga_randomwalk9_discrete,0.159,0.0,512,1
 soga_randomwalk13_discrete,2.161,0.0,8192,1

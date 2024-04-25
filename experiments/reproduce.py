@@ -232,8 +232,8 @@ def runPSI(program,tvars):
     try:
         st=time.time()
         cwd="../tools/psi"
-        psiFormula=subprocess.check_output(["./psi",ppath,"--expectation","--raw","--mathematica"],timeout=exp_timeout,cwd=cwd,text=True)
-        #psiFormula=subprocess.check_output(["psisolver",program,"--expectation","--raw","--mathematica"],timeout=exp_timeout,text=True)
+        #psiFormula=subprocess.check_output(["./psi",ppath,"--expectation","--raw","--mathematica"],timeout=exp_timeout,cwd=cwd,text=True)
+        psiFormula=subprocess.check_output(["psisolver",program,"--expectation","--raw","--mathematica"],timeout=exp_timeout,text=True)
         psiFormula="Print[N[%s]]"%(psiFormula)
         logger.info(f"Formula Computed {psiFormula}")
 
@@ -625,19 +625,20 @@ def sensBranchesExp():
     dfvars=pd.read_csv("../programs/SOGA/SensitivityExp/#branches/observedVariables.csv",names=["model","var"])
 
     tableres={}
-    logger.info("####################running SOGA#####################")
-    for p in programs:
-        p=Path(p)
-        pname=p.name.split(".")[0].replace("Prune","").lower()
-        expname=f"soga_{pname}_{p.parent.name}"
-        tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0]
-        tableres[expname]=runSOGA(p,tvars=tvars)
+    # logger.info("####################running SOGA#####################")
+    # for p in programs:
+    #     p=Path(p)
+    #     pname=p.name.split(".")[0].replace("Prune","").lower()
+    #     expname=f"soga_{pname}_{p.parent.name}"
+    #     tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0].strip()
+    #     tableres[expname]=runSOGA(p,tvars=["",tvars])
     logger.info("####################running PSI#####################")
     for p in psiPrograms:
         p=Path(p)
         pname=p.name.split(".")[0].lower()
         expname=f"psi_{pname}_{p.parent.name}"
-        tableres[expname]=runPSI(p,tvars=tvars)
+        tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0]
+        tableres[expname]=runPSI(p,tvars=["",tvars])
 
     saveRes(programs=programs,tools=["SOGA","PSI"],
          outPath="./results/branchSensitivity.csv",tableres=tableres)

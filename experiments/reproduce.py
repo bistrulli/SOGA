@@ -8,7 +8,7 @@ import subprocess
 import re
 from numpy import dtype
 import os
-from difflib import SequenceMatcher
+#from difflib import SequenceMatcher
 import time
 import json
 import sys
@@ -16,7 +16,7 @@ import concurrent.futures
 import pandas as pd
 import argparse
 import logging
-from logging.handlers import RotatingFileHandler
+#from logging.handlers import RotatingFileHandler
 import psutil
 
 

@@ -8,7 +8,6 @@ import subprocess
 import re
 from numpy import dtype
 import os
-#from difflib import SequenceMatcher
 import time
 import json
 import sys
@@ -16,11 +15,10 @@ import concurrent.futures
 import pandas as pd
 import argparse
 import logging
-#from logging.handlers import RotatingFileHandler
 import psutil
 
 
-exp_timeout=600
+exp_timeout=100
 logging.basicConfig(format='%(threadName)s - %(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
@@ -114,7 +112,7 @@ def getMatches(matches):
     return "".join(res) 
 
 def runSOGA(program,tvars,parallel=None):
-    logger.info(f"solving {program}")
+    logger.info(f"Solving {program} with SOGA")
     rt=None
     value=None
     c=None
@@ -150,7 +148,7 @@ def runSOGA(program,tvars,parallel=None):
 
 
 def runAQUA(program,tvars,mean=False):
-    print(program)
+    logger.info(f"Solving {program} with AQUA")
     stormfiles=glob.glob("%s/**/*.template"%(str(program.parent)),recursive=True)
     rt=-1
     mem=False
@@ -203,7 +201,7 @@ def runAQUA(program,tvars,mean=False):
     return [rt,value,mem,to]
 
 def runBLOG(program,tvars):
-    print(program)
+    logger.info(f"Solving {program} with BLOG")
     rt=-1
     mem=False
     to=False
@@ -232,8 +230,7 @@ def runPSI(program,tvars):
     try:
         st=time.time()
         cwd="../tools/psi"
-        #psiFormula=subprocess.check_output(["./psi",ppath,"--expectation","--raw","--mathematica"],timeout=exp_timeout,cwd=cwd,text=True)
-        psiFormula=subprocess.check_output(["psisolver",program,"--expectation","--raw","--mathematica"],timeout=exp_timeout,text=True)
+        psiFormula=subprocess.check_output(["./psi",ppath,"--expectation","--raw","--mathematica"],timeout=exp_timeout,cwd=cwd,text=True)
         psiFormula="Print[N[%s]]"%(psiFormula)
         logger.info(f"Formula Computed {psiFormula}")
 
@@ -260,7 +257,7 @@ def runPSI(program,tvars):
     return [rt,value,mem,to]
 
 def runPYMC3(program,tvars):
-    print(program)
+    logger.info(f"Solving {program} with PyMC3")
     ppath=f"{program.parent.absolute()}/{program.name}"
     outpath=f"{program.parent.absolute()}/{program.stem}.csv"
 
@@ -374,26 +371,29 @@ def runSTAN(program,tvars,runs=1000,datFile=None):
 
 def saveRes(programs=None,tools=None,outPath=None,tableres=None):
     resFile=open(str(PurePath(outPath)),"w+")
+    resFile.write("model,tool,time,value,#c,#d\n")
     fileline=""
     for key,val in enumerate(tableres):
         #assumo che la struttura del nome sia tool_model
         exppname=val.replace("Prune","").lower()
-        fileline+=f"{exppname}"
-        if("soga" not in val.lower()):
+        tool=exppname.split("_")[0].strip().lower()
+        prog=exppname.split("_")[1].strip().lower()
+        fileline+=f"\"{prog}\",\"{tool}\""
+        if(tool!="soga"):
             if val in tableres:
                 if(tableres[val][2]==True):
-                    fileline+=",mem"
+                    fileline+=",mem,\"\",\"\",\"\""
                 elif(tableres[val][3]==True):
-                    fileline+=",to"
+                    fileline+=",to,\"\",\"\",\"\""
                 else:
-                    fileline+=f",{tableres[val][0]},{tableres[val][1]}"
+                    fileline+=f",\"{tableres[val][0]}\",\"{tableres[val][1]}\",\"\",\"\",\"\""
             else:
                 fileline+=",--"
         else:
             if val in tableres:
-                fileline+=f",{tableres[val][0]},{tableres[val][1]},{tableres[val][2]},{tableres[val][3]}"
+                fileline+=f",\"{tableres[val][0]}\",\"{tableres[val][1]}\",\"{tableres[val][2]}\",\"{tableres[val][3]}\""
             else:
-                fileline+=",--"
+                fileline+=",\"\",\"\",\"\",\"\""
         fileline+="\n"
             
     resFile.write(fileline)
@@ -625,13 +625,13 @@ def sensBranchesExp():
     dfvars=pd.read_csv("../programs/SOGA/SensitivityExp/#branches/observedVariables.csv",names=["model","var"])
 
     tableres={}
-    # logger.info("####################running SOGA#####################")
-    # for p in programs:
-    #     p=Path(p)
-    #     pname=p.name.split(".")[0].replace("Prune","").lower()
-    #     expname=f"soga_{pname}_{p.parent.name}"
-    #     tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0].strip()
-    #     tableres[expname]=runSOGA(p,tvars=["",tvars])
+    logger.info("####################running SOGA#####################")
+    for p in programs:
+        p=Path(p)
+        pname=p.name.split(".")[0].replace("Prune","").lower()
+        expname=f"soga_{pname}_{p.parent.name}"
+        tvars=dfvars[dfvars["model"].str.lower()==re.sub(r"\d+","",pname)]["var"].iloc[0].strip()
+        tableres[expname]=runSOGA(p,tvars=["",tvars])
     logger.info("####################running PSI#####################")
     for p in psiPrograms:
         p=Path(p)
@@ -645,29 +645,18 @@ def sensBranchesExp():
 
 def sensVarExp():
     logger.info("Computing sensisitvity to variables experiements")
-    #programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/simplified_ts/*.soga",recursive=True)
-    #stanPrograms=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/simplified_ts/STAN/*.stan",recursive=True)
     programs=glob.glob("../**/programs/SOGA/SensitivityExp/#variables/timeseries/*.soga",recursive=True)
-    #stanPrograms=glob.glob("../**/programs/STAN/SensitivityExp/#variables/timeseries/*.stan",recursive=True)
-    #PYMC3Programs=glob.glob("../**/programs/PYMC/timeseries*.py",recursive=True)
+    PYMC3Programs=glob.glob("../**/programs/PYMC/timeseries*.py",recursive=True)
 
     tableres={}
-    # logger.info("####################running STAN#####################")
-    # for p in stanPrograms:
-    #     p=Path(p)
-    #     nvar=int(re.findall(r"(\d+)\.",p.name)[0])
-    #     tvars=["alpha","beta"]
-    #     tvars+=[f"y{v+1}" for v in range(1,nvar+1)]        
-    #     dname=p.name.replace(f"{nvar}","").split(".")[0]
-    #     tableres["stan_%s"%(p.name.split(".")[0].lower())]=runSTAN(p,tvars,datFile=f"{p.parent}/{dname}.data.R")
-    # logger.info("####################running PyMC3#####################")
-    # for p in PYMC3Programs:
-    #     p=Path(p)
-    #     nvar=int(re.findall(r"(\d+)\.",p.name)[0])
-    #     tvars=["alpha","beta"]
-    #     tvars+=[f"y{v}" for v in range(1,nvar+1)]        
-    #     dname=p.name.replace(f"{nvar}","").split(".")[0]
-    #     tableres["pymc_%s"%(p.stem.lower())]=runPYMC3(p,tvars)
+    logger.info("####################running PyMC3#####################")
+    for p in PYMC3Programs:
+        p=Path(p)
+        nvar=int(re.findall(r"(\d+)\.",p.name)[0])
+        tvars=["alpha","beta"]
+        tvars+=[f"y{v}" for v in range(1,nvar+1)]        
+        dname=p.name.replace(f"{nvar}","").split(".")[0]
+        tableres["pymc_%s"%(p.stem.lower())]=runPYMC3(p,tvars)
     logger.info("####################running SOGA#####################")
     for p in programs:
         p=Path(p)
@@ -676,39 +665,13 @@ def sensVarExp():
         tableres["soga_%s"%(p.name.split(".")[0].replace("Prune","").lower())]=runSOGA(p,tvars=tvars)
 
     resFile=open(str(PurePath("./results/varSensitivity.csv")),"w+")
-    tools=["SOGA"]
+    tools=["SOGA","PYMC"]
 
-    for p in programs:
-        fileline=""
-        p=Path(p)
-        pname=p.name.split(".")[0].replace("Prune","").lower()
-        fileline+=pname
-        for t in tools:
-            k="%s_%s"%(t.lower(),pname)
-            if(t.lower()!="soga"):
-                if k in tableres:
-                    if(tableres[k][2]==True):
-                        fileline+=",mem"
-                    elif(tableres[k][3]==True):
-                        fileline+=",to"
-                    else:
-                        fileline+=",%s,%s"%(str(tableres[k][0]),str(tableres[k][1]))
-                else:
-                    fileline+=",--"
-            else:
-                if k in tableres:
-                    fileline+=f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
-                else:
-                    fileline+=",--"
-                
-        resFile.write(fileline+"\n")
-
-    resFile.flush()
-    resFile.close()
+    saveRes(programs=programs,tools=tools,outPath="./results/varSensitivity.csv",tableres=tableres)
 
 def sensCmpExp():
     logger.info("Computing sensisitvity component experiements")
-    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#components/**/*.soga",recursive=True)
+    programs=glob.glob("../**/programs/SOGA/SensitivityExp/#components/*.soga",recursive=True)
     psiPrograms=glob.glob("../**/programs/PSI/SensitivityExp/#components/**/*.psi",recursive=True)
     tvars=pd.read_csv("target_vars_T3.txt",header=None)
     tvars.iloc[:, 0]=tvars.iloc[:, 0].apply(lambda x:x.lower())
@@ -718,8 +681,6 @@ def sensCmpExp():
     logger.info("####################running SOGA#####################")
     for p in programs:
         p=Path(p)
-        if("Radar" not in p.name):
-            continue
         pname=p.name.split(".")[0].replace("Prune","").lower()
         t=tvars[tvars.iloc[:,0]==pname.replace(re.findall(r"(\d+)",pname)[0],"")].iloc[0,1]
         tableres["soga_%s"%(pname)]=runSOGA(p,tvars=["",t])

@@ -14,15 +14,12 @@ COPY . /root/SOGA
 WORKDIR /root/SOGA
 RUN pip install -U pip
 RUN pip install --upgrade pip setuptools
-#RUN pip install pyqt5 --config-settings --confirm-license= --verbose
 RUN pip install --verbose -r  requirements.txt 
 
 #build PSI
 WORKDIR /root/SOGA/tools
 RUN git clone https://github.com/eth-sri/psi.git
-#RUN curl -fsS https://dlang.org/install.sh | bash -s dmd
 WORKDIR /root/SOGA/tools/psi
 RUN ./dependencies-release.sh && ./build-release.sh
-#RUN source /root/dlang/dmd-2.105.2/activate && ./build.sh
 
 WORKDIR /root/SOGA

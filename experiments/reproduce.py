@@ -18,7 +18,7 @@ import logging
 import psutil
 
 
-exp_timeout = 100
+exp_timeout = 600
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,

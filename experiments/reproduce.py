@@ -782,7 +782,7 @@ def sensPruningExp():
             if var.lower() == p.name.split(".")[0].lower():
                 break
         pname = p.name.split(".")[0].replace("Prune", "").lower()
-        expname = f"soga_{pname}_{p.parent.name}"
+        expname = f"soga_{pname}@{p.parent.name}"
         tableres[expname] = runSOGA(p, tvars=tvars[idx, :])
 
     saveRes(

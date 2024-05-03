@@ -1,7 +1,7 @@
 def main(){
-    controlGroup := [0, 0, 1, 0, 0, 1, 0, 0, 1, 0];
-    treatedGroup := [1, 0, 1, 1, 1];
-
+    controlGroup := [0, 0, 1, 0, 0, 1, 0, 0];
+    treatedGroup := [1, 0, 1, 1, 1, 1, 0];
+    
     isEffective := flip(1/2);
     probIfTreated := beta(1,1);
     probIfControl := if isEffective { beta(1,1) } else { probIfTreated };

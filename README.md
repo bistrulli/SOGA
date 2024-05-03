@@ -1,46 +1,69 @@
+
+
 # SOGA
 
-## Contents
+This is the user manual for using SOGA, a tool for Inference of Probabilistic Programs by Second-order Gaussian Approximation. SOGA is implemented in Python and depends on several Python packages listed in the `requirements.txt` file.
 
-- The folder "experiments" contains the scripts and data to reproduce the main results of of the paper (i.e., Table 3).
-- The folder "grammars" contains the file with the grammar of SOGA (SOGA.g4) and the two sub-grammars ASGMT (ASGMT.g4) and TRUNC (TRUNC.g4).
-- The folder "programs" contains the scripts of the models analyzed in the paper, divided by tools.
-- The folder "src" contains the code implementing the tool SOGA, whose usage is described below;
-- The folder "tools" contains the implementation of the tools AQUA, BLOG, cmdstan and PSI, to which SOGA is compared.
+## Requirements
+The following tools are required to install and run SOGA:
+- Python 3.9+
+- pip 21.2.4+
 
-<!---## Reproducibilty
+You can download and install Python from the [Python website](https://www.python.org/).
 
-- Create and start a new docker container based on the following steps:
+## Installation
+To install dependencies, run the following command:
 
-docker container create -i -t --name SOGA bistrulli/soga:0.1
-docker start SOGA
+pip install -r requirements.txt
 
-- then enter the container 
+This command will automatically download and install all the required packages. Now that you've installed all the dependencies, you're ready to start using SOGA. Below, we provide instructions on how to run and use it.
 
-docker attach SOGA
+## Usage
+The SOGA's command-line interface provides the following options:
 
-- for reproduing Table 3 issue the following command
+```bash
+usage: python src/SOGA.py [-h] -f MODELFILE [-o OUTPUTFILE] [-t TIMEOUT] [-c] [-p PARALLEL] [-v [VARS ...]]
+```
 
-cd /root/SOGA/experimemts
-python3 reproduce.py
+Here's a breakdown of each option:
 
-- after executing this command the Table will be saved in /root/SOGA/experimemts/results/Table3.csv with the same structure of the Table 3 of the paper   
+- -h, --help: Shows the help message and exits.
+- -f MODELFILE, --modelfile MODELFILE: Specifies the SOGA model path.
+- -o OUTPUTFILE, --outputfile OUTPUTFILE: Specifies the output file path.
+- -t TIMEOUT, --timeout TIMEOUT: Sets the timeout (in seconds) for SOGA computation (default: 600).
+- -c, --covariance: Outputs the covariance.
+- -p PARALLEL, --parallel PARALLEL: Specifies the number of parallel processes to use for the analysis (default: 1).
+- -v [VARS ...], --vars [VARS ...]: Lists the output variables.
 
-## Comparison with PSI
+## Example
+Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/SOGA/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
 
-We removed the dependency with proprietary third-party tools to have a self-contained package. To this end, we replicated the PSI experiments via Mathics (https://mathics.org/) instead of Mathematica. However, if one would still like to use Mathematica for computing the PSI formula, the tool and a trial license can be requested on the Mathematica website (https://www.wolfram.com/mathematica/trial/). Once the license has been obtained, it is possible to run Mathematica to compute the symbolic formulas produced by PSI. For replicability SOGA, we save each PSI  formula in the folder "/root/SOGA/experiments/results/psi_formula" so that these can then be executed once a license for the tool has been obtained. -->
+```bash
+python src/SOGA.py -f programs/SOGA/Bernoulli.soga
+```
 
-## Implementation
+obtaining the following output
 
-The module producecfg.py contains the classes definition for CFG objects and the function produce_cfg, that extracts a CFG from a program script in a .txt file. 
+```bash
+SOGA preprocessing in: 11.943 s
+      CFG produced in:  0.027 s
+              Runtime: 10.249 s
+c: 1954
+d: 2
+E[theta]: 0.25689
+E[y]: 1.0
+```
+In the first three lines, the tool reports the execution runtimes, in particular: 
+- the time required for fitting all the non-Gaussian distributions as gaussian mixture via expectation maximation
+- the time required for producing the control flow graph of the program
+- the time required for the actual inference. 
 
-The module libSOGA.py contains the function start_soga, which is used to invoke SOGA on a CFG object and the recursive function SOGA, which, depending on the type of the visited node, calls the functions needed to update the current distribution. 
+Below this, SOGA reports the main results of the analysis where: 
+- c is the number of components of the final distribution 
+- d is the number of model variables; 
+- E[x] is the posterior mean for each model variable x. 
 
-Such functions are contained in the auxiliary modules:
-- libSOGAtruncate.py, containing functions for computing the resulting distribution when a truncation occurs (in conditional or observe instructions);
-- libSOGAupdate.py, containing functions for computing the resulting distribution after applying an assignment instruction;
-- libSOGAmerge,py, containing functions for computing the resulting distribution when a merge or a prune instruction is encountered;
 
-Additional functions for general purpose are defined in the module libSOGAshared.py, which is imported by all previous libraries.
+You can find examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file ResusabilityGuide.md
 
-Parsing of the scripts, expressions and truncations is performed using ANTLR. Definition of the respective grammars can be found in the files SOGA.g4, ASGMT.g4 and TRUNC.g4.
+

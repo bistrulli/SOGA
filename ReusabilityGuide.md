@@ -1,34 +1,17 @@
 ## Reusability: how to write your SOGA model
-
-  
-
-A formal description of SOGA's grammar can be found in the file grammars/SOGA.g4.
-
-  
-
+A formal description of SOGA's grammar can be found in the file grammars/SOGA.g4.  
 A SOGA model is encoded in a .soga file.
 
-  
-
 ### Data
-
 At the beginning of your file you can declare data. These are arrays that can be accessed but cannot be overwritten by the program. To declare data use the keyword `data` before declaring an array. For example:
-
-  
 
 `data obs_y = [0., 1., 0., 0., 1.];`
 
-  
-
 can be accessed at any point of the program using `obs_y[i]` where `i` is an integer index (indexing starts from 0).
-
-  
 
 ### Programs
 
 SOGA supports 5 types of instruction: assignments, conditionals, loops, observe and prune.
-
-  
 
 In the following:
 
@@ -40,8 +23,6 @@ In the following:
 Other supported distribution are `uniform([a,b], C)`, `beta([a,b], C)`, `bernoulli(p)` where `C` is the number of components of the approximating mixture. 
 
 - `block` is any sequence of instructions.
-
-  
 
 $\bullet$ Assignments assign a program variable with a value. An assignment can be either be linear or non-linear. A linear assignment has the form
 

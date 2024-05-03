@@ -778,14 +778,9 @@ def sensPruningExp():
     tableres = {}
     for p in programs:
         p = Path(p)
-        if not "coinbias" in p.name.lower() or "NormalMixtures" in p.name:
-            print(f"skipped {p.name.lower()}")
-            continue
-
         for idx, var in enumerate(tvars[:, 0]):
             if var.lower() == p.name.split(".")[0].lower():
                 break
-
         pname = p.name.split(".")[0].replace("Prune", "").lower()
         expname = f"soga_{pname}_{p.parent.name}"
         tableres[expname] = runSOGA(p, tvars=tvars[idx, :])

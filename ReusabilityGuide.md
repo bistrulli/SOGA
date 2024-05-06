@@ -1,3 +1,4 @@
+
 ## Reusability: how to write your SOGA model
 A formal description of SOGA's grammar can be found in the file grammars/SOGA.g4.  
 A SOGA model is encoded in a .soga file.
@@ -9,18 +10,19 @@ At the beginning of your file you can declare data. These are arrays that can be
 
 can be accessed at any point of the program using `obs_y[i]` where `i` is an integer index (indexing starts from 0).
 
+NOTE: currently SOGA does not support index arithmetic. Arrays and data can only be accessed using a single variable or a number, not expressions such as `i+1`.
+
 ### Programs
 
 SOGA supports 5 types of instruction: assignments, conditionals, loops, observe and prune.
 
 In the following:
 
-- `var` is any variable name. You do not need to declare scalar variables in advance, as SOGA infers them automatically when parsing the program. For array variables declare `array[size] var` before using the array, for example `array[10] y;`. Array value are accessed using the usual notation `var[i]` where `i` is an integer index ;
+- `var` is any variable name. You do not need to declare scalar variables in advance, as SOGA infers them automatically when parsing the program. For array variables declare `array[size] var` before using the array, for example `array[10] y;`. Array values are accessed using the usual notation `var[i]` where `i` is an integer index ;
 
 - `const` is either a constant (i.e. a number) or a data value;
 
-- `dist` is a distribution. In SOGA all distributions are approximated by Gaussian Mixtures, which are declared as `gm(pi_list, mu_list, sigma_list)` where `pi_list` is a list of scalar weights summing to 1, `mu_list` is a list of scalar means and `sigma_list` is a list of scalar standard deviations. For example a standard normal distribution can be assigned using `gm([1.], [0.], [1.])` or the shortcut `gauss(0,1)`. 
-Other supported distribution are `uniform([a,b], C)`, `beta([a,b], C)`, `bernoulli(p)` where `C` is the number of components of the approximating mixture. 
+- `dist` is a distribution. In SOGA all distributions are approximated by Gaussian Mixtures, which are declared as `gm(pi_list, mu_list, sigma_list)` where `pi_list` is a list of scalar weights summing to 1, `mu_list` is a list of scalar means and `sigma_list` is a list of scalar standard deviations. For example a standard normal distribution can be assigned using `gm([1.], [0.], [1.])` or the shortcut `gauss(0,1)`. Supported primitives for assigning distributions are: `gauss(mu, sigma)`, `bernoulli(p)`, `uniform([a,b], C)`, `beta([a,b], C)`, `laplace(mu, sigma, C)`, `exprnd(lambda, C)` where `C` is the number of components of the approximating mixture and `mu`, `sigma`, `a`, `b`, `lambda` are distribution-specific parameters. 
 
 - `block` is any sequence of instructions.
 

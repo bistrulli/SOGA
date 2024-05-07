@@ -16,6 +16,9 @@ import pandas as pd
 import argparse
 import logging
 import psutil
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from natsort import natsorted, ns
+
 
 
 exp_timeout = 600
@@ -520,7 +523,7 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
                 elif tableres[val][3] == True:
                     fileline += ',to,"","",""'
                 else:
-                    fileline += f',"{tableres[val][0]}","{tableres[val][1]}","","",""'
+                    fileline += f',"{tableres[val][0]}","{tableres[val][1]}","",""'
             else:
                 fileline += ",--"
         else:
@@ -987,6 +990,58 @@ def monitor_process_and_children(process_id, interval=None):
         return None
 
 
+def round_to_n_digit(num,n):
+    rounded_num = round(float(num), n)
+    return f'{{:.{n}f}}'.format(rounded_num)
+
+def renderTexResult(respath="./results/",outpath="./results/latexResult/"):
+    resfile=Path(respath)
+    exps=["branchSensitivity","cmpSensitivity","parSensitivity","pruneSensitivity","varSensitivity"]
+    varSensitivityRes=[]
+    for exp in exps:
+        exp_path=resfile/Path(f"{exp}.csv")
+        if(not exp_path.is_file()):
+            raise ValueError(f"Experiements {exp_path} does not Exist!")
+        if(exp=="varSensitivity"):
+            #Model time value time value %e
+            vardf=pd.read_csv(exp_path)
+            models=natsorted(list(set(vardf["model"])), alg=ns.IGNORECASE)
+            for m in models:
+                trow=[]
+                sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
+                pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="pymc")].iloc[0]
+
+                if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
+                    trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),round_to_n_digit(pymcres["time"],3),round_to_n_digit(pymcres["value"],3),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),3),sogares["#d"]]
+                else:
+                    trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),pymcres["time"],"-","-",sogares["#d"]]
+
+                varSensitivityRes+=[trow]
+
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("results.tex")
+
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
+
+    mat_tmpl = env.get_template('resTmp.tex')
+    texFile = mat_tmpl.render(varSensitivityRes=varSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
+
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
 
@@ -995,7 +1050,7 @@ def main():
         "--exp",
         required=True,
         type=str,
-        choices=["t3", "t5", "t6", "prune", "branch", "var", "cmp", "par"],
+        choices=["t3", "t5", "t6", "prune", "branch", "var", "cmp", "par","tex"],
         help="Select the experiement to perform",
     )
 
@@ -1019,6 +1074,8 @@ def main():
         sensCmpExp()
     elif exp == "par":
         sensParExp()
+    elif exp == "tex":
+        renderTexResult()
 
 
 if __name__ == "__main__":

@@ -26,33 +26,23 @@ In the following:
 
 - `block` is any sequence of instructions.
 
-$\bullet$ Assignments assign a program variable with a value. An assignment can be either be linear or non-linear. A linear assignment has the form
+* Assignments assign a program variable with a value. An assignment can be either be linear or non-linear. A linear assignment has the form
 
 `var_name = const + const*var + ... + const*var;`
 
-  
-
 A non-linear assignment has the form:
 
-` var_name = const*var*var; `
-
-  
+` var_name = const*var*var; `  
 
 At the R.H.S. of an assignment `var` can also be a distribution `dist`. To assign more complex expressions use subsequent assignments. For example:
-
-  
 
 ` z = x + y + 1;`
 
 `z = x*z;`
 
-  
-
-$\bullet$ Conditionals are expressed by if-then-else statements. The main structure is:
+* Conditionals are expressed by if-then-else statements. The main structure is:
 
 ` if bexpr { block } else { block } end if;`
-
-  
 
 Here `bexpr` is a Boolean expression which can either be of the form:
 
@@ -62,31 +52,21 @@ where at the L.H.S. `var` can also be a `dist`, or of the form:
 
 ` var == const`.
 
-  
-
 For example:
 
 `if x == 0 { y = 1; } else { y = 2*x +1; } end if;`
 
-  
-
-$\bullet$ Loops are expressed by *bounded* for statement. The main structure is:
+* Loops are expressed by *bounded* for statement. The main structure is:
 
 `for var in range(const) { block } end for;`
-
-  
 
 For example:
 
 `for i in range(10) { x = obs_y[i]; } end for;`
 
-  
-
-$\bullet$ Observe are expressed as
+* Observe are expressed as
 
 `observe(bexpr)` where `bexpr` is as in the conditional statement, except that it cannot contains `dist`.
-
-  
 
 For example:
 
@@ -94,12 +74,8 @@ For example:
 
 `observe(y == obs_y[0])`
 
-  
-
-$\bullet$ Prune instructions have the effect of pruning the current distribution, which is represented as a Gaussian Mixtures, up to a user-defined number of components. They can be inserted in any point of the program to improve scalability using `prune(K)`.
+* Prune instructions have the effect of pruning the current distribution, which is represented as a Gaussian Mixtures, up to a user-defined number of components. They can be inserted in any point of the program to improve scalability using `prune(K)`.
 
 For example, `prune(30)` will prune the current distribution up to 30 components.
-
-  
 
 You can find examples of SOGA models in the folder programs/SOGA.

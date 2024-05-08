@@ -598,13 +598,6 @@ def sensCmpExp():
             tvars.iloc[:, 0] == pname.replace(re.findall(r"(\d+)", pname)[0], "")
         ].iloc[0, 1]
         tableres["soga_%s" % (pname)] = runSOGA(p, tvars=["", t])
-    # logger.info("####################running PSI#####################")
-    # for p in psiPrograms:
-    #     p = Path(p)
-    #     pname = p.name.split(".")[0].replace("Prune", "").lower()
-    #     expname = f"psi_{pname}"
-    #     t = tvars[tvars.iloc[:, 0] == pname].iloc[0, 1]
-    #     tableres[expname] = runPSI(p, tvars=["", t])
 
     saveRes(
         programs=programs,
@@ -620,7 +613,7 @@ def sensParExp():
         "../**/programs/SOGA/SensitivityExp/#proc/continuous/**/*.soga", recursive=True
     )
 
-    parLevels = [par - 2 for par in range(4, 24, 2)]
+    parLevels = [1]+[par - 2 for par in range(4, 24, 2)]
 
     tableres = {}
     logger.info("####################running SOGA#####################")
@@ -636,7 +629,7 @@ def sensParExp():
 
     resFile = open(str(PurePath("./results/parSensitivity.csv")), "w+")
     tools = ["SOGA"]
-
+    resFile.write("model,#proc,time,value,#c,#d\n")
     for p in programs:
         for pl in parLevels:
             fileline = ""
@@ -845,6 +838,45 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
     except FileNotFoundError:
         print("pdflatex is not installed or not found in your PATH.")
 
+def renderTable5Tex(respath="./results/parSensitivity.csv",outpath="./results/latexResult/"):
+    parSensitivityRes={}
+    exp_path=Path(respath)
+    if(not exp_path.is_file()):
+        raise ValueError(f"Experiements {exp_path} does not Exist!")
+
+    #model,tool,time,value,#c,#d
+    pardf=pd.read_csv(exp_path)
+    models=list(set(pardf["model"]))
+    for m in models:
+        sogares=pardf[(pardf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#proc")
+        mname=re.sub("\d+","",m).lower()
+        parlevels=[1,2,4,6,8,10,12,20]
+        parSensitivityRes[mname]=[ round_to_n_digit(sogares[sogares["#proc"]==p]["time"].iloc[0],2) for p in parlevels]
+
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("Table5.tex")
+
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
+
+    print(parSensitivityRes)
+    mat_tmpl = env.get_template('resTmpT5.tex')
+    texFile = mat_tmpl.render(parSensitivityRes=parSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
+
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
+
 def main():
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
 
@@ -870,10 +902,11 @@ def main():
         sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
-        #sensCmpExp()
+        sensCmpExp()
         renderTable4Tex()
     elif exp == "par":
         sensParExp()
+        renderTable5Tex()
 
 
 if __name__ == "__main__":

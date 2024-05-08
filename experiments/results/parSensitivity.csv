@@ -1,3 +1,4 @@
+model,#proc,time,value,#c,#d
 randomwalk15,2,30.309,0.0,32768,1
 randomwalk15,4,17.933,0.0,32768,1
 randomwalk15,6,13.936,0.0,32768,1

@@ -866,8 +866,8 @@ def main():
         sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
-        #sensCmpExp()
-        renderTable4Tex()
+        sensCmpExp()
+        #renderTable4Tex()
     elif exp == "par":
         sensParExp()
 

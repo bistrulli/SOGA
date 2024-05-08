@@ -877,6 +877,56 @@ def renderTable5Tex(respath="./results/parSensitivity.csv",outpath="./results/la
     except FileNotFoundError:
         print("pdflatex is not installed or not found in your PATH.")
 
+def renderTable6Tex(respath="./results/pruneSensitivity.csv",outpath="./results/latexResult/"):
+    pruneSensitivityRes={}
+    exp_path=Path(respath)
+    if(not exp_path.is_file()):
+        raise ValueError(f"Experiements {exp_path} does not Exist!")
+
+    #model,tool,time,value,#c,#d
+    prunedf=pd.read_csv(exp_path)
+    prunetruedf=pd.read_csv("./results/PruneTrue.csv")
+    models=list(set(prunedf["model"]))
+    models=list(set([m.split("@")[0] for m in models]))
+
+    for m in models:
+        sogares=prunedf[(prunedf['model'].str.contains(m, regex=True,case=False))].sort_values(by=["model"],ascending=False)
+        pruneSensitivityRes[m]=[]
+        gtruth=float(prunetruedf[prunetruedf["model"]==m]["value"])
+        for i in range(sogares.shape[0]):
+            e=None
+            if(sogares["value"].iloc[i]!="" and not sogares["value"].iloc[i]=="to"):
+                e=round_to_n_digit(abs(float(sogares["value"].iloc[i])-gtruth)*100/gtruth,2)
+
+            mtime="to"
+            if(sogares["time"].iloc[i] is not None and sogares["value"].iloc[i]!="to"):
+                mtime=round_to_n_digit(sogares["time"].iloc[i],2)
+
+            pruneSensitivityRes[m]+=[mtime,e]
+
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("Table6.tex")
+
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
+
+    mat_tmpl = env.get_template('resTmpT6.tex')
+    texFile = mat_tmpl.render(pruneSensitivityRes=pruneSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
+
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
+
 def main():
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
 
@@ -894,7 +944,8 @@ def main():
     exp = args.exp
 
     if exp == "prune":
-        sensPruningExp()
+        #sensPruningExp()
+        renderTable6Tex()
     elif exp == "branch":
         sensBranchesExp()
         renderTable3Tex()

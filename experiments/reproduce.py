@@ -30,41 +30,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-def getT3SOGAPrograms(programList):
-    pfile = open(programList, "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-
-    analyzed_programsName = [p.strip().split("[")[0].strip() for p in analyzed_programs]
-
-    programs = []
-    allprograms = glob.glob("../**/programs/SOGA/**/*.soga", recursive=True)
-    for p in allprograms:
-        if Path(p.strip()).name.split(".")[0].strip() in analyzed_programsName:
-            programs.append(Path(p.strip()))
-
-    return programs
-
-
-def getT3PSIPrograms(programList):
-    pfile = open(programList, "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-
-    analyzed_programsName = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    programs = []
-    allprograms = glob.glob("../**/programs/PSI/**/*.psi", recursive=True)
-    for p in allprograms:
-        if Path(p.strip()).name.split(".")[0].strip().lower() in analyzed_programsName:
-            programs.append(Path(p.strip()))
-
-    return programs
-
-
 def getBLOGPrograms(programList):
     pfile = open(programList, "r")
     analyzed_programs = pfile.readlines()
@@ -76,42 +41,6 @@ def getBLOGPrograms(programList):
 
     programs = []
     allprograms = glob.glob("../**/programs/BLOG/**/*.blog", recursive=True)
-    for p in allprograms:
-        if Path(p.strip()).name.split(".")[0].strip().lower() in analyzed_programsName:
-            programs.append(Path(p.strip()))
-
-    return programs
-
-
-def getT3STANPrograms(programList):
-    pfile = open(programList, "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-
-    analyzed_programsName = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    programs = []
-    allprograms = glob.glob("../**/programs/STAN/**/*.stan", recursive=True)
-    for p in allprograms:
-        if Path(p.strip()).name.split(".")[0].strip().lower() in analyzed_programsName:
-            programs.append(Path(p.strip()))
-
-    return programs
-
-
-def getT3AQUAPrograms(programList):
-    pfile = open(programList, "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-
-    analyzed_programsName = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    programs = []
-    allprograms = glob.glob("../**/programs/AQUA/**/*.stan", recursive=True)
     for p in allprograms:
         if Path(p.strip()).name.split(".")[0].strip().lower() in analyzed_programsName:
             programs.append(Path(p.strip()))
@@ -539,234 +468,6 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
     resFile.close()
 
 
-def Table3():
-    print("####################reproducing Table3#####################")
-    tvars_soga = np.loadtxt("target_vars_T3.txt", dtype=str, delimiter=",")
-    tvars_stan = np.loadtxt("STAN variables.txt", dtype=str, delimiter=",")
-    tvars_aqua = np.loadtxt("AQUA variables.txt", dtype=str, delimiter=",")
-    tvars_psi = np.loadtxt("PSI variables.txt", dtype=str, delimiter=",")
-
-    sogaPrograms = getT3SOGAPrograms("Table3_sogaprograms.txt")
-    stanPrograms = getT3STANPrograms("Table3_stanprograms.txt")
-    psiPrograms = getT3PSIPrograms("Table3_psiprograms.txt")
-    aquaPrograms = getT3AQUAPrograms("Table3_aquaprograms.txt")
-
-    tableres = {}
-
-    print("####################running SOGA#####################")
-    for p in sogaPrograms:
-        for idx, var in enumerate(tvars_soga[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres[
-            "soga_%s" % (p.name.split(".")[0].replace("Prune", "").lower())
-        ] = runSOGA(p, tvars_soga[idx, :])
-    print("####################running STAN#####################")
-    stan_runs = pd.read_csv("STAN_runs.txt")
-    for p in stanPrograms:
-        runs = stan_runs[stan_runs["program"] == p.name.split(".")[0].strip()]["runs"]
-        for idx, var in enumerate(tvars_stan[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres["stan_%s" % (p.name.split(".")[0].lower())] = runSTAN(
-            p, tvars_stan[idx, :], runs.to_numpy()[0]
-        )
-    print("####################running AQUA#####################")
-    for p in aquaPrograms:
-        for idx, var in enumerate(tvars_aqua[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres["aqua_%s" % (p.name.split(".")[0].lower())] = runAQUA(
-            p, tvars_aqua[idx, :]
-        )
-    print("####################running PSI#####################")
-    for p in psiPrograms:
-        for idx, var in enumerate(tvars_psi[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres["psi_%s" % (p.name.split(".")[0].lower())] = runPSI(
-            p, tvars_psi[idx, :]
-        )
-
-    pfile = open("Table3_psiprograms.txt", "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-    analyzed_programs = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    resFile = open(str(PurePath("./results/Table3.csv")), "w+")
-    tools = ["STAN", "AQUA", "PSI", "SOGA"]
-
-    for p in analyzed_programs:
-        fileline = ""
-        pname = p.lower()
-        fileline += pname
-        for t in tools:
-            k = "%s_%s" % (t.lower(), pname)
-            if t.lower() != "soga":
-                if k in tableres:
-                    if tableres[k][2] == True:
-                        if tableres[k][3] == True:
-                            fileline += ",err,-"
-                        else:
-                            fileline += ",mem,-"
-                    elif tableres[k][3] == True:
-                        fileline += ",to,-"
-                    else:
-                        fileline += ",%s,%s" % (
-                            str(tableres[k][0]),
-                            str(tableres[k][1]),
-                        )
-                else:
-                    fileline += ",--"
-            else:
-                if k in tableres:
-                    fileline += ",%s,%s,%s,%s" % (
-                        str(tableres[k][0]),
-                        str(tableres[k][1]),
-                        str(tableres[k][2]),
-                        str(tableres[k][3]),
-                    )
-                else:
-                    fileline += ",--"
-
-        resFile.write(fileline + "\n")
-
-    resFile.flush()
-    resFile.close()
-
-
-def Table5():
-    print("####################reproducing Table5#####################")
-    sogaPrograms = getT3SOGAPrograms("Table5_programs.txt")
-    psiPrograms = getT3PSIPrograms("Table5_programs.txt")
-    blogPrograms = getBLOGPrograms("Table5_programs.txt")
-
-    tableres = {}
-    print("####################running SOGA#####################")
-    for p in sogaPrograms:
-        tableres[
-            "soga_%s" % (p.name.split(".")[0].replace("Prune", "").lower())
-        ] = runSOGA(p, None)
-    print("####################running PSI#####################")
-    for p in psiPrograms:
-        tableres["psi_%s" % (p.name.split(".")[0].lower())] = runPSI(p, None)
-    print("####################running BLOG#####################")
-    for p in blogPrograms:
-        tableres["blog_%s" % (p.name.split(".")[0].lower())] = runBLOG(p, None)
-
-    pfile = open("Table5_programs.txt", "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-    analyzed_programs = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    resFile = open(str(PurePath("./results/Table5.csv")), "w+")
-    tools = ["SOGA", "PSI", "BLOG"]
-
-    for p in analyzed_programs:
-        fileline = ""
-        pname = p.lower()
-        fileline += pname
-        for t in tools:
-            k = "%s_%s" % (t.lower(), pname)
-            if t.lower() != "soga":
-                if k in tableres:
-                    if tableres[k][2] == True:
-                        fileline += ",mem"
-                    elif tableres[k][3] == True:
-                        fileline += ",to"
-                    else:
-                        fileline += ",%s" % (str(tableres[k][0]))
-                else:
-                    fileline += ",--"
-            else:
-                if k in tableres:
-                    fileline += ",%s" % (str(tableres[k][0]))
-                else:
-                    fileline += ",--"
-
-        resFile.write(fileline + "\n")
-
-    resFile.flush()
-    resFile.close()
-
-
-def Table6():
-    print("####################reproducing Table6#####################")
-    sogaPrograms = getT3SOGAPrograms("Table6_programs.txt")
-    stanPrograms = getT3STANPrograms("Table6_programs.txt")
-    aquaPrograms = getT3AQUAPrograms("Table6_programs.txt")
-
-    tvars = np.loadtxt("target_vars_T6.txt", dtype=str, delimiter=",")
-
-    tableres = {}
-    print("####################running SOGA#####################")
-    for p in sogaPrograms:
-        for idx, var in enumerate(tvars[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres[
-            "soga_%s" % (p.name.split(".")[0].replace("Prune", "").lower())
-        ] = runSOGA(p, tvars[idx, :])
-    print("####################running STAN#####################")
-    for p in stanPrograms:
-        for idx, var in enumerate(tvars[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres["stan_%s" % (p.name.split(".")[0].lower())] = runSTAN(p, tvars[idx, :])
-    print("####################running AQUA#####################")
-    for p in aquaPrograms:
-        for idx, var in enumerate(tvars[:, 0]):
-            if var.lower() == p.name.split(".")[0].lower():
-                break
-        tableres["aqua_%s" % (p.name.split(".")[0].lower())] = runAQUA(
-            p, tvars[idx, :], True
-        )
-
-    pfile = open("Table6_programs.txt", "r")
-    analyzed_programs = pfile.readlines()
-    pfile.close()
-    analyzed_programs = [
-        p.strip().split("[")[0].strip().lower() for p in analyzed_programs
-    ]
-
-    resFile = open(str(PurePath("./results/Table6.csv")), "w+")
-    tools = ["SOGA", "STAN", "AQUA"]
-
-    for p in analyzed_programs:
-        fileline = ""
-        pname = p.lower()
-        fileline += pname
-        for t in tools:
-            k = "%s_%s" % (t.lower(), pname)
-            if t.lower() != "soga":
-                if k in tableres:
-                    if tableres[k][2] == True:
-                        fileline += ",mem"
-                    elif tableres[k][3] == True:
-                        fileline += ",to"
-                    else:
-                        fileline += ",%s,%s" % (
-                            str(tableres[k][0]),
-                            str(tableres[k][1]),
-                        )
-                else:
-                    fileline += ",--"
-            else:
-                if k in tableres:
-                    fileline += ",%s,%s" % (str(tableres[k][0]), str(tableres[k][1]))
-                else:
-                    fileline += ",--"
-
-        resFile.write(fileline + "\n")
-
-    resFile.flush()
-    resFile.close()
-
-
 def sensPruningExp():
     logger.info("Computing sensisitvity to pruning")
     programs = glob.glob(
@@ -814,7 +515,7 @@ def sensBranchesExp():
     for p in programs:
         p = Path(p)
         pname = p.name.split(".")[0].replace("Prune", "").lower()
-        expname = f"soga_{pname}_{p.parent.name}"
+        expname = f"soga_{p.parent.name}_{p.parent.parent.name}"
         tvars = (
             dfvars[dfvars["model"].str.lower() == re.sub(r"\d+", "", pname)]["var"]
             .iloc[0]
@@ -825,7 +526,7 @@ def sensBranchesExp():
     for p in psiPrograms:
         p = Path(p)
         pname = p.name.split(".")[0].lower()
-        expname = f"psi_{pname}_{p.parent.name}"
+        expname = f"psi_{p.parent.name}_{p.parent.parent.name}"
         tvars = dfvars[dfvars["model"].str.lower() == re.sub(r"\d+", "", pname)][
             "var"
         ].iloc[0]
@@ -994,33 +695,29 @@ def round_to_n_digit(num,n):
     rounded_num = round(float(num), n)
     return f'{{:.{n}f}}'.format(rounded_num)
 
-def renderTexResult(respath="./results/",outpath="./results/latexResult/"):
-    resfile=Path(respath)
-    exps=["branchSensitivity","cmpSensitivity","parSensitivity","pruneSensitivity","varSensitivity"]
+def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/latexResult/"):
     varSensitivityRes=[]
-    for exp in exps:
-        exp_path=resfile/Path(f"{exp}.csv")
-        if(not exp_path.is_file()):
-            raise ValueError(f"Experiements {exp_path} does not Exist!")
-        if(exp=="varSensitivity"):
-            #Model time value time value %e
-            vardf=pd.read_csv(exp_path)
-            models=natsorted(list(set(vardf["model"])), alg=ns.IGNORECASE)
-            for m in models:
-                trow=[]
-                sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
-                pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="pymc")].iloc[0]
+    exp_path=Path(respath)
+    if(not exp_path.is_file()):
+        raise ValueError(f"Experiements {exp_path} does not Exist!")
+    #Model time value time value %e
+    vardf=pd.read_csv(exp_path)
+    models=natsorted(list(set(vardf["model"])), alg=ns.IGNORECASE)
+    for m in models:
+        trow=[]
+        sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
+        pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="pymc")].iloc[0]
 
-                if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
-                    trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),round_to_n_digit(pymcres["time"],3),round_to_n_digit(pymcres["value"],3),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),3),sogares["#d"]]
-                else:
-                    trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),pymcres["time"],"-","-",sogares["#d"]]
+        if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
+            trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),round_to_n_digit(pymcres["time"],3),round_to_n_digit(pymcres["value"],3),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),3),sogares["#d"]]
+        else:
+            trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),pymcres["time"],"-","-",sogares["#d"]]
 
-                varSensitivityRes+=[trow]
+        varSensitivityRes+=[trow]
 
     outpath=Path(outpath).absolute()
     outpath.mkdir(parents=True, exist_ok=True)
-    outpath=outpath/Path("results.tex")
+    outpath=outpath/Path("Table2.tex")
 
     env = Environment(
             loader=FileSystemLoader('../jinjaTemplate/'),
@@ -1030,7 +727,51 @@ def renderTexResult(respath="./results/",outpath="./results/latexResult/"):
             comment_start_string='%!', 
             comment_end_string='!%')
 
-    mat_tmpl = env.get_template('resTmp.tex')
+    mat_tmpl = env.get_template('resTmpT2.tex')
+    texFile = mat_tmpl.render(varSensitivityRes=varSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
+
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
+
+def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results/latexResult/"):
+    branchSensitivityRes=[]
+    exp_path=Path(respath)
+    if(not exp_path.is_file()):
+        raise ValueError(f"Experiements {exp_path} does not Exist!")
+
+    #model,tool,time,value,#c,#d
+    branchdf=pd.read_csv(exp_path)
+    models=natsorted(list(set(vardf["model"])), alg=ns.IGNORECASE)
+    for m in models:
+        trow=[]
+        sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
+        pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="psi")].iloc[0]
+
+        if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
+            trow+=[m,round_to_n_digit(sogares["time"],2),round_to_n_digit(sogares["value"],2),round_to_n_digit(pymcres["time"],2),round_to_n_digit(pymcres["value"],2),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),2),sogares["#c"]]
+        else:
+            trow+=[m,round_to_n_digit(sogares["time"],2),round_to_n_digit(sogares["value"],2),pymcres["time"],"-","-",sogares["#d"]]
+
+        varSensitivityRes+=[trow]
+
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("Table3.tex")
+
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
+
+    mat_tmpl = env.get_template('resTmpT2.tex')
     texFile = mat_tmpl.render(varSensitivityRes=varSensitivityRes)
     outFile=open(outpath.absolute(),"w+")
     outFile.write(texFile)
@@ -1050,7 +791,7 @@ def main():
         "--exp",
         required=True,
         type=str,
-        choices=["t3", "t5", "t6", "prune", "branch", "var", "cmp", "par","tex"],
+        choices=["prune", "branch", "var", "cmp", "par"],
         help="Select the experiement to perform",
     )
 
@@ -1058,24 +799,18 @@ def main():
     # Accessing the value of the string parameter
     exp = args.exp
 
-    if exp == "t3":
-        Table3()
-    elif exp == "t5":
-        Table5()
-    elif exp == "t6":
-        Table6()
-    elif exp == "prune":
+    if exp == "prune":
         sensPruningExp()
     elif exp == "branch":
         sensBranchesExp()
+        #renderTable3Tex()
     elif exp == "var":
-        sensVarExp()
+        #sensVarExp()
+        renderTable2Tex()
     elif exp == "cmp":
         sensCmpExp()
     elif exp == "par":
         sensParExp()
-    elif exp == "tex":
-        renderTexResult()
 
 
 if __name__ == "__main__":

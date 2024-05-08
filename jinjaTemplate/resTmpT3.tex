@@ -1,0 +1,101 @@
+\documentclass[a4paper]{llncs}
+
+\usepackage{wrapfig}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% to hide columns
+\usepackage{array}
+\newcolumntype{H}{>{\setbox0=\hbox\bgroup}c<{\egroup}@{}}
+
+\usepackage{multirow}
+
+\usepackage{booktabs} % For formal tables
+\usepackage{color}
+\usepackage{colortbl}
+\usepackage{subfiles}
+%\usepackage{times}
+\usepackage{enumerate}
+\usepackage{subfigure}
+\usepackage{graphicx}
+\usepackage{dsfont}
+\usepackage{textgreek}
+
+\usepackage{relsize}
+%\usepackage{slantsc}
+
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{epstopdf}
+
+\usepackage{algorithm,algorithmic}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage{url}
+
+\lstdefinestyle{DOS}
+{
+    backgroundcolor=\color{black},
+    basicstyle=\scriptsize\color{white}\ttfamily
+}
+
+\synctex=1
+\newcommand{\soga}{\textsl{SOGA}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\hres}{\cellcolor{lightgray}}
+
+\begin{document}
+
+\mainmatter
+
+\title{\soga: Inference of Probabilistic Programs by Second-order Gaussian Approximation Reproducibility Report}
+
+\institute{
+University of Trieste, Italy \and
+IMT School for Advanced Studies Lucca, Italy
+}
+
+\author{Francesca Randone \inst{1} \and Emilio Incerto \inst{2} \and Luca Bortolussi \inst{1} \and Mirco Tribastone\inst{2}}
+
+\allowdisplaybreaks[0]
+
+\maketitle
+\setcounter{table}{2}
+\begin{table}[t]
+\caption{Evaluation of \soga's runtimes for programs with increasing number of iterations ($it.$). For each model we report: number of paths in the program (\emph{paths}), the number of components of the output distribution ($C$), \soga\ runtime ($time$) and the relative error with respect to PSI results ($|\%e|$).}
+     \centering
+      \resizebox{\textwidth}{!}{\begin{tabular}{ccrccrccrcc}
+            \toprule 
+         & & \multicolumn{3}{c}{\emph{DiscreteRW}}&\multicolumn{3}{c}{\emph{ContinuousRW}} & \multicolumn{3}{c}{\emph{Bernoulli}} \\
+         \cmidrule(l){3-5}  \cmidrule(l){6-8} \cmidrule(l){9-11}  
+    \emph{it.} & \emph{paths}  \ \ & \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ &\ \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ & \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ \\
+    \midrule  
+    1 & 2  & 2  & 0.01 & 0.00 & 2  & 0.01 & 0.00 & 4 & 0.02 & 0.21 \\
+    3 & 8  & 8  & 0.02 & 0.00 & 8  & 0.03 & 0.00 & 16 & 0.06 & 0.62 \\
+    5 & 32 & 32 & 0.03 & 0.00 & 32 & 0.06 & 0.00 & 64 & 0.21 & 1.68 \\
+    7 & 128 & 128 & 0.06 & 0.00 & 128 & 0.21 & 0.00 & 256 & 0.77 & 2.92 \\
+    9 & 512 & 512 & 0.16 & 0.00 & 512 & 0.74 & 0.00 & 1024 & 2.95 & 4.41 \\
+    11 & 2048 & 2048 & 0.60 & 0.00 & 2048 & 2.87 & 0.00 & 3681 & 11.9 & 1.42 \\
+    13 & 8192 & 8192 & 2.17 & 0.00 & 8192 & 11.6 & 0.00 & 12464 & 42.8 & 0.81 \\
+    15 & 32786 & 32786 & 8.52 & 0.00 & 32786 & 46.2 & 0.00 & 34710 & 146 & 0.35 \\
+    \midrule
+    & & \multicolumn{3}{c}{\emph{ClinicalTrial}}&\multicolumn{3}{c}{\emph{CoinBias}} & \multicolumn{3}{c}{\emph{SurveyUnbias}} \\
+         \cmidrule(l){3-5}  \cmidrule(l){6-8} \cmidrule(l){9-11}  
+    \emph{it.} & \emph{paths}  \ \ & \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ &\ \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ & \emph{C} \ \ & \ \ \emph{time} \ \ & \emph{$|\%e|$} \ \ \\
+    \midrule  
+    1 & 2  & 12 & 0.04 & 0.00 & 4 & 0.02 & 1.40 & 8 & 0.03 & 0.10 \\
+    3 & 8  & 48 & 0.26 & 0.12 & 16 & 0.07 & 2.01 & 32 & 0.11 & 0.12 \\
+    5 & 32 & 192 & 0.63 & 0.01 & 64 & 0.21 & 2.19 & 128 & 0.41 & 0.06 \\
+    7 & 128 & 767 & 2.44 & 0.15 & 255 & 0.78 & 2.20 & 511 & 1.58 & 0.73 \\
+    9 & 512 & 2981 & 9.49 & 0.16 & 976 & 3.00 & 0.18 & 1948 & 5.89 & 0.57 \\
+    11 & 2048 & 10797 & 35.9 & 0.47 & 3381 & 11.2 & 2.04 & 6975 & 23.3 & 0.66 \\
+    13 & 8192 & 35343 & 128 & 0.35 & 9848 & 37.3 & 1.93 & 21426 & 80.4 & 0.43 \\
+    15 & 32786 & 85865 & 427 & 0.74 & 28450 & 116 & 2.91 & 61698 & 260 & 0.49 \\
+   \bottomrule
+   \end{tabular}}
+   \label{tab:sensBranch}
+\end{table}
+
+\end{document}

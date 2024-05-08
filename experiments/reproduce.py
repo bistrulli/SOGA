@@ -598,13 +598,13 @@ def sensCmpExp():
             tvars.iloc[:, 0] == pname.replace(re.findall(r"(\d+)", pname)[0], "")
         ].iloc[0, 1]
         tableres["soga_%s" % (pname)] = runSOGA(p, tvars=["", t])
-    logger.info("####################running PSI#####################")
-    for p in psiPrograms:
-        p = Path(p)
-        pname = p.name.split(".")[0].replace("Prune", "").lower()
-        expname = f"psi_{pname}"
-        t = tvars[tvars.iloc[:, 0] == pname].iloc[0, 1]
-        tableres[expname] = runPSI(p, tvars=["", t])
+    # logger.info("####################running PSI#####################")
+    # for p in psiPrograms:
+    #     p = Path(p)
+    #     pname = p.name.split(".")[0].replace("Prune", "").lower()
+    #     expname = f"psi_{pname}"
+    #     t = tvars[tvars.iloc[:, 0] == pname].iloc[0, 1]
+    #     tableres[expname] = runPSI(p, tvars=["", t])
 
     saveRes(
         programs=programs,
@@ -799,14 +799,11 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
 
     #model,tool,time,value,#c,#d
     cmpdf=pd.read_csv(exp_path)
+    cmptrue=pd.read_csv("./results/cmpSensitivity_true.csv")
     models=[r"Coinbias\d*",r"SurveyUnbias\d*"]
     for m in models:
         sogares=cmpdf[(cmpdf["tool"]=="soga")&(cmpdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
-        psires=cmpdf[(cmpdf["tool"]=="psi")&(cmpdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")  
-
-        print(m)
-        print(sogares)
-        print(psires)
+        psires=cmptrue[(cmpdf['model'].str.contains(m, regex=True,case=False))]
 
         for prg in sogares["model"]:
             it=int(re.findall(r"\d+",prg)[0])
@@ -823,31 +820,30 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
 
             cmpSensitivityRes[str(it)]+=[round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
                                          round_to_n_digit(e,2),
-                                         sogares[sogares["model"]==prg]["#c"].iloc[0]]
-    print(cmpSensitivityRes)
+                                         int(sogares[sogares["model"]==prg]["#c"].iloc[0])]
 
-    # outpath=Path(outpath).absolute()
-    # outpath.mkdir(parents=True, exist_ok=True)
-    # outpath=outpath/Path("Table3.tex")
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("Table4.tex")
 
-    # env = Environment(
-    #         loader=FileSystemLoader('../jinjaTemplate/'),
-    #         autoescape=select_autoescape(['html', 'xml']),
-    #         trim_blocks=False,
-    #         lstrip_blocks=False,
-    #         comment_start_string='%!', 
-    #         comment_end_string='!%')
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
 
-    # mat_tmpl = env.get_template('resTmpT3.tex')
-    # texFile = mat_tmpl.render(branchSensitivityRes=branchSensitivityRes)
-    # outFile=open(outpath.absolute(),"w+")
-    # outFile.write(texFile)
-    # outFile.close()
+    mat_tmpl = env.get_template('resTmpT4.tex')
+    texFile = mat_tmpl.render(cmpSensitivityRes=cmpSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
 
-    # try:
-    #     subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
-    # except FileNotFoundError:
-    #     print("pdflatex is not installed or not found in your PATH.")
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
 
 def main():
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
@@ -874,8 +870,8 @@ def main():
         sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
-        sensCmpExp()
-        #renderTable4Tex()
+        #sensCmpExp()
+        renderTable4Tex()
     elif exp == "par":
         sensParExp()
 

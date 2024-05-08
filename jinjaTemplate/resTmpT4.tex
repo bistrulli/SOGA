@@ -71,12 +71,9 @@ IMT School for Advanced Studies Lucca, Italy
  & \multicolumn{3}{c}{Coinbias} & \multicolumn{3}{c}{Surveyunbias} \\
  \cmidrule(l){2-4}  \cmidrule(l){5-7}
 \#comp. & \ \ \emph{time} \ \ & \ \ $|\%e|$ \ \ &\ \  \emph{C} \ \ & \ \ \emph{time}\ \  &\ \  $|\%e|$ \ \ &\ \  \emph{C}\ \   \\
-\midrule
-1& 0.03 & 2.71 & 1&  0.03 & 0.32     &1\\
-2& 0.21 & 2.17 & 64 & 0.42 & 0.06   &128\\
-4& 4.56 & 0.10 & 1774 & 25.3 & 0.02  &9235\\
-6& 26.2 & 0.01 & 9714 & 271 & 0.01 &85855\\
-\bottomrule
+\midrule{% for i in [1,2,4,6] %}
+{{i}} {%for j in range(6)%}&{{cmpSensitivityRes[i|string()][j+1]}}{%endfor%}\\
+{% endfor %}\bottomrule
 \end{tabular}
 \label{tab:sendCmp}
 \end{table}

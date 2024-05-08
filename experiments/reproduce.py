@@ -515,7 +515,8 @@ def sensBranchesExp():
     for p in programs:
         p = Path(p)
         pname = p.name.split(".")[0].replace("Prune", "").lower()
-        expname = f"soga_{p.parent.name}${p.parent.parent.name}"
+        expname = f"soga_{p.stem}${p.parent.parent.name}"
+        print(expname)
         tvars = (
             dfvars[dfvars["model"].str.lower() == re.sub(r"\d+", "", pname)]["var"]
             .iloc[0]
@@ -526,7 +527,7 @@ def sensBranchesExp():
     for p in psiPrograms:
         p = Path(p)
         pname = p.name.split(".")[0].lower()
-        expname = f"psi_{p.parent.name}${p.parent.parent.name}"
+        expname = f"psi_{p.stem}${p.parent.parent.name}"
         tvars = dfvars[dfvars["model"].str.lower() == re.sub(r"\d+", "", pname)][
             "var"
         ].iloc[0]

@@ -789,6 +789,56 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
     except FileNotFoundError:
         print("pdflatex is not installed or not found in your PATH.")
 
+renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/latexResult/"):
+    branchSensitivityRes={}
+    exp_path=Path(respath)
+    if(not exp_path.is_file()):
+        raise ValueError(f"Experiements {exp_path} does not Exist!")
+
+    #model,tool,time,value,#c,#d
+    branchdf=pd.read_csv(exp_path)
+    models=[r"randomwalk\d+\$discrete",r"randomwalk\d+\$continuous",r"Bernoulli",r"ClinicalTrial",r"CoinBias",r"SurveyUnbias"]
+    for m in models:
+        sogares=branchdf[(branchdf["tool"]=="soga")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
+        psires=branchdf[(branchdf["tool"]=="psi")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")  
+
+        for prg in sogares["model"]:
+            it=int(re.findall(r"\d+",prg)[0])
+            path=2**it
+            if(str(it) not in branchSensitivityRes):
+                branchSensitivityRes[str(it)]=[it,path]
+
+            #C time |%e|
+            e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
+            if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
+                e=0
+
+            branchSensitivityRes[str(it)]+=[sogares[sogares["model"]==prg]["#c"].iloc[0],
+                                            round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
+                                            round_to_n_digit(e,2)]
+
+    outpath=Path(outpath).absolute()
+    outpath.mkdir(parents=True, exist_ok=True)
+    outpath=outpath/Path("Table3.tex")
+
+    env = Environment(
+            loader=FileSystemLoader('../jinjaTemplate/'),
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=False,
+            lstrip_blocks=False,
+            comment_start_string='%!', 
+            comment_end_string='!%')
+
+    mat_tmpl = env.get_template('resTmpT3.tex')
+    texFile = mat_tmpl.render(branchSensitivityRes=branchSensitivityRes)
+    outFile=open(outpath.absolute(),"w+")
+    outFile.write(texFile)
+    outFile.close()
+
+    try:
+        subprocess.run(['pdflatex', outpath.absolute()],cwd=outpath.parent.absolute())
+    except FileNotFoundError:
+        print("pdflatex is not installed or not found in your PATH.")
 
 def main():
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
@@ -816,6 +866,7 @@ def main():
         renderTable2Tex()
     elif exp == "cmp":
         sensCmpExp()
+        #renderTable4Tex()
     elif exp == "par":
         sensParExp()
 

@@ -739,25 +739,32 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         print("pdflatex is not installed or not found in your PATH.")
 
 def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results/latexResult/"):
-    branchSensitivityRes=[]
+    branchSensitivityRes={}
     exp_path=Path(respath)
     if(not exp_path.is_file()):
         raise ValueError(f"Experiements {exp_path} does not Exist!")
 
     #model,tool,time,value,#c,#d
     branchdf=pd.read_csv(exp_path)
-    models=natsorted(list(set(vardf["model"])), alg=ns.IGNORECASE)
+    models=[r"randomwalk\d+\$discrete",r"randomwalk\d+\$continuous",r"Bernoulli",r"ClinicalTrial",r"CoinBias",r"SurveyUnbias"]
     for m in models:
-        trow=[]
-        sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
-        pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="psi")].iloc[0]
+        sogares=branchdf[(branchdf["tool"]=="soga")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
+        psires=branchdf[(branchdf["tool"]=="psi")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")  
 
-        if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
-            trow+=[m,round_to_n_digit(sogares["time"],2),round_to_n_digit(sogares["value"],2),round_to_n_digit(pymcres["time"],2),round_to_n_digit(pymcres["value"],2),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),2),sogares["#c"]]
-        else:
-            trow+=[m,round_to_n_digit(sogares["time"],2),round_to_n_digit(sogares["value"],2),pymcres["time"],"-","-",sogares["#d"]]
+        for prg in sogares["model"]:
+            it=int(re.findall(r"\d+",prg)[0])
+            path=2**it
+            if(str(it) not in branchSensitivityRes):
+                branchSensitivityRes[str(it)]=[it,path]
 
-        varSensitivityRes+=[trow]
+            #C time |%e|
+            e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
+            if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
+                e=0
+
+            branchSensitivityRes[str(it)]+=[sogares[sogares["model"]==prg]["#c"].iloc[0],
+                                            round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
+                                            round_to_n_digit(e,2)]
 
     outpath=Path(outpath).absolute()
     outpath.mkdir(parents=True, exist_ok=True)
@@ -771,8 +778,8 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             comment_start_string='%!', 
             comment_end_string='!%')
 
-    mat_tmpl = env.get_template('resTmpT2.tex')
-    texFile = mat_tmpl.render(varSensitivityRes=varSensitivityRes)
+    mat_tmpl = env.get_template('resTmpT3.tex')
+    texFile = mat_tmpl.render(branchSensitivityRes=branchSensitivityRes)
     outFile=open(outpath.absolute(),"w+")
     outFile.write(texFile)
     outFile.close()
@@ -803,9 +810,9 @@ def main():
         sensPruningExp()
     elif exp == "branch":
         sensBranchesExp()
-        #renderTable3Tex()
+        renderTable3Tex()
     elif exp == "var":
-        #sensVarExp()
+        sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
         sensCmpExp()

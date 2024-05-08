@@ -789,7 +789,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
     except FileNotFoundError:
         print("pdflatex is not installed or not found in your PATH.")
 
-renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/latexResult/"):
+def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/latexResult/"):
     branchSensitivityRes={}
     exp_path=Path(respath)
     if(not exp_path.is_file()):

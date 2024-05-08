@@ -761,6 +761,8 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
             if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
                 e=0
+            else:
+                e=e/psires[psires["model"]==prg]["value"].iloc[0]
 
             branchSensitivityRes[str(it)]+=[sogares[sogares["model"]==prg]["#c"].iloc[0],
                                             round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
@@ -799,8 +801,12 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
     cmpdf=pd.read_csv(exp_path)
     models=[r"Coinbias\d*",r"SurveyUnbias\d*"]
     for m in models:
-        sogares=branchdf[(branchdf["tool"]=="soga")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
-        psires=branchdf[(branchdf["tool"]=="psi")&(branchdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")  
+        sogares=cmpdf[(cmpdf["tool"]=="soga")&(cmpdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
+        psires=cmpdf[(cmpdf["tool"]=="psi")&(cmpdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")  
+
+        print(m)
+        print(sogares)
+        print(psires)
 
         for prg in sogares["model"]:
             it=int(re.findall(r"\d+",prg)[0])
@@ -809,9 +815,11 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 cmpSensitivityRes[str(it)]=[it]
 
             #C time |%e|
-            e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
-            if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
+            e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==re.sub(r"\d+","",prg)]["value"].iloc[0])*100
+            if(psires[psires["model"]==re.sub(r"\d+","",prg)]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
                 e=0
+            else:
+                e=e/psires[psires["model"]==re.sub(r"\d+","",prg)]["value"].iloc[0]
 
             cmpSensitivityRes[str(it)]+=[round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
                                          round_to_n_digit(e,2),

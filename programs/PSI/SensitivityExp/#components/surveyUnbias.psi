@@ -1,9 +1,9 @@
 
 def main(){
-    population := readCSV("data/survey/population.csv");
-    gender := readCSV("data/survey/gender.csv");
-    personGender := readCSV("data/survey/personGender.csv");
-    dataAnswer := readCSV("data/survey/answer.csv");
+    population := readCSV("../../data/survey/population.csv");
+    gender := readCSV("../../data/survey/gender.csv");
+    personGender := readCSV("../../data/survey/personGender.csv");
+    dataAnswer := readCSV("../../data/survey/answer.csv");
 
     bias := array(population.length);
     for i in [0..population.length){

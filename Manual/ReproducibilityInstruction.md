@@ -1,36 +1,45 @@
-## Contents
+## Contents Of the Package
 
-- The folder "experiments" contains the scripts and data to reproduce the main results of of the paper (i.e., Table 3).
+- The folder "experiments" contains the scripts and data to reproduce the main results of of the paper (i.e., Table 3, Table 4, Table 5, Table 6).
 - The folder "grammars" contains the file with the grammar of SOGA (SOGA.g4) and the two sub-grammars ASGMT (ASGMT.g4) and TRUNC (TRUNC.g4).
-- The folder "programs" contains the scripts of the models analyzed in the paper, divided by tools.
+- The folder "programs" contains the scripts of the models analyzed in the paper, divided by tools and experimental campaigns.
 - The folder "src" contains the code implementing the tool SOGA, whose usage is described below;
-- The folder "tools" contains the implementation of the tools AQUA, BLOG, cmdstan and PSI, to which SOGA is compared.
+- The folder "tools" is used to collect the implementation of the tools with which SOGA is compared.  
 
 
-
-<!---## Reproducibilty
+## Reproducibilty Instructions
 
 - Create and start a new docker container based on the following steps:
 
-docker container create -i -t --name SOGA bistrulli/soga:0.1
+```bash
+docker container create -i -t --name SOGA bistrulli/soga:atva
 docker start SOGA
+```
 
 - then enter the container 
 
+```bash
 docker attach SOGA
+```
 
-- for reproduing Table 3 issue the following command
+- for reproduing all the Tables issue the following command:
 
+```bash
 cd /root/SOGA/experimemts
-python3 reproduce.py
+python3 reproduce.py --exp var #Reproduces Table 2
+python3 reproduce.py --exp branch #Reproduces Table 3
+python3 reproduce.py --exp cmp #Reproduces Table 4
+python3 reproduce.py --exp par #Reproduces Table 5
+python3 reproduce.py --exp prune #Reproduces Table 6
+```
 
-- after executing this command the Table will be saved in /root/SOGA/experimemts/results/Table3.csv with the same structure of the Table 3 of the paper   
+- After executing each command a Table[2-6].pdf file and the correspoding tex will be generated wihin the folder 
 
-## Comparison with PSI
+```bash
+/root/SOGA/experimemts/results/latexResult/
+```
 
-We removed the dependency with proprietary third-party tools to have a self-contained package. To this end, we replicated the PSI experiments via Mathics (https://mathics.org/) instead of Mathematica. However, if one would still like to use Mathematica for computing the PSI formula, the tool and a trial license can be requested on the Mathematica website (https://www.wolfram.com/mathematica/trial/). Once the license has been obtained, it is possible to run Mathematica to compute the symbolic formulas produced by PSI. For replicability SOGA, we save each PSI  formula in the folder "/root/SOGA/experiments/results/psi_formula" so that these can then be executed once a license for the tool has been obtained. -->
-
-## Implementation
+## Implementation Detail
 
 The module producecfg.py contains the classes definition for CFG objects and the function produce_cfg, that extracts a CFG from a program script in a .txt file. 
 

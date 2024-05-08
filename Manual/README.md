@@ -1,5 +1,3 @@
-
-
 # SOGA
 
 This is the user manual for using SOGA, a tool for Inference of Probabilistic Programs by Second-order Gaussian Approximation. SOGA is implemented in Python and depends on several Python packages listed in the `requirements.txt` file.
@@ -39,7 +37,7 @@ Here's a breakdown of each option:
 Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/SOGA/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
 
 ```bash
-python src/SOGA.py -f programs/SOGA/Bernoulli.soga
+python src/SOGA.py -f programs/Example/Bernoulli.soga
 ```
 
 obtaining the following output

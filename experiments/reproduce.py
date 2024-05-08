@@ -944,7 +944,7 @@ def main():
     exp = args.exp
 
     if exp == "prune":
-        #sensPruningExp()
+        sensPruningExp()
         renderTable6Tex()
     elif exp == "branch":
         sensBranchesExp()

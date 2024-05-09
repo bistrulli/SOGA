@@ -852,7 +852,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
     models=[r"Coinbias\d*",r"SurveyUnbias\d*"]
     for m in models:
         sogares=cmpdf[(cmpdf["tool"]=="soga")&(cmpdf['model'].str.contains(m, regex=True,case=False))].sort_values(by="#c")
-        psires=cmptrue[(cmpdf['model'].str.contains(m, regex=True,case=False))]
+        psires=cmptrue[(cmptrue['model'].str.contains(m, regex=True,case=False))]
 
         for prg in sogares["model"]:
             it=int(re.findall(r"\d+",prg)[0])
@@ -1014,7 +1014,7 @@ def main():
     if(not args.smoke):
         exp_timeout=600
     else:
-        exp_timeout=1
+        exp_timeout=2
 
     if exp == "prune":
         sensPruningExp()

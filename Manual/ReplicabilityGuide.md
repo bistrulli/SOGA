@@ -20,7 +20,7 @@ python3 reproduce.py --exp par    --smoke   #Reproduces Table 5
 python3 reproduce.py --exp prune  --smoke   #Reproduces Table 6
 ```
 
-- After executing each command a Table[2-6].pdf file and the corresponding .tex will be generated wihin the folder `/root/SOGA/experiments/results/latexResult/`. Please note that the data will be not consistent with the ones reported in the tool paper as they serve only to verify that everything is setup and ready for the full evaluation process.
+- After executing each command, a Table[2-6].pdf file and the corresponding .tex will be generated within the folder `/root/SOGA/experiments/results/latexResult/`, marking the test as passed. Please note that during the smoke test, SOGA will run experiments with a timeout of 2 seconds, meaning that the produced data will not be consistent with the ones reported in the tool paper, as they serve only to verify that everything is set up and ready for the full evaluation process.
 
 ## Experiments Replication
 

@@ -19,7 +19,7 @@ import psutil
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from natsort import natsorted, ns
 
-exp_timeout = 100
+exp_timeout = 600
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,

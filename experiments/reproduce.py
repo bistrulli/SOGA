@@ -686,7 +686,7 @@ def round_to_n_digit(num,n):
     try:
         rounded_num = round(float(num), n)
     except:
-        num
+        return num
     return f'{{:.{n}f}}'.format(rounded_num)
 
 def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/latexResult/"):

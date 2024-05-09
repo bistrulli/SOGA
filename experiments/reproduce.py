@@ -801,7 +801,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 sogad=sogares["#c"]
 
             if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
-                if(psivalue==0):
+                if(flaot(psivalue)==0):
                     err=0
                 else:
                     err=round_to_n_digit(abs(float(psivalue)-float(sogavalue))*100/float(psivalue),2)
@@ -866,7 +866,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 sogad=sogares["#c"]
 
             if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
-                if(psivalue==0):
+                if(float(psivalue)==0):
                     err=0
                 else:
                     err=round_to_n_digit(abs(float(psivalue)-float(sogavalue))*100/float(psivalue),2)

@@ -452,15 +452,17 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
                 else:
                     fileline += f',"{tableres[val][0]}","{tableres[val][1]}","",""'
             else:
-                fileline += ",--"
+                fileline += ",-,-"
         else:
             if val in tableres:
-                fileline += f',"{tableres[val][0]}","{tableres[val][1]}","{tableres[val][2]}","{tableres[val][3]}"'
-            else:
-                if tableres[val][2] == True:
-                    fileline += ',"mem","mem","",""'
-                elif tableres[val][3] == True:
+                if tableres[val][1] == "err":
+                    fileline += ',"err","err","",""'
+                elif tableres[val][1] == "to":
                     fileline += ',"to","to","",""'
+                else:
+                    fileline += f',"{tableres[val][0]}","{tableres[val][1]}","{tableres[val][2]}","{tableres[val][3]}"'
+            else:
+                fileline += ",-,-,-,-"
         fileline += "\n"
 
     resFile.write(fileline)
@@ -654,7 +656,12 @@ def sensParExp():
                         fileline += ",--"
                 else:
                     if k in tableres:
-                        fileline += f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
+                        if tableres[val][1] == "err":
+                            fileline += ',"err","err","",""'
+                        elif tableres[val][1] == "to":
+                            fileline += ',"to","to","",""'
+                        else:
+                            fileline += f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
                     else:
                         fileline += ",-,-,-,-"
 

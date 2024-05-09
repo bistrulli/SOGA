@@ -931,7 +931,6 @@ def renderTable5Tex(respath="./results/parSensitivity.csv",outpath="./results/la
             comment_start_string='%!', 
             comment_end_string='!%')
 
-    print(parSensitivityRes)
     mat_tmpl = env.get_template('resTmpT5.tex')
     texFile = mat_tmpl.render(parSensitivityRes=parSensitivityRes)
     outFile=open(outpath.absolute(),"w+")

@@ -871,8 +871,8 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
             if(sogavalue!="to" and sogavalue!="mem"):
                 sogatime=round_to_n_digit(sogatime,2)
                 sogavalue=round_to_n_digit(sogavalue,2)
-                sogac=int(sogares["#c"])
-                sogad=sogares["#c"]
+                sogac=int(sogac)
+                sogad=int(sogad)
 
             if(psitime!="to" and psitime!="mem" and sogavalue!="to" and sogavalue!="mem"):
                 if(float(psivalue)==0):

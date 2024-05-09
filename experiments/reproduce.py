@@ -951,7 +951,7 @@ def main():
         sensBranchesExp()
         renderTable3Tex()
     elif exp == "var":
-        #sensVarExp()
+        sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
         sensCmpExp()

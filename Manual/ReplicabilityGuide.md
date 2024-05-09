@@ -9,6 +9,18 @@
 - The folder `tools` is used to collect the implementation of the tools with which SOGA is compared. 
 - The folder `jinjaTemplate` contains the templates of the latex files used to reproduced the paper's results 
 
+## Smoke Test
+- For veryfing that all the Tables can be reproduced without problems, run the following commands:
+```bash
+cd /root/SOGA/experiments
+python3 reproduce.py --exp var    --smoke   #Smoke test of Table 2
+python3 reproduce.py --exp branch --smoke   #Smoke test of Table 3
+python3 reproduce.py --exp cmp    --smoke   #Reproduces Table 4
+python3 reproduce.py --exp par    --smoke   #Reproduces Table 5
+python3 reproduce.py --exp prune  --smoke   #Reproduces Table 6
+```
+
+- After executing each command a Table[2-6].pdf file and the corresponding .tex will be generated wihin the folder `/root/SOGA/experiments/results/latexResult/`. Please note that the data will be not consistent with the ones reported in the tool paper as they serve only to veryfy that everything is setup and ready for the full evaluation process.
 
 ## Experiments Replication
 
@@ -16,11 +28,11 @@
 
 ```bash
 cd /root/SOGA/experiments
-python3 reproduce.py --exp var #Reproduces Table 2
+python3 reproduce.py --exp var    #Reproduces Table 2
 python3 reproduce.py --exp branch #Reproduces Table 3
-python3 reproduce.py --exp cmp #Reproduces Table 4
-python3 reproduce.py --exp par #Reproduces Table 5
-python3 reproduce.py --exp prune #Reproduces Table 6
+python3 reproduce.py --exp cmp    #Reproduces Table 4
+python3 reproduce.py --exp par    #Reproduces Table 5
+python3 reproduce.py --exp prune  #Reproduces Table 6
 ```
 
 - After executing each command a Table[2-6].pdf file and the corresponding .tex will be generated wihin the folder 

@@ -21,7 +21,7 @@ RUN pip install --verbose -r  requirements.txt
 
 #build PSI
 WORKDIR /root/SOGA/tools
-RUN git clone https://github.com/eth-sri/psi.git
+#RUN git clone https://github.com/eth-sri/psi.git
 WORKDIR /root/SOGA/tools/psi
 RUN ./dependencies-release.sh && ./build-release.sh
 

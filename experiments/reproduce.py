@@ -709,13 +709,13 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
             pymctime=round_to_n_digit(pymctime,3)
             pymcvalue=round_to_n_digit(pymcvalue,3)
 
-        if(sogatime!="to" and sogatime!="mem"):
+        if(sogavalue!="to" and sogavalue!="mem"):
             sogatime=round_to_n_digit(sogatime,3)
             sogavalue=round_to_n_digit(sogavalue,3)
             sogac=sogares["#c"]
             sogad=sogares["#c"]
 
-        if(pymctime!="to" and pymctime!="mem" and sogatime!="to" and sogatime!="mem"):
+        if(pymctime!="to" and pymctime!="mem" and sogavalue!="to" and sogavalue!="mem"):
             err=round_to_n_digit(abs(float(pymcvalue)-float(sogavalue))*100/float(pymcvalue),3)
 
         trow+=[re.sub(r"\d+","",m),sogatime,sogavalue,pymctime,pymcvalue,err,sogad]
@@ -794,13 +794,13 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
-            if(sogatime!="to" and sogatime!="mem"):
+            if(sogavalue!="to" and sogavalue!="mem"):
                 sogatime=round_to_n_digit(sogatime,2)
                 sogavalue=round_to_n_digit(sogavalue,2)
                 sogac=sogares["#c"]
                 sogad=sogares["#c"]
 
-            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psitime!="to" and psitime!="mem" and sogavalue!="to" and sogavalue!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:
@@ -859,13 +859,13 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
-            if(sogatime!="to" and sogatime!="mem"):
+            if(sogavalue!="to" and sogavalue!="mem"):
                 sogatime=round_to_n_digit(sogatime,2)
                 sogavalue=round_to_n_digit(sogavalue,2)
                 sogac=int(sogares["#c"])
                 sogad=sogares["#c"]
 
-            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psitime!="to" and psitime!="mem" and sogavalue!="to" and sogavalue!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:

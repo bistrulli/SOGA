@@ -656,9 +656,9 @@ def sensParExp():
                         fileline += ",--"
                 else:
                     if k in tableres:
-                        if tableres[val][1] == "err":
+                        if tableres[k][1] == "err":
                             fileline += ',"err","err","",""'
-                        elif tableres[val][1] == "to":
+                        elif tableres[k][1] == "to":
                             fileline += ',"to","to","",""'
                         else:
                             fileline += f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"

@@ -35,8 +35,6 @@ python3 reproduce.py --exp prune #Reproduces Table 6
 #Here we assume our goal is to copy Table2.pdf from the container to the host machine
 docker cp SOGA:/root/SOGA/experiments/results/latexResult/Table2.pdf ~/Table2.pdf
 ```
-
-
 ## Implementation Detail
 
 The module `producecfg.py`contains the classes definition for CFG objects and the function produce_cfg, that extracts a CFG from a program script in a .txt file. 

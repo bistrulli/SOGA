@@ -552,7 +552,7 @@ def sensVarExp():
     logger.info("####################running PyMC3#####################")
     for p in PYMC3Programs:
         p = Path(p)
-        nvar = int(re.findall(r"(\d+)\.", p.name)[0])
+        nvar = int(re.findall(r"(\d+)\.", p.name)[0])-4
         tvars = ["alpha", "beta"]
         tvars += [f"y{v}" for v in range(1, nvar + 1)]
         dname = p.name.replace(f"{nvar}", "").split(".")[0]
@@ -560,7 +560,7 @@ def sensVarExp():
     logger.info("####################running SOGA#####################")
     for p in programs:
         p = Path(p)
-        nvar = int(re.findall(r"(\d+)\.", p.name)[0])
+        nvar = int(re.findall(r"(\d+)\.", p.name)[0])-4
         tvars = ["", f"y{nvar}"]
         tableres[
             "soga_%s" % (p.name.split(".")[0].replace("Prune", "").lower())

@@ -1,18 +1,22 @@
-# SOGA
+# <img src="logo.jpeg" alt="Logo" width="50" height="50" style="margin-bottom: -13px;"> SOGA 
+
 
 This is the user manual for using SOGA, a tool for Inference of Probabilistic Programs by Second-order Gaussian Approximation. SOGA is implemented in Python and depends on several Python packages listed in the `requirements.txt` file.
 
 ## Requirements
 The following tools are required to install and run SOGA:
-- Python 3.9+
-- pip 21.2.4+
+
+- `Python 3.9+`
+- `pip 21.2.4+`
 
 You can download and install Python from the [Python website](https://www.python.org/).
 
 ## Installation
 To install dependencies, run the following command:
 
+```bash
 pip install -r requirements.txt
+```
 
 This command will automatically download and install all the required packages. Now that you've installed all the dependencies, you're ready to start using SOGA. Below, we provide instructions on how to run and use it.
 
@@ -34,7 +38,7 @@ Here's a breakdown of each option:
 - -v [VARS ...], --vars [VARS ...]: Lists the output variables.
 
 ## Example
-Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/SOGA/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
+Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/Example/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
 
 ```bash
 python src/SOGA.py -f programs/Example/Bernoulli.soga
@@ -62,6 +66,9 @@ Below this, SOGA reports the main results of the analysis where:
 - E[x] is the posterior mean for each model variable x. 
 
 
-You can find examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `Manual/ReusabilityGuide.md`. Finally, the reproducibility instructions are contained in the file `Manual/ReproducibilityGuide.md`
+You can find other examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file [ReusabilityGuide](Manual/ReusabilityGuide.md). 
+
+## Replicability
+To reproduce the paper's results please follow the replicability instructions contained in the file [ReplicabilityGuide](Manual/ReplicabilityGuide.md)
 
 

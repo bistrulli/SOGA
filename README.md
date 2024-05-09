@@ -34,7 +34,7 @@ Here's a breakdown of each option:
 - -v [VARS ...], --vars [VARS ...]: Lists the output variables.
 
 ## Example
-Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/SOGA/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
+Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/Example/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:
 
 ```bash
 python src/SOGA.py -f programs/Example/Bernoulli.soga
@@ -62,6 +62,8 @@ Below this, SOGA reports the main results of the analysis where:
 - E[x] is the posterior mean for each model variable x. 
 
 
-You can find examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `Manual/ReusabilityGuide.md`. Finally, the reproducibility instructions are contained in the file `Manual/ReproducibilityGuide.md`
+You can find other examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `Manual/ReusabilityGuide.md`. 
+
+To reproduce the paper's results please follow the replicability instructions contained in the file `Manual/ReplicabilityGuide.md`
 
 

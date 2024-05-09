@@ -19,7 +19,7 @@ import psutil
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from natsort import natsorted, ns
 
-exp_timeout = 600
+exp_timeout = 2
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -446,9 +446,9 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
         if tool != "soga":
             if val in tableres:
                 if tableres[val][2] == True:
-                    fileline += ',"mem","","",""'
+                    fileline += ',"mem","mem","",""'
                 elif tableres[val][3] == True:
-                    fileline += ',"to","","",""'
+                    fileline += ',"to","to","",""'
                 else:
                     fileline += f',"{tableres[val][0]}","{tableres[val][1]}","",""'
             else:
@@ -457,7 +457,10 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
             if val in tableres:
                 fileline += f',"{tableres[val][0]}","{tableres[val][1]}","{tableres[val][2]}","{tableres[val][3]}"'
             else:
-                fileline += ',"","","",""'
+                if tableres[val][2] == True:
+                    fileline += ',"mem","mem","",""'
+                elif tableres[val][3] == True:
+                    fileline += ',"to","to","",""'
         fileline += "\n"
 
     resFile.write(fileline)
@@ -639,9 +642,9 @@ def sensParExp():
                 if t.lower() != "soga":
                     if k in tableres:
                         if tableres[k][2] == True:
-                            fileline += ",'mem'"
+                            fileline += ",'mem','mem','',''"
                         elif tableres[k][3] == True:
-                            fileline += ",'to'"
+                            fileline += ",'to','to','',''"
                         else:
                             fileline += ",%s,%s" % (
                                 str(tableres[k][0]),
@@ -653,7 +656,7 @@ def sensParExp():
                     if k in tableres:
                         fileline += f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
                     else:
-                        fileline += ",--"
+                        fileline += ",-,-,-,-"
 
             resFile.write(fileline + "\n")
 
@@ -712,8 +715,8 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         if(sogavalue!="to" and sogavalue!="mem"):
             sogatime=round_to_n_digit(sogatime,3)
             sogavalue=round_to_n_digit(sogavalue,3)
-            sogac=sogares["#c"]
-            sogad=sogares["#c"]
+            sogac=int(sogac)
+            sogad=int(sogad)
 
         if(pymctime!="to" and pymctime!="mem" and sogavalue!="to" and sogavalue!="mem"):
             err=round_to_n_digit(abs(float(pymcvalue)-float(sogavalue))*100/float(pymcvalue),3)
@@ -774,7 +777,6 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
     if(not exp_path.is_file()):
         raise ValueError(f"Experiements {exp_path} does not Exist!")
 
-    #model,tool,time,value,#c,#d
     branchdf=pd.read_csv(exp_path)
     models=[r"randomwalk\d+\$discrete",r"randomwalk\d+\$continuous",r"Bernoulli",r"ClinicalTrial",r"CoinBias",r"SurveyUnbias"]
     for m in models:
@@ -787,11 +789,6 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             if(str(it) not in branchSensitivityRes):
                 branchSensitivityRes[str(it)]=[it,path]
 
-            print(prg)
-            print(psires[psires["model"]==prg].iloc[0])
-            print("####")
-            print(sogares[sogares["model"]==prg].iloc[0])
-
             err="-"
             sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==prg].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
@@ -802,8 +799,8 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             if(sogavalue!="to" and sogavalue!="mem"):
                 sogatime=round_to_n_digit(sogatime,2)
                 sogavalue=round_to_n_digit(sogavalue,2)
-                sogac=sogares["#c"]
-                sogad=sogares["#c"]
+                sogac=int(sogac)
+                sogad=int(sogad)
 
             if(psitime!="to" and psitime!="mem" and sogavalue!="to" and sogavalue!="mem"):
                 if(float(psivalue)==0):

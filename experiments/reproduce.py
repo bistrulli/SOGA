@@ -702,10 +702,28 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
         pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="pymc")].iloc[0]
 
-        if(pymcres["time"]!="to" and pymcres["time"]!="mem"):
-            trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),round_to_n_digit(pymcres["time"],3),round_to_n_digit(pymcres["value"],3),round_to_n_digit(abs(float(pymcres["value"])-float(sogares["value"]))*100/float(pymcres["value"]),3),sogares["#d"]]
-        else:
-            trow+=[re.sub(r"\d+","",m),round_to_n_digit(sogares["time"],3),round_to_n_digit(sogares["value"],3),pymcres["time"],"-","-",sogares["#d"]]
+        pymctime=pymcres["time"]
+        pymcvalue=pymcres["value"]
+        sogatime=sogares["time"]
+        sogavalue=sogares["value"]
+        sogac="-"
+        sogad="-"
+        err="-"
+
+        if(pymctime!="to" and pymctime!="mem"):
+            pymctime=round_to_n_digit(pymctime,3)
+            pymcvalue=round_to_n_digit(pymcvalue,3)
+
+        if(sogatime!="to" and sogatime!="mem"):
+            sogatime=round_to_n_digit(sogatime,3)
+            sogavalue=round_to_n_digit(sogavalue,3)
+            sogac=sogares["#c"]
+            sogad=sogares["#c"]
+
+        if(pymctime!="to" and pymctime!="mem" and sogatime!="to" and sogatime!="mem"):
+            err=round_to_n_digit(abs(pymcvalue-sogavalue)*100/pymcvalue,3)
+
+        trow+=[re.sub(r"\d+","",m),sogatime,sogavalue,pymctime,pymcvalue,err,sogad]
 
         varSensitivityRes+=[trow]
 

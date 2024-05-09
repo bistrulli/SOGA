@@ -19,7 +19,7 @@ import psutil
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from natsort import natsorted, ns
 
-exp_timeout = 10
+exp_timeout = 600
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -804,7 +804,11 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 if(psivalue==0):
                     err=0
                 else:
-                    err=round_to_n_digit(abs(psivalue-sogavalue)*100/psivalue,2)
+                    try:
+                        err=round_to_n_digit(abs(psivalue-sogavalue)*100/psivalue,2)
+                    except:
+                        print(psivalue,sogavalue,prg)
+                        raise ValueError()
 
             branchSensitivityRes[str(it)]+=[sogac,sogatime,err]
 
@@ -902,7 +906,6 @@ def renderTable5Tex(respath="./results/parSensitivity.csv",outpath="./results/la
     if(not exp_path.is_file()):
         raise ValueError(f"Experiements {exp_path} does not Exist!")
 
-    #model,tool,time,value,#c,#d
     pardf=pd.read_csv(exp_path)
     models=list(set(pardf["model"]))
     for m in models:

@@ -787,7 +787,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             if(str(it) not in branchSensitivityRes):
                 branchSensitivityRes[str(it)]=[it,path]
 
-            print(prog)
+            print(prg)
             print(psires[psires["model"]==prg].iloc[0])
             print("####")
             print(sogares[sogares["model"]==prg].iloc[0])

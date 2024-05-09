@@ -1,4 +1,4 @@
-# <img src="logo.jpeg" alt="Logo" width="50" height="50" style="margin-bottom: -13px;"> SOGA 
+# SOGA 
 
 
 This is the user manual for using SOGA, a tool for Inference of Probabilistic Programs by Second-order Gaussian Approximation. SOGA is implemented in Python and depends on several Python packages listed in the `requirements.txt` file.

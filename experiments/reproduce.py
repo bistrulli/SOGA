@@ -683,7 +683,10 @@ def monitor_process_and_children(process_id, interval=None):
 
 
 def round_to_n_digit(num,n):
-    rounded_num = round(float(num), n)
+    try:
+        rounded_num = round(float(num), n)
+    except:
+        return num
     return f'{{:.{n}f}}'.format(rounded_num)
 
 def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/latexResult/"):
@@ -713,7 +716,7 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
             sogad=sogares["#c"]
 
         if(pymctime!="to" and pymctime!="mem" and sogatime!="to" and sogatime!="mem"):
-            err=round_to_n_digit(abs(pymcvalue-sogavalue)*100/pymcvalue,3)
+            err=round_to_n_digit(abs(float(pymcvalue)-float(sogavalue))*100/float(pymcvalue),3)
 
         trow+=[re.sub(r"\d+","",m),sogatime,sogavalue,pymctime,pymcvalue,err,sogad]
 
@@ -801,11 +804,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 if(psivalue==0):
                     err=0
                 else:
-                    try:
-                        err=round_to_n_digit(abs(psivalue-sogavalue)*100/psivalue,2)
-                    except:
-                        print(psivalue,sogavalue,prg)
-                        raise ValueError()
+                    err=round_to_n_digit(abs(float(psivalue)-float(sogavalue))*100/float(psivalue),2)
 
             branchSensitivityRes[str(it)]+=[sogac,sogatime,err]
 
@@ -870,7 +869,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 if(psivalue==0):
                     err=0
                 else:
-                    err=round_to_n_digit(abs(psivalue-sogavalue)*100/psivalue,2)
+                    err=round_to_n_digit(abs(float(psivalue)-float(sogavalue))*100/float(psivalue),2)
 
             cmpSensitivityRes[str(it)]+=[sogatime,err,sogac]
 

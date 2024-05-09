@@ -78,4 +78,4 @@ For example:
 
 For example, `prune(30)` will prune the current distribution up to 30 components.
 
-You can find examples of SOGA models in the folder programs/SOGA.
+You can find a commented SOGA model in the folder `programs/Example/Bernoulli.soga`. Other SOGA models are available in the folder `programs/SOGA/`

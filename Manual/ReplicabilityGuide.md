@@ -1,3 +1,5 @@
+# Replicability Instructions
+
 ## Contents Of the Package
 
 - The folder "experiments" contains the scripts and data to reproduce the main results of the paper _SOGA: Inference of Probabilistic Programs by Second-order Gaussian Approximation_ (i.e., Table 2, Table 3, Table 4, Table 5, Table 6).
@@ -7,7 +9,7 @@
 - The folder "tools" is used to collect the implementation of the tools with which SOGA is compared.  
 
 
-## Reproducibilty Instructions
+## Experiments Replication
 
 - For reproducing all the Tables issue the following commands:
 
@@ -20,7 +22,7 @@ python3 reproduce.py --exp par #Reproduces Table 5
 python3 reproduce.py --exp prune #Reproduces Table 6
 ```
 
-- After executing each command a Table[2-6].pdf file and the corresponding text will be generated wihin the folder 
+- After executing each command a Table[2-6].pdf file and the corresponding .tex will be generated wihin the folder 
 
 ```bash
 /root/SOGA/experimemts/results/latexResult/
@@ -28,15 +30,15 @@ python3 reproduce.py --exp prune #Reproduces Table 6
 
 ## Implementation Detail
 
-The module producecfg.py contains the classes definition for CFG objects and the function produce_cfg, that extracts a CFG from a program script in a .txt file. 
+The module `producecfg.py`contains the classes definition for CFG objects and the function produce_cfg, that extracts a CFG from a program script in a .txt file. 
 
-The module libSOGA.py contains the function start_soga, which is used to invoke SOGA on a CFG object and the function SOGA, which, depending on the type of the visited node, calls the functions needed to update the current distribution. 
+The module `libSOGA.py` contains the function start_soga, which is used to invoke SOGA on a CFG object and the function SOGA, which, depending on the type of the visited node, calls the functions needed to update the current distribution. 
 
 Such functions are contained in the auxiliary modules:
-- libSOGAtruncate.py, containing functions for computing the resulting distribution when a truncation occurs (in conditional or observe instructions);
-- libSOGAupdate.py, containing functions for computing the resulting distribution after applying an assignment instruction;
-- libSOGAmerge.py, containing functions for computing the resulting distribution when a merge or a prune instruction is encountered;
+- `libSOGAtruncate.py`, containing functions for computing the resulting distribution when a truncation occurs (in conditional or observe instructions);
+- `libSOGAupdate.py`, containing functions for computing the resulting distribution after applying an assignment instruction;
+- `libSOGAmerge.py`, containing functions for computing the resulting distribution when a merge or a prune instruction is encountered;
 
-Additional functions for general purpose are defined in the module libSOGAshared.py, which is imported by all previous libraries.
+Additional functions for general purpose are defined in the module `libSOGAshared.py`, which is imported by all previous libraries.
 
-Parsing of the scripts, expressions and truncations is performed using ANTLR. Definition of the respective grammars can be found in the files SOGA.g4, ASGMT.g4 and TRUNC.g4.
+Parsing of the scripts, expressions and truncations is performed using ANTLR. Definition of the respective grammars can be found in the files `grammars/SOGA.g4`, `grammars/ASGMT.g4` and `grammars/TRUNC.g4`.

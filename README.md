@@ -12,7 +12,9 @@ You can download and install Python from the [Python website](https://www.python
 ## Installation
 To install dependencies, run the following command:
 
+```bash
 pip install -r requirements.txt
+```
 
 This command will automatically download and install all the required packages. Now that you've installed all the dependencies, you're ready to start using SOGA. Below, we provide instructions on how to run and use it.
 
@@ -62,8 +64,9 @@ Below this, SOGA reports the main results of the analysis where:
 - E[x] is the posterior mean for each model variable x. 
 
 
-You can find other examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `Manual/ReusabilityGuide.md`. 
+You can find other examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file [ReusabilityGuide](Manual/ReusabilityGuide.md). 
 
-To reproduce the paper's results please follow the replicability instructions contained in the file `Manual/ReplicabilityGuide.md`
+## Replicability
+To reproduce the paper's results please follow the replicability instructions contained in the file [ReplicabilityGuide](Manual/ReplicabilityGuide.md)
 
 

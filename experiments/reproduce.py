@@ -787,15 +787,26 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             if(str(it) not in branchSensitivityRes):
                 branchSensitivityRes[str(it)]=[it,path]
 
-            e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
-            if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
-                e=0
-            else:
-                e=e/psires[psires["model"]==prg]["value"].iloc[0]
+            err="-"
+            sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==prg].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
-            branchSensitivityRes[str(it)]+=[sogares[sogares["model"]==prg]["#c"].iloc[0],
-                                            round_to_n_digit(sogares[sogares["model"]==prg]["time"].iloc[0],2),
-                                            round_to_n_digit(e,2)]
+            if(psitime!="to" and psitime!="mem"):
+                psitime=round_to_n_digit(psitime,2)
+                psivalue=round_to_n_digit(psivalue,2)
+
+            if(sogatime!="to" and sogatime!="mem"):
+                sogatime=round_to_n_digit(sogatime,2)
+                sogavalue=round_to_n_digit(sogavalue,2)
+                sogac=sogares["#c"]
+                sogad=sogares["#c"]
+
+            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
+                if(psivalue==0):
+                    err=0
+                else:
+                    err=round_to_n_digit(abs(psivalue-sogavalue)*100/psivalue,2)
+
+            branchSensitivityRes[str(it)]+=[sogac,sogatime,err]
 
     outpath=Path(outpath).absolute()
     outpath.mkdir(parents=True, exist_ok=True)

@@ -26,14 +26,14 @@ python3 reproduce.py --exp prune #Reproduces Table 6
 - After executing each command a Table[2-6].pdf file and the corresponding .tex will be generated wihin the folder 
 
 ```bash
-/root/SOGA/experimemts/results/latexResult/
+/root/SOGA/experiments/results/latexResult/
 ```
 
 - To copy a generated Table from the container to the host machine, issue the following command
 
 ```bash
 #Here we assume our goal is to copy Table2.pdf from the container to the host machine
-docker cp SOGA:/root/SOGA/experimemts/results/latexResult/Table2.pdf ~/Table2.pdf
+docker cp SOGA:/root/SOGA/experiments/results/latexResult/Table2.pdf ~/Table2.pdf
 ```
 
 

@@ -62,6 +62,6 @@ Below this, SOGA reports the main results of the analysis where:
 - E[x] is the posterior mean for each model variable x. 
 
 
-You can find examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `ReusabilityGuide.md`
+You can find examples of SOGA models in the folder `programs/SOGA/`. A detailed guide on how to build your own model can be found in the file `Manual/ReusabilityGuide.md`. Finally, the reproducibility instructions are contained in the file `Manual/ReproducibilityGuide.md`
 
 

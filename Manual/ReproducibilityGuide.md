@@ -1,6 +1,6 @@
 ## Contents Of the Package
 
-- The folder "experiments" contains the scripts and data to reproduce the main results of of the paper (i.e., Table 3, Table 4, Table 5, Table 6).
+- The folder "experiments" contains the scripts and data to reproduce the main results of the paper (i.e., Table 2, Table 3, Table 4, Table 5, Table 6).
 - The folder "grammars" contains the file with the grammar of SOGA (SOGA.g4) and the two sub-grammars ASGMT (ASGMT.g4) and TRUNC (TRUNC.g4).
 - The folder "programs" contains the scripts of the models analyzed in the paper, divided by tools and experimental campaigns.
 - The folder "src" contains the code implementing the tool SOGA, whose usage is described below;
@@ -9,20 +9,7 @@
 
 ## Reproducibilty Instructions
 
-- Create and start a new docker container based on the following steps:
-
-```bash
-docker container create -i -t --name SOGA bistrulli/soga:atva
-docker start SOGA
-```
-
-- then enter the container 
-
-```bash
-docker attach SOGA
-```
-
-- for reproduing all the Tables issue the following command:
+- For reproduing all the Tables issue the following commands:
 
 ```bash
 cd /root/SOGA/experimemts

@@ -19,7 +19,7 @@ import psutil
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from natsort import natsorted, ns
 
-exp_timeout = 600
+exp_timeout = None
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -993,9 +993,9 @@ def renderTable6Tex(respath="./results/pruneSensitivity.csv",outpath="./results/
         print("pdflatex is not installed or not found in your PATH.")
 
 def main():
+    global exp_timeout
     parser = argparse.ArgumentParser(description="SOGA Replication Scripts")
 
-    # Adding a string parameter
     parser.add_argument(
         "--exp",
         required=True,
@@ -1004,9 +1004,17 @@ def main():
         help="Select the experiement to perform",
     )
 
+    parser.add_argument('--smoke', '-s', action='store_true', help='Enable the smoke test', default=False)
+
+
     args = parser.parse_args()
     # Accessing the value of the string parameter
     exp = args.exp
+
+    if(not parser.smoke):
+        exp_timeout=600
+    else:
+        exp_timeout=1
 
     if exp == "prune":
         sensPruningExp()

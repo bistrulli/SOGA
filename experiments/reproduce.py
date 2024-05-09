@@ -702,13 +702,8 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         sogares=vardf[(vardf["model"]==m) & (vardf["tool"]=="soga")].iloc[0]
         pymcres=vardf[(vardf["model"]==m) & (vardf["tool"]=="pymc")].iloc[0]
 
-        pymctime=pymcres["time"]
-        pymcvalue=pymcres["value"]
-        sogatime=sogares["time"]
-        sogavalue=sogares["value"]
-        sogac="-"
-        sogad="-"
         err="-"
+        sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue=extractvalue(pymcres,sogares)
 
         if(pymctime!="to" and pymctime!="mem"):
             pymctime=round_to_n_digit(pymctime,3)
@@ -750,6 +745,29 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
     except FileNotFoundError:
         print("pdflatex is not installed or not found in your PATH.")
 
+
+def extractvalue(pymcres,sogares):
+    pymctime=pymcres["time"]
+    pymcvalue=pymcres["value"]
+    sogatime=sogares["time"]
+    sogavalue=sogares["value"]
+    sogac="-"
+    sogad="-"
+    err="-"
+
+    if(pymctime!="to" and pymctime!="mem"):
+        pymctime=round_to_n_digit(pymctime,3)
+        pymcvalue=round_to_n_digit(pymcvalue,3)
+
+    if(sogatime!="to" and sogatime!="mem"):
+        sogatime=round_to_n_digit(sogatime,3)
+        sogavalue=round_to_n_digit(sogavalue,3)
+        sogac=sogares["#c"]
+        sogad=sogares["#c"]
+
+    return sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue
+
+
 def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results/latexResult/"):
     branchSensitivityRes={}
     exp_path=Path(respath)
@@ -769,7 +787,6 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             if(str(it) not in branchSensitivityRes):
                 branchSensitivityRes[str(it)]=[it,path]
 
-            #C time |%e|
             e=abs(sogares[sogares["model"]==prg]["value"].iloc[0]-psires[psires["model"]==prg]["value"].iloc[0])*100
             if(psires[psires["model"]==prg]["value"].iloc[0]==0 and sogares[sogares["model"]==prg]["value"].iloc[0]==0):
                 e=0

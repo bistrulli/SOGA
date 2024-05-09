@@ -1,12 +1,13 @@
 # Replicability Instructions
 
-## Contents Of the Package
+## Contents of the Package
 
-- The folder "experiments" contains the scripts and data to reproduce the main results of the paper _SOGA: Inference of Probabilistic Programs by Second-order Gaussian Approximation_ (i.e., Table 2, Table 3, Table 4, Table 5, Table 6).
-- The folder "grammars" contains the file with the grammar of SOGA (SOGA.g4) and the two sub-grammars ASGMT (ASGMT.g4) and TRUNC (TRUNC.g4).
-- The folder "programs" contains the scripts of the models analyzed in the paper, divided by tools and experimental campaigns; in particular, the scripts of the SOGA programs analyzed in the paper can be found in 'programs/SOGA/SensitivityExp'.
-- The folder "src" contains the code implementing the tool SOGA, whose usage is described below;
-- The folder "tools" is used to collect the implementation of the tools with which SOGA is compared.  
+- The folder `experiments` contains the scripts and data to reproduce the main results of the paper _SOGA: Inference of Probabilistic Programs by Second-order Gaussian Approximation_ (i.e., Table 2, Table 3, Table 4, Table 5, Table 6).
+- The folder `grammars` contains the file with the grammar of SOGA (SOGA.g4) and the two sub-grammars ASGMT (ASGMT.g4) and TRUNC (TRUNC.g4).
+- The folder `programs` contains the scripts of the models analyzed in the paper, divided by tools and experimental campaigns; in particular, the scripts of the SOGA programs analyzed in the paper can be found in 'programs/SOGA/SensitivityExp'.
+- The folder `src` contains the code implementing the tool SOGA, whose usage is described below;
+- The folder `tools` is used to collect the implementation of the tools with which SOGA is compared. 
+- The folder `jinjaTemplate` contains the templates of the latex files used to reproduced the paper's results 
 
 
 ## Experiments Replication

@@ -1011,7 +1011,7 @@ def main():
     # Accessing the value of the string parameter
     exp = args.exp
 
-    if(not parser.smoke):
+    if(not args.smoke):
         exp_timeout=600
     else:
         exp_timeout=1

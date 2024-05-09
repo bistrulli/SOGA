@@ -6,9 +6,9 @@ A SOGA model is encoded in a .soga file.
 ### Data
 At the beginning of your file you can declare data. These are arrays that can be accessed but cannot be overwritten by the program. To declare data use the keyword `data` before declaring an array. For example:
 
-`data obs_y = [0., 1., 0., 0., 1.];`
+`data obs = [0., 1., 0., 0., 1.];`
 
-can be accessed at any point of the program using `obs_y[i]` where `i` is an integer index (indexing starts from 0).
+can be accessed at any point of the program using `obs[i]` where `i` is an integer index (indexing starts from 0).
 
 NOTE: currently SOGA does not support index arithmetic. Arrays and data can only be accessed using a single variable or a number, not expressions such as `i+1`.
 
@@ -62,7 +62,7 @@ For example:
 
 For example:
 
-`for i in range(10) { x = obs_y[i]; } end for;`
+`for i in range(10) { x = obs[i]; } end for;`
 
 * Observe are expressed as
 
@@ -72,7 +72,7 @@ For example:
 
 `observe(x + y > 0)`
 
-`observe(y == obs_y[0])`
+`observe(y == obs[0])`
 
 * Prune instructions have the effect of pruning the current distribution, which is represented as a Gaussian Mixtures, up to a user-defined number of components. They can be inserted in any point of the program to improve scalability using `prune(K)`.
 

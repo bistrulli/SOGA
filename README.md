@@ -24,7 +24,7 @@ This command will automatically download and install all the required packages. 
 The SOGA's command-line interface provides the following options:
 
 ```bash
-usage: python src/SOGA.py [-h] -f MODELFILE [-o OUTPUTFILE] [-t TIMEOUT] [-c] [-p PARALLEL] [-v [VARS ...]]
+usage: python3 src/SOGA.py [-h] -f MODELFILE [-o OUTPUTFILE] [-t TIMEOUT] [-c] [-p PARALLEL] [-v [VARS ...]]
 ```
 
 Here's a breakdown of each option:

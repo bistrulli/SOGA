@@ -15,7 +15,7 @@
 - For reproducing all the Tables issue the following commands:
 
 ```bash
-cd /root/SOGA/experimemts
+cd /root/SOGA/experiments
 python3 reproduce.py --exp var #Reproduces Table 2
 python3 reproduce.py --exp branch #Reproduces Table 3
 python3 reproduce.py --exp cmp #Reproduces Table 4

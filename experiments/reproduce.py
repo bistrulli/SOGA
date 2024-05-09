@@ -705,7 +705,7 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         err="-"
         sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue=extractvalue(pymcres,sogares)
 
-        if(pymctime!="to" and pymctime!="mem"):
+        if(pymcvalue!="to" and pymcvalue!="mem"):
             pymctime=round_to_n_digit(pymctime,3)
             pymcvalue=round_to_n_digit(pymcvalue,3)
 
@@ -790,7 +790,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             err="-"
             sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==prg].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
-            if(psitime!="to" and psitime!="mem"):
+            if(psivalue!="to" and psivalue!="mem"):
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
@@ -800,7 +800,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 sogac=sogares["#c"]
                 sogad=sogares["#c"]
 
-            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psivalue!="to" and psivalue!="mem" and sogatime!="to" and sogatime!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:
@@ -855,7 +855,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
             err="-"
             sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==re.sub(r"\d+","",prg)].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
-            if(psitime!="to" and psitime!="mem"):
+            if(psivalue!="to" and psivalue!="mem"):
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
@@ -865,7 +865,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 sogac=int(sogares["#c"])
                 sogad=sogares["#c"]
 
-            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psivalue!="to" and psivalue!="mem" and sogatime!="to" and sogatime!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:

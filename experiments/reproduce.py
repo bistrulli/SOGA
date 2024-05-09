@@ -19,8 +19,6 @@ import psutil
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from natsort import natsorted, ns
 
-
-
 exp_timeout = 600
 logging.basicConfig(
     format="%(threadName)s - %(asctime)s - %(levelname)s - %(message)s",
@@ -685,7 +683,10 @@ def monitor_process_and_children(process_id, interval=None):
 
 
 def round_to_n_digit(num,n):
-    rounded_num = round(float(num), n)
+    try:
+        rounded_num = round(float(num), n)
+    except:
+        num
     return f'{{:.{n}f}}'.format(rounded_num)
 
 def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/latexResult/"):
@@ -950,7 +951,7 @@ def main():
         sensBranchesExp()
         renderTable3Tex()
     elif exp == "var":
-        sensVarExp()
+        #sensVarExp()
         renderTable2Tex()
     elif exp == "cmp":
         sensCmpExp()

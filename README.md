@@ -1,11 +1,13 @@
-# SOGA
+# <img src="logo.jpeg" alt="Logo" width="50" height="50" style="margin-bottom: -13px;"> SOGA 
+
 
 This is the user manual for using SOGA, a tool for Inference of Probabilistic Programs by Second-order Gaussian Approximation. SOGA is implemented in Python and depends on several Python packages listed in the `requirements.txt` file.
 
 ## Requirements
 The following tools are required to install and run SOGA:
-- Python 3.9+
-- pip 21.2.4+
+
+- `Python 3.9+`
+- `pip 21.2.4+`
 
 You can download and install Python from the [Python website](https://www.python.org/).
 

@@ -446,9 +446,9 @@ def saveRes(programs=None, tools=None, outPath=None, tableres=None):
         if tool != "soga":
             if val in tableres:
                 if tableres[val][2] == True:
-                    fileline += ',mem,"","",""'
+                    fileline += ',"mem","","",""'
                 elif tableres[val][3] == True:
-                    fileline += ',to,"","",""'
+                    fileline += ',"to","","",""'
                 else:
                     fileline += f',"{tableres[val][0]}","{tableres[val][1]}","",""'
             else:
@@ -639,9 +639,9 @@ def sensParExp():
                 if t.lower() != "soga":
                     if k in tableres:
                         if tableres[k][2] == True:
-                            fileline += ",mem"
+                            fileline += ",'mem'"
                         elif tableres[k][3] == True:
-                            fileline += ",to"
+                            fileline += ",'to'"
                         else:
                             fileline += ",%s,%s" % (
                                 str(tableres[k][0]),
@@ -705,7 +705,7 @@ def renderTable2Tex(respath="./results/varSensitivity.csv",outpath="./results/la
         err="-"
         sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue=extractvalue(pymcres,sogares)
 
-        if(pymcvalue!="to" and pymcvalue!="mem"):
+        if(pymctime!="to" and pymctime!="mem"):
             pymctime=round_to_n_digit(pymctime,3)
             pymcvalue=round_to_n_digit(pymcvalue,3)
 
@@ -790,7 +790,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
             err="-"
             sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==prg].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
-            if(psivalue!="to" and psivalue!="mem"):
+            if(psitime!="to" and psitime!="mem"):
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
@@ -800,7 +800,7 @@ def renderTable3Tex(respath="./results/branchSensitivity.csv",outpath="./results
                 sogac=sogares["#c"]
                 sogad=sogares["#c"]
 
-            if(psivalue!="to" and psivalue!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:
@@ -855,7 +855,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
             err="-"
             sogatime,sogavalue,sogac,sogad,psitime,psivalue=extractvalue(psires[psires["model"]==re.sub(r"\d+","",prg)].iloc[0],sogares[sogares["model"]==prg].iloc[0])
 
-            if(psivalue!="to" and psivalue!="mem"):
+            if(psitime!="to" and psitime!="mem"):
                 psitime=round_to_n_digit(psitime,2)
                 psivalue=round_to_n_digit(psivalue,2)
 
@@ -865,7 +865,7 @@ def renderTable4Tex(respath="./results/cmpSensitivity.csv",outpath="./results/la
                 sogac=int(sogares["#c"])
                 sogad=sogares["#c"]
 
-            if(psivalue!="to" and psivalue!="mem" and sogatime!="to" and sogatime!="mem"):
+            if(psitime!="to" and psitime!="mem" and sogatime!="to" and sogatime!="mem"):
                 if(float(psivalue)==0):
                     err=0
                 else:

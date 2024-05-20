@@ -2,6 +2,7 @@
 import re
 import numpy as np
 from sklearn.mixture import GaussianMixture
+from joblib import parallel_backend
 import tempfile
 from functools import partial
 
@@ -157,14 +158,15 @@ def compileGauss(input_prog):
 
 
 def fitGmm(X=None,ncomp=2):
-	gmm = GaussianMixture(n_components=ncomp,max_iter=1000,n_init=1,
-						  covariance_type='full')#,init_params="k-means++")
-	gmm.fit(X)
+	with parallel_backend('threading', n_jobs=10):
+		gmm = GaussianMixture(n_components=ncomp,max_iter=1000,n_init=1,
+							  covariance_type='full')#,init_params="k-means++")
+		gmm.fit(X)
 
-	# Access parameters
-	means = gmm.means_.flatten()
-	weights = gmm.weights_.flatten()
-	covariances = gmm.covariances_.flatten()
+		# Access parameters
+		means = gmm.means_.flatten()
+		weights = gmm.weights_.flatten()
+		covariances = gmm.covariances_.flatten()
 
 	return weights,means,covariances
 

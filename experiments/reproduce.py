@@ -773,7 +773,7 @@ def extractvalue(pymcres,sogares):
         sogatime=round_to_n_digit(sogatime,3)
         sogavalue=round_to_n_digit(sogavalue,3)
         sogac=int(sogares["#c"])
-        sogad=int(sogares["#c"])
+        sogad=int(sogares["#d"])
 
     return sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue
 

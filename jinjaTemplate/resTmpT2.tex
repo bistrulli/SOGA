@@ -74,7 +74,7 @@ IMT School for Advanced Studies Lucca, Italy
     \ \ \emph{time (s)}  \ \ &  \ \  \emph{value} \ \ & \emph{time (s)} 
     & \ \  \emph{value} \ \  &\ \  $|\%e|$ \ \  \\
     \midrule{% for var_row in varSensitivityRes %}
-        $\textsl{{ '{' }}{{var_row[0]}}{{ '}' }}_{{ '{' }}{{var_row[-1]|int}}{{ '}' }}$ & {{var_row[1]}} & {{var_row[2]}} & {{var_row[3]}} & {{var_row[4]}} &{{var_row[5]}} \\{% endfor %}
+        $\textsl{{ '{' }}{{var_row[0]}}{{ '}' }}_{{ '{' }}{{var_row[-1]}}{{ '}' }}$ & {{var_row[1]}} & {{var_row[2]}} & {{var_row[3]}} & {{var_row[4]}} &{{var_row[5]}} \\{% endfor %}
     \bottomrule
     \end{tabular}
     \label{tab:sensVar}

@@ -772,8 +772,8 @@ def extractvalue(pymcres,sogares):
     if(sogavalue!="to" and sogavalue!="mem"):
         sogatime=round_to_n_digit(sogatime,3)
         sogavalue=round_to_n_digit(sogavalue,3)
-        sogac=sogares["#c"]
-        sogad=sogares["#c"]
+        sogac=int(sogares["#c"])
+        sogad=int(sogares["#c"])
 
     return sogatime,sogavalue,sogac,sogad,pymctime,pymcvalue
 

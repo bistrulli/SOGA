@@ -41,6 +41,8 @@ python3 reproduce.py --exp prune  #Reproduces Table 6
 /root/SOGA/experiments/results/latexResult/
 ```
 
+- The maximum time required to run all the evaluation is ~20h observed when all the experiments reach the timeout of 600s. The expected time is around 10h.
+
 - To copy a generated Table from the container to the host machine, issue the following command
 
 ```bash

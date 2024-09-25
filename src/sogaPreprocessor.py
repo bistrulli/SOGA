@@ -6,7 +6,7 @@ from joblib import parallel_backend
 import tempfile
 from functools import partial
 
-nsamples=int(10**7)
+nsamples=int(10**4)
 computedDist={}
 
 def extractMatch(input_prog,regex):

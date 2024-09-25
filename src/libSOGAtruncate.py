@@ -4,7 +4,7 @@ from libSOGAshared import *
 from TRUNCLexer import *
 from TRUNCParser import *
 from TRUNCListener import *
-import timing
+
 import multiprocessing as mp
 from functools import partial
 
@@ -166,8 +166,8 @@ class TruncRule(TRUNCListener):
         self.var_list = var_list
         self.data = data
         self.type = None
-        self.coeff = [0.]*len(var_list)
-        self.const = 0
+        self.coeff = torch.zeros(len(var_list))
+        self.const = torch.tensor(0.)
         self.func = None
         
         self.aux_pis = []
@@ -177,7 +177,7 @@ class TruncRule(TRUNCListener):
     def enterIneq(self, ctx):
         self.type = ctx.inop().getText()
         if not ctx.const().NUM() is None:
-            self.const = float(ctx.const().NUM().getText())
+            self.const = torch.float(ctx.const().NUM().getText())
         elif not ctx.const().idd() is None:
             self.const = ctx.const().idd().getValue(self.data)
                 
@@ -215,7 +215,7 @@ class TruncRule(TRUNCListener):
                     coeff = self.flag_sign*ctx.const().idd().getValue(self.data)
             else:
                 coeff = self.flag_sign 
-            self.coeff.append(self.flag_sign)            
+            self.coeff.append(coeff)            
             
     def enterSub(self, ctx):
         self.flag_sign = -1.
@@ -239,9 +239,9 @@ class TruncRule(TRUNCListener):
 def truncate(dist, trunc, data):
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
-        return 1., dist
+        return torch.tensor(1.), dist
     elif trunc == 'false':
-        return 0., dist
+        return torch.tensor(0.), dist
     else:
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
         trunc_func = trunc_rule.func

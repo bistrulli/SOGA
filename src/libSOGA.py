@@ -26,7 +26,7 @@ def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
     # initializes current_dist
     var_list = cfg.ID_list
     data = cfg.data
-    gm = GaussianMix([1.], [np.array([0.]*len(var_list))], [np.zeros((len(var_list),len(var_list)))])
+    gm = GaussianMix([1.], [torch.zeros(len(var_list))], [EPS*torch.eye(len(var_list))])
     init_dist = Dist(var_list, gm)
     cfg.root.set_dist(init_dist)
     
@@ -57,7 +57,7 @@ def SOGA(node, data, parallel, exec_queue):
     if node.type == 'entry':
         child = node.children[0]
         child.set_dist(copy(node.dist))
-        child.set_p(1)
+        child.set_p(torch.tensor(1.))
         child.set_trunc(None)
         exec_queue.append(child)
             
@@ -113,12 +113,12 @@ def SOGA(node, data, parallel, exec_queue):
             if node.cond == False:
                 current_trunc = negate(current_trunc) 
             if parallel is not None and parallel >1:
-                p, current_dist = parallel_truncate(current_dist, current_trunc, data,parallel)   ### see libSOGAtruncate
+                p, current_dist = parallel_truncate(current_dist, current_trunc, data, parallel)   ### see libSOGAtruncate
             else:
                 p, current_dist = truncate(current_dist, current_trunc, data) 
             current_trunc = None
             current_p = p*current_p
-        if current_p > prob_tol:
+        if current_p > TOL_PROB:
             current_dist = update_rule(current_dist, node.expr, data)         ### see libSOGAupdate
         if node.children[0].type == 'merge' or node.children[0].type == 'exit':
             node.children[0].list_dist.append((current_p, current_dist))

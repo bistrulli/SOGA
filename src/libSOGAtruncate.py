@@ -215,7 +215,7 @@ class TruncRule(TRUNCListener):
                     coeff = self.flag_sign*ctx.const().idd().getValue(self.data)
             else:
                 coeff = self.flag_sign 
-            self.coeff.append(self.flag_sign)            
+            self.coeff.append(coeff)            
             
     def enterSub(self, ctx):
         self.flag_sign = -1.

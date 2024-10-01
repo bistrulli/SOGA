@@ -21,7 +21,7 @@ import numpy as np
 #from scipy.stats import norm
 #from scipy.stats import truncnorm
 #from scipy.stats import multivariate_normal as mvnorm
-#from itertools import product, chain
+from itertools import product
 
 
 ### TOLERANCE PARAMETERS 
@@ -133,6 +133,45 @@ def mvncdf(x, mean, cov):
         res = torch.exp(mvn.MVNXPB(covariance_matrix=cov, bounds=bounds).solve())
     return res
 
+### CUSTOM CLASS FOR UNIVARIATE TRUNCATED NORMAL
+
+class TruncatedNormal():
+    """ Univariate Truncated Normal distribution. Helps computing moments using torch utils."""
+
+    def __init__(self, loc, scale, a, b):
+        self.loc = loc
+        self.scale = scale
+        self.low_bound = a
+        self.up_bound = b
+
+        # auxiliary normal
+        self.norm = distributions.Normal(self.loc, self.scale)
+
+        # rescaled bounds
+        self.alpha = (self.low_bound - self.loc)/self.scale
+        self.beta = (self.up_bound - self.loc)/self.scale
+        self.phi_alpha = self.norm.log_prob(self.alpha).exp()
+        self.phi_beta = self.norm.log_prob(self.beta).exp()
+
+        # normalization constant
+        self.norm_const = self.norm.cdf(self.up_bound) - self.norm.cdf(self.low_bound)
+
+    # mean
+    def mean(self):
+        return self.loc + self.scale*(self.phi_alpha - self.phi_beta)/self.norm_const
+
+    # variance
+    def var(self):
+        
+        if self.phi_beta != 0:
+            prod_beta = self.beta * self.phi_beta
+        else:
+            prod_beta = torch.tensor(0.)
+        if self.phi_alpha != 0:
+            prod_alpha = self.alpha * self.phi_alpha
+        else:
+            prod_alpha = torch.tensor(0.)   
+        return self.scale**2*(torch.tensor(1.) - (prod_beta - prod_alpha)/self.norm_const - ((self.phi_alpha - self.phi_beta)/self.norm_const)**2)
         
 ### FUNCTIONS FOR NUMERICAL STABILITY OF COVARIANCE MATRICES
 

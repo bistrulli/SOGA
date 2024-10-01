@@ -6,7 +6,6 @@ from TRUNCParser import *
 from TRUNCListener import *
 
 import multiprocessing as mp
-from functools import partial
 
 pool=None
 

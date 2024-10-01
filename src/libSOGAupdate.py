@@ -10,6 +10,77 @@ from ASGMTListener import *
 from ASGMTParser import * 
 from ASGMTLexer import *
 
+def mul_func(self, comp):
+    i = self.target
+    j, k = self.mul_idx
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    
+    for part in product(*[range(len(mean)) for mean in self.aux_means]):
+        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
+        # creates the extended vector of moments (with auxiliary variables)
+        aux_pi = 1
+        aux_mean = torch.clone(mu)
+        aux_sigma = torch.tensor([])
+        for p,q in zip(range(len(self.aux_means)), part):
+            aux_pi = aux_pi*self.aux_pis[p][q]
+            aux_mean = torch.hstack([aux_mean, self.aux_means[p][q]])
+            aux_sigma = torch.hstack([aux_sigma, self.aux_covs[p][q]])
+        aux_sigma = torch.diag(aux_sigma)
+        aux_cov = torch.vstack([torch.hstack([sigma, torch.zeros((len(sigma), len(aux_sigma)))]), torch.hstack([torch.zeros((len(aux_sigma), len(sigma))), aux_sigma])])
+        # STEP 2: computes mean and covariance matrix for the extended component
+        new_mu = torch.clone(mu)
+        new_mu[i] = (aux_cov[j,k] + aux_mean[j]*aux_mean[k])
+        new_sigma = torch.clone(sigma)
+        new_sigma[i,:] = new_sigma[:,i] = (aux_mean[j]*aux_cov[k,:] + aux_mean[k]*aux_cov[j,:])[:len(mu)] 
+        new_sigma[i,i] = (aux_cov[j,k]**2 + 2*aux_cov[j,k]*aux_mean[j]*aux_mean[k] + aux_cov[j,j]*aux_cov[k,k] + aux_cov[j,j]*aux_mean[k]**2 + aux_cov[k,k]*aux_mean[j]**2)
+        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
+        final_pi.append(aux_pi)
+        final_mu.append(new_mu)
+        final_sigma.append(new_sigma)
+    return Dist(comp.var_list, GaussianMix(final_pi, final_mu, final_sigma))
+
+def add_func(self, comp):
+    
+    i = self.target
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    
+    for part in product(*[range(len(mean)) for mean in self.aux_means]):
+        
+        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
+        aux_pi = 1
+        aux_mean = torch.clone(mu)
+        aux_sigma = torch.tensor([])
+        for p,q in zip(range(len(self.aux_means)), part):
+            aux_pi = aux_pi*self.aux_pis[p][q]
+            aux_mean = torch.hstack([aux_mean, self.aux_means[p][q]])
+            aux_sigma = torch.hstack([aux_sigma, self.aux_covs[p][q]])
+        aux_sigma = torch.diag(aux_sigma)
+        aux_cov = torch.vstack([torch.hstack([sigma, torch.zeros((len(sigma), len(aux_sigma)))]), torch.hstack([torch.zeros((len(aux_sigma), len(sigma))), aux_sigma])])
+        
+        # STEP 2: computes mean and covariance matrix for the extended component
+        new_mu = torch.clone(mu)
+        
+        new_mu[i] = torch.dot(self.add_coeff, aux_mean) + self.add_const
+        new_sigma = torch.clone(sigma)
+        new_sigma[i,:] = new_sigma[:,i] = torch.mm(self.add_coeff.reshape((1, len(self.add_coeff))), aux_cov).flatten()[:len(mu)]
+        new_sigma[i,i] = torch.mm(torch.mm(self.add_coeff.reshape((1, len(self.add_coeff))), aux_cov), self.add_coeff.reshape((len(self.add_coeff),1)))
+        
+        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
+        final_pi.append(aux_pi)
+        final_mu.append(new_mu)
+        final_sigma.append(new_sigma)
+    
+    return Dist(comp.var_list, GaussianMix(final_pi, final_mu, final_sigma))
+
+
 class AsgmtRule(ASGMTListener):
     
     def __init__(self, var_list, data):
@@ -29,7 +100,6 @@ class AsgmtRule(ASGMTListener):
    
        
     def enterAdd(self, ctx):
-        
         if len(ctx.add_term())==1 and len(ctx.add_term(0).term()) == 2:
             self.is_prod = 1
             for term in ctx.add_term(0).term():
@@ -37,58 +107,25 @@ class AsgmtRule(ASGMTListener):
         if self.is_prod:
             self.mul_idx = []
         else:
-            self.add_coeff = [0.]*len(self.var_list)
-            self.add_const = 0
-            
-            
+            self.add_coeff = torch.zeros(len(self.var_list))
+            self.add_const = torch.tensor(0.)
+    
     def enterAdd_term(self,ctx):
         # product between variables
         if self.is_prod:
             for term in ctx.term():
                 if not term.gm() is None:
-                    self.aux_pis.append(eval(term.gm().list_()[0].getText()))
-                    self.aux_means.append(eval(term.gm().list_()[1].getText()))
-                    self.aux_covs.append(np.array(eval(term.gm().list_()[2].getText()))**2)
+                    self.aux_pis.append(torch.tensor(eval(term.gm().list_()[0].getText())))
+                    self.aux_means.append(torch.tensor(eval(term.gm().list_()[1].getText())))
+                    self.aux_covs.append(torch.pow(torch.tensor(eval(term.gm().list_()[2].getText())),2))
                     self.mul_idx.append(int(len(self.var_list)+len(self.aux_pis)-1))
                 elif not term.symvars() is None:
                     self.mul_idx.append(self.var_list.index(term.symvars().getVar(self.data)))
-            
-            def mul_func(comp):
-                i = self.target
-                j, k = self.mul_idx
-                mu = comp.gm.mu[0]
-                sigma = comp.gm.sigma[0]
-                final_pi = []
-                final_mu = []
-                final_sigma = []
-                for part in product(*[range(len(mean)) for mean in self.aux_means]):
-                    # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
-                    aux_pi = 1
-                    aux_mean = list(copy(mu))
-                    aux_sigma = []
-                    for p,q in zip(range(len(self.aux_means)), part):
-                        aux_pi = aux_pi*self.aux_pis[p][q]
-                        aux_mean.append(self.aux_means[p][q])
-                        aux_sigma.append(self.aux_covs[p][q])
-                    aux_mean = np.array(aux_mean)
-                    aux_sigma = np.diag(aux_sigma)
-                    aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-                    # STEP 2: computes mean and covariance matrix for the extended component
-                    new_mu = copy(mu)
-                    new_mu[i] = (aux_cov[j,k] + aux_mean[j]*aux_mean[k])
-                    new_sigma = copy(sigma)
-                    new_sigma[i,:] = new_sigma[:,i] = (aux_mean[j]*aux_cov[k,:] + aux_mean[k]*aux_cov[j,:])[:len(mu)] 
-                    new_sigma[i,i] = (aux_cov[j,k]**2 + 2*aux_cov[j,k]*aux_mean[j]*aux_mean[k] + aux_cov[j,j]*aux_cov[k,k] + aux_cov[j,j]*aux_mean[k]**2 + aux_cov[k,k]*aux_mean[j]**2)
-                    # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
-                    final_pi.append(aux_pi)
-                    final_mu.append(new_mu)
-                    final_sigma.append(new_sigma)
-                return GaussianMix(final_pi, final_mu, final_sigma)
-                        
-            self.func = mul_func
+            self.func = partial(mul_func,self)
         # linear combination
         else:
-            coeff = 1
+            # collects the coefficients of the linear combination
+            coeff = torch.tensor(1.)
             var_idx = None
             for term in ctx.term():
                 if term.sub() is not None:
@@ -100,79 +137,23 @@ class AsgmtRule(ASGMTListener):
                 elif not term.symvars() is None:
                     var_idx = self.var_list.index(term.symvars().getVar(self.data))
                 elif not term.gm() is None:
-                    self.aux_pis.append(eval(term.gm().list_()[0].getText()))
-                    self.aux_means.append(eval(term.gm().list_()[1].getText()))
-                    self.aux_covs.append(np.array(eval(term.gm().list_()[2].getText()))**2)
+                    self.aux_pis.append(torch.tensor(eval(term.gm().list_()[0].getText())))
+                    self.aux_means.append(torch.tensor(eval(term.gm().list_()[1].getText())))
+                    self.aux_covs.append(torch.pow(torch.tensor(eval(term.gm().list_()[2].getText())),2))
                     var_idx = len(self.add_coeff) + 1
             if not var_idx is None:
                 if var_idx < len(self.add_coeff):
                     self.add_coeff[var_idx] = coeff
                 else:
-                    self.add_coeff.append(coeff)
+                    self.add_coeff = torch.hstack([self.add_coeff, coeff])
             else:
                 self.add_const = self.add_const + coeff
                                 
     def exitAdd(self, ctx):
         if not self.is_prod:
-            if not np.all(np.array(self.add_coeff) == 0):
-                
-                def add_func(comp):
-                    i = self.target
-                    mu = comp.gm.mu[0]
-                    sigma = comp.gm.sigma[0]
-                    final_pi = []
-                    final_mu = []
-                    final_sigma = []
-                    for part in product(*[range(len(mean)) for mean in self.aux_means]):
-                        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
-                        aux_pi = 1
-                        aux_mean = list(copy(mu))
-                        aux_sigma = []
-                        for p,q in zip(range(len(self.aux_means)), part):
-                            aux_pi = aux_pi*self.aux_pis[p][q]
-                            aux_mean.append(self.aux_means[p][q])
-                            aux_sigma.append(self.aux_covs[p][q])
-                        aux_mean = np.array(aux_mean)
-                        aux_sigma = np.diag(aux_sigma)
-                        aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-                        # STEP 2: computes mean and covariance matrix for the extended component
-                        # implementation 1
-                        #A = np.eye(len(aux_mean)) 
-                        #A[i,:] = np.array(self.add_coeff)
-                        #b = np.zeros(len(aux_mean))
-                        #b[i] = self.add_const
-                        #new_mu = A.dot(aux_mean) + b
-                        #new_mu = new_mu[:len(mu)]
-                        #new_sigma = A.dot(aux_cov).dot(np.transpose(A))
-                        #new_sigma = new_sigma[:len(mu),:len(mu)]
-                        # implementation 2
-                        new_mu = copy(mu)
-                        new_mu[i] = np.array(self.add_coeff).dot(aux_mean) + np.array(self.add_const)
-                        new_sigma = copy(sigma)
-                        new_sigma[i,:] = new_sigma[:,i] = np.array(self.add_coeff).dot(aux_cov)[:len(mu)]
-                        new_sigma[i,i] = np.array(self.add_coeff).dot(aux_cov).dot(np.array(self.add_coeff))
-                        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
-                        final_pi.append(aux_pi)
-                        final_mu.append(new_mu)
-                        final_sigma.append(new_sigma)
-                    return GaussianMix(final_pi, final_mu, final_sigma)
-            
-                self.func = add_func
-            
-            else:
-                
-                c = self.add_const
-                
-                def const_func(comp):
-                    i = self.target
-                    new_mu = copy(comp.gm.mu[0])
-                    new_sigma = copy(comp.gm.sigma[0])
-                    new_mu[i] = c
-                    new_sigma[i,:] = np.zeros(len(new_mu))
-                    new_sigma[:,i] = np.zeros(len(new_mu))
-                    return GaussianMix(comp.gm.pi, [new_mu], [new_sigma])
-            
-                self.func = const_func
+            if not torch.all(self.add_coeff == 0):
+                self.func = partial(add_func, self)
+            # here there was a part implementing constant assignment, but I removed it because everything must be differentiable
         
     
 def asgmt_parse(var_list, expr, data):
@@ -200,9 +181,9 @@ def update_rule(dist, expr, data):
         for k in range(dist.gm.n_comp()):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             new_mix = rule_func(comp)
-            new_pi += list(dist.gm.pi[k]*np.array(new_mix.pi))
-            new_mu += new_mix.mu
-            new_sigma += new_mix.sigma
+            new_pi += list(dist.gm.pi[k]*np.array(new_mix.gm.pi))
+            new_mu += new_mix.gm.mu
+            new_sigma += new_mix.gm.sigma
         return Dist(dist.var_list, GaussianMix(new_pi, new_mu, new_sigma))
     
     

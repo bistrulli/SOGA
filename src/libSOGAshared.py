@@ -20,6 +20,8 @@ from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import multivariate_normal as mvnorm
 from itertools import product, chain
+from functools import partial
+
 
 from time import time
 

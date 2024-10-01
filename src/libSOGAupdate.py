@@ -10,6 +10,88 @@ from ASGMTListener import *
 from ASGMTParser import * 
 from ASGMTLexer import *
 
+def mul_func(self, comp):
+    i = self.target
+    j, k = self.mul_idx
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    for part in product(*[range(len(mean)) for mean in self.aux_means]):
+        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
+        aux_pi = 1
+        aux_mean = list(copy(mu))
+        aux_sigma = []
+        for p,q in zip(range(len(self.aux_means)), part):
+            aux_pi = aux_pi*self.aux_pis[p][q]
+            aux_mean.append(self.aux_means[p][q])
+            aux_sigma.append(self.aux_covs[p][q])
+        aux_mean = np.array(aux_mean)
+        aux_sigma = np.diag(aux_sigma)
+        aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
+        # STEP 2: computes mean and covariance matrix for the extended component
+        new_mu = copy(mu)
+        new_mu[i] = (aux_cov[j,k] + aux_mean[j]*aux_mean[k])
+        new_sigma = copy(sigma)
+        new_sigma[i,:] = new_sigma[:,i] = (aux_mean[j]*aux_cov[k,:] + aux_mean[k]*aux_cov[j,:])[:len(mu)] 
+        new_sigma[i,i] = (aux_cov[j,k]**2 + 2*aux_cov[j,k]*aux_mean[j]*aux_mean[k] + aux_cov[j,j]*aux_cov[k,k] + aux_cov[j,j]*aux_mean[k]**2 + aux_cov[k,k]*aux_mean[j]**2)
+        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
+        final_pi.append(aux_pi)
+        final_mu.append(new_mu)
+        final_sigma.append(new_sigma)
+    return GaussianMix(final_pi, final_mu, final_sigma)
+
+def add_func(self, comp):
+    i = self.target
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    for part in product(*[range(len(mean)) for mean in self.aux_means]):
+        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
+        aux_pi = 1
+        aux_mean = list(copy(mu))
+        aux_sigma = []
+        for p,q in zip(range(len(self.aux_means)), part):
+            aux_pi = aux_pi*self.aux_pis[p][q]
+            aux_mean.append(self.aux_means[p][q])
+            aux_sigma.append(self.aux_covs[p][q])
+        aux_mean = np.array(aux_mean)
+        aux_sigma = np.diag(aux_sigma)
+        aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
+        # STEP 2: computes mean and covariance matrix for the extended component
+        # implementation 1
+        #A = np.eye(len(aux_mean)) 
+        #A[i,:] = np.array(self.add_coeff)
+        #b = np.zeros(len(aux_mean))
+        #b[i] = self.add_const
+        #new_mu = A.dot(aux_mean) + b
+        #new_mu = new_mu[:len(mu)]
+        #new_sigma = A.dot(aux_cov).dot(np.transpose(A))
+        #new_sigma = new_sigma[:len(mu),:len(mu)]
+        # implementation 2
+        new_mu = copy(mu)
+        new_mu[i] = np.array(self.add_coeff).dot(aux_mean) + np.array(self.add_const)
+        new_sigma = copy(sigma)
+        new_sigma[i,:] = new_sigma[:,i] = np.array(self.add_coeff).dot(aux_cov)[:len(mu)]
+        new_sigma[i,i] = np.array(self.add_coeff).dot(aux_cov).dot(np.array(self.add_coeff))
+        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
+        final_pi.append(aux_pi)
+        final_mu.append(new_mu)
+        final_sigma.append(new_sigma)
+    return GaussianMix(final_pi, final_mu, final_sigma)
+
+def const_func(self, comp):
+    i = self.target
+    new_mu = copy(comp.gm.mu[0])
+    new_sigma = copy(comp.gm.sigma[0])
+    new_mu[i] = c
+    new_sigma[i,:] = np.zeros(len(new_mu))
+    new_sigma[:,i] = np.zeros(len(new_mu))
+    return GaussianMix(comp.gm.pi, [new_mu], [new_sigma])
+
 class AsgmtRule(ASGMTListener):
     
     def __init__(self, var_list, data):
@@ -52,40 +134,7 @@ class AsgmtRule(ASGMTListener):
                     self.mul_idx.append(int(len(self.var_list)+len(self.aux_pis)-1))
                 elif not term.symvars() is None:
                     self.mul_idx.append(self.var_list.index(term.symvars().getVar(self.data)))
-            
-            def mul_func(comp):
-                i = self.target
-                j, k = self.mul_idx
-                mu = comp.gm.mu[0]
-                sigma = comp.gm.sigma[0]
-                final_pi = []
-                final_mu = []
-                final_sigma = []
-                for part in product(*[range(len(mean)) for mean in self.aux_means]):
-                    # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
-                    aux_pi = 1
-                    aux_mean = list(copy(mu))
-                    aux_sigma = []
-                    for p,q in zip(range(len(self.aux_means)), part):
-                        aux_pi = aux_pi*self.aux_pis[p][q]
-                        aux_mean.append(self.aux_means[p][q])
-                        aux_sigma.append(self.aux_covs[p][q])
-                    aux_mean = np.array(aux_mean)
-                    aux_sigma = np.diag(aux_sigma)
-                    aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-                    # STEP 2: computes mean and covariance matrix for the extended component
-                    new_mu = copy(mu)
-                    new_mu[i] = (aux_cov[j,k] + aux_mean[j]*aux_mean[k])
-                    new_sigma = copy(sigma)
-                    new_sigma[i,:] = new_sigma[:,i] = (aux_mean[j]*aux_cov[k,:] + aux_mean[k]*aux_cov[j,:])[:len(mu)] 
-                    new_sigma[i,i] = (aux_cov[j,k]**2 + 2*aux_cov[j,k]*aux_mean[j]*aux_mean[k] + aux_cov[j,j]*aux_cov[k,k] + aux_cov[j,j]*aux_mean[k]**2 + aux_cov[k,k]*aux_mean[j]**2)
-                    # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
-                    final_pi.append(aux_pi)
-                    final_mu.append(new_mu)
-                    final_sigma.append(new_sigma)
-                return GaussianMix(final_pi, final_mu, final_sigma)
-                        
-            self.func = mul_func
+            self.func = partial(mul_func, self)
         # linear combination
         else:
             coeff = 1
@@ -114,65 +163,12 @@ class AsgmtRule(ASGMTListener):
                                 
     def exitAdd(self, ctx):
         if not self.is_prod:
-            if not np.all(np.array(self.add_coeff) == 0):
-                
-                def add_func(comp):
-                    i = self.target
-                    mu = comp.gm.mu[0]
-                    sigma = comp.gm.sigma[0]
-                    final_pi = []
-                    final_mu = []
-                    final_sigma = []
-                    for part in product(*[range(len(mean)) for mean in self.aux_means]):
-                        # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
-                        aux_pi = 1
-                        aux_mean = list(copy(mu))
-                        aux_sigma = []
-                        for p,q in zip(range(len(self.aux_means)), part):
-                            aux_pi = aux_pi*self.aux_pis[p][q]
-                            aux_mean.append(self.aux_means[p][q])
-                            aux_sigma.append(self.aux_covs[p][q])
-                        aux_mean = np.array(aux_mean)
-                        aux_sigma = np.diag(aux_sigma)
-                        aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-                        # STEP 2: computes mean and covariance matrix for the extended component
-                        # implementation 1
-                        #A = np.eye(len(aux_mean)) 
-                        #A[i,:] = np.array(self.add_coeff)
-                        #b = np.zeros(len(aux_mean))
-                        #b[i] = self.add_const
-                        #new_mu = A.dot(aux_mean) + b
-                        #new_mu = new_mu[:len(mu)]
-                        #new_sigma = A.dot(aux_cov).dot(np.transpose(A))
-                        #new_sigma = new_sigma[:len(mu),:len(mu)]
-                        # implementation 2
-                        new_mu = copy(mu)
-                        new_mu[i] = np.array(self.add_coeff).dot(aux_mean) + np.array(self.add_const)
-                        new_sigma = copy(sigma)
-                        new_sigma[i,:] = new_sigma[:,i] = np.array(self.add_coeff).dot(aux_cov)[:len(mu)]
-                        new_sigma[i,i] = np.array(self.add_coeff).dot(aux_cov).dot(np.array(self.add_coeff))
-                        # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
-                        final_pi.append(aux_pi)
-                        final_mu.append(new_mu)
-                        final_sigma.append(new_sigma)
-                    return GaussianMix(final_pi, final_mu, final_sigma)
-            
-                self.func = add_func
+            if not np.all(np.array(self.add_coeff) == 0):            
+                self.func = partial(add_func, self)
             
             else:
-                
                 c = self.add_const
-                
-                def const_func(comp):
-                    i = self.target
-                    new_mu = copy(comp.gm.mu[0])
-                    new_sigma = copy(comp.gm.sigma[0])
-                    new_mu[i] = c
-                    new_sigma[i,:] = np.zeros(len(new_mu))
-                    new_sigma[:,i] = np.zeros(len(new_mu))
-                    return GaussianMix(comp.gm.pi, [new_mu], [new_sigma])
-            
-                self.func = const_func
+                self.func = partial(const_func, self)
         
     
 def asgmt_parse(var_list, expr, data):

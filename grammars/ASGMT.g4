@@ -5,7 +5,7 @@ assignment: symvars '=' add;
 add: add_term (('+')? add_term)*?;
 add_term: (term '*')? term;
 
-term: NUM | sub? symvars | sub? gm;
+term: sub? NUM | sub? symvars | sub? gm;
 symvars : IDV | idd;
 idd : IDV '[' (NUM | IDV) ']';
 gm: 'gm(' list ',' list ',' list ')';

@@ -417,7 +417,7 @@ class ASGMTParser ( Parser ):
                 if self.idd().IDV(1) is None:
                     return self.getText()
                 else:
-                    data_idx = data[self.idd().IDV(1).getText()][0]
+                    data_idx = int(data[self.idd().IDV(1).getText()][0].item())
                 return self.idd().IDV(0).getText()+'['+str(data_idx)+']'
                     
         def IDV(self):

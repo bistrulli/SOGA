@@ -57,7 +57,7 @@ class GaussianMix():
         return str_repr
     
     def comp(self, k):
-        return GaussianMix([torch.tensor(1.)], [self.mu[k]], [self.sigma[k]])
+        return GaussianMix([torch.tensor(1.)], [torch.clone(self.mu[k])], [torch.clone(self.sigma[k])])
         
     # Pdfs 
     def comp_pdf(self, x, k):
@@ -72,19 +72,24 @@ class GaussianMix():
             return torch.exp(distributions.Normal(self.mu[k], torch.sqrt(self.sigma[k])).log_prob(x))
             
     def marg_comp_pdf(self, x, k, idx):
-        try:
-            return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
-        except ValueError:
-            print('Degenerate covariance matrix, I will proceed to correct it')
-            self.sigma[k] = make_psd(self.sigma[k])
-            return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
+        return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
+        #except ValueError:
+        #    print('Degenerate covariance matrix, I will proceed to correct it')
+        #    self.sigma[k] = make_psd(self.sigma[k])
+        #    return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
     
     def pdf(self, x):
-        return torch.sum([self.pi[k]*self.comp_pdf(x,k) for k in range(self.n_comp())])
-    
+        pdf = torch.tensor([0.])
+        for k in range(self.n_comp()):
+            pdf += self.pi[k]*self.comp_pdf(x,k)
+        return pdf 
+        
     def marg_pdf(self, x, idx):
-        return torch.sum([self.pi[k]*self.marg_comp_pdf(x,k,idx) for k in range(self.n_comp())])
-
+        marg = torch.tensor([0.])
+        for k in range(self.n_comp()):
+            marg += self.pi[k]*self.marg_comp_pdf(x,k,idx) 
+        return marg
+        
     # Cdfs
     def comp_cdf(self, x, k):
         if self.n_dim() > 1:
@@ -96,11 +101,16 @@ class GaussianMix():
         return distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).cdf(x)
         
     def cdf(self, x):
-        return torch.sum([self.pi[k]*self.comp_cdf(x,k) for k in range(self.n_comp())])
+        cdf = torch.tensor([0.])
+        for k in range(self.n_comp()):
+            cdf += self.pi[k]*self.comp_cdf(x,k) 
+        return cdf
     
     def marg_cdf(self, x, idx):
-        return torch.sum([self.pi[k]*self.marg_comp_cdf(x,k,idx) for k in range(self.n_comp())])
-      
+        marg = torch.tensor([0.])
+        for k in range(self.n_comp()):
+            marg += self.pi[k]*self.marg_comp_cdf(x,k,idx) 
+        return marg      
     
     # Moments of mixtures
     def mean(self):

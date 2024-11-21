@@ -55,7 +55,7 @@ def add_func(self, comp):
     for part in product(*[range(len(mean)) for mean in self.aux_means]):
         
         # STEP 1: for a given combination of components of the auxiliary variables, creates a new component extending comp
-        aux_pi = 1
+        aux_pi = torch.tensor(1.)
         aux_mean = torch.clone(mu)
         aux_sigma = torch.tensor([])
         for p,q in zip(range(len(self.aux_means)), part):
@@ -64,15 +64,14 @@ def add_func(self, comp):
             aux_sigma = torch.hstack([aux_sigma, self.aux_covs[p][q]])
         aux_sigma = torch.diag(aux_sigma)
         aux_cov = torch.vstack([torch.hstack([sigma, torch.zeros((len(sigma), len(aux_sigma)))]), torch.hstack([torch.zeros((len(aux_sigma), len(sigma))), aux_sigma])])
-        
+
         # STEP 2: computes mean and covariance matrix for the extended component
         new_mu = torch.clone(mu)
-        
         new_mu[i] = torch.dot(self.add_coeff, aux_mean) + self.add_const
         new_sigma = torch.clone(sigma)
         new_sigma[i,:] = new_sigma[:,i] = torch.mm(self.add_coeff.reshape((1, len(self.add_coeff))), aux_cov).flatten()[:len(mu)]
         new_sigma[i,i] = torch.mm(torch.mm(self.add_coeff.reshape((1, len(self.add_coeff))), aux_cov), self.add_coeff.reshape((len(self.add_coeff),1)))
-        
+                    
         # STEP 3: appends weight, new mean and new covariance matrix to the final vectors
         final_pi.append(aux_pi)
         final_mu.append(new_mu)
@@ -170,7 +169,6 @@ def asgmt_parse(var_list, expr, data):
         
 def update_rule(dist, expr, data):
     """ Applies expr to dist. It first parses expr using the function asgmt_parse, implemented as an ANTLR listener. asgmt_parse returns a function rule_func, such that, rule_func(GaussianMix) returns a new GaussianMix object obtained applying expr to the initial distribution. rule_func is applied to each component of dist, and the resulting Gaussian mixtures are stored in a single GaussianMix object."""
-    
     if expr == 'skip':
         return dist
     else:

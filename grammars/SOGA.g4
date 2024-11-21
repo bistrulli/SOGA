@@ -11,19 +11,19 @@ instr : assignment | conditional | prune | observe | loop;
 assignment: symvars '=' (const | add | mul) | 'skip';
 
 const: const_term (('+'|'-') const_term)*?;
-const_term: (NUM | idd) ('*' (NUM | idd))?;
+const_term: (NUM | par | idd) ('*' (NUM | idd | par))?;
 add: add_term (('+'|'-') add_term)*?;
-add_term: ((NUM | idd) '*')? vars | const_term;
-mul: ((NUM | idd) '*')? vars '*' vars;
+add_term: ((NUM | idd | par) '*')? vars | const_term;
+mul: ((NUM | idd | par) '*')? vars '*' vars;
 
 conditional: ifclause elseclause 'end if';
 
 ifclause : 'if' bexpr '{' block '}';
 elseclause : 'else' '{' block '}';
 block : (instr ';')+;
-bexpr : lexpr ('<'|'<='|'>='|'>') (NUM | idd) | symvars ('=='|'!=') (NUM | idd);
+bexpr : lexpr ('<'|'<='|'>='|'>') (NUM | idd | par) | symvars ('=='|'!=') (NUM | idd | par);
 lexpr: monom (('+'|'-') monom)*?;
-monom: ((NUM | idd) '*')? vars;
+monom: ((NUM | idd | par) '*')? vars;
 
 prune : 'prune(' NUM ')';
 
@@ -31,14 +31,14 @@ observe: 'observe(' bexpr ')';
 
 loop : 'for' IDV 'in range(' (NUM | idd) ')' '{' block '}' 'end for';
 
-expr : lexpr | (NUM '*')? vars '*' vars | vars '^2' ;
-
 vars: symvars | gm | uniform;
 idd: IDV '[' (NUM | IDV) ']';
 symvars : IDV | idd;
 gm: 'gm(' list ',' list ',' list ')';
 uniform: 'uniform(' list ',' NUM ')';
-list: '[' NUM (',' NUM)*? ']';
+list: '[' (NUM | par) (',' (NUM | par))*? ']';
+
+par: '_' IDV;
 
 IDV : ALPHA (ALPHA|DIGIT)*;
 NUM : '-'? DIGIT+ ('.' DIGIT*)?;

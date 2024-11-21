@@ -173,7 +173,7 @@ def fitGmm(X=None,ncomp=2):
 def compile2SOGA(input_prog):
     progr=open(input_prog,"r").read()
     progr=compileExpRnd(input_prog=progr)
-    progr=compileUniform(input_prog=progr)
+    #progr=compileUniform(input_prog=progr)
     progr=compileBeta(input_prog=progr)
     progr=compileLaplace(input_prog=progr)
 

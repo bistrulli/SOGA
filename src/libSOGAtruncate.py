@@ -10,7 +10,7 @@ import multiprocessing as mp
 pool=None
 
 def ineq_func(self,comp):
-    
+
     # mean, and variance of the component
     mu = comp.gm.mu[0]
     sigma = comp.gm.sigma[0]
@@ -82,7 +82,7 @@ def ineq_func(self,comp):
         final_pi.append(aux_pi*new_P)   # contains original weight of the component * prob. of the component being in the trunc
         final_mu.append(new_mu)
         final_sigma.append(new_sigma)
-        
+
     return Dist(comp.var_list, GaussianMix(final_pi, final_mu, final_sigma))
 
 def eq_func(self,comp):
@@ -265,7 +265,7 @@ def truncate(dist, trunc, data):
         # renormalizing
         norm_factor = torch.sum(torch.tensor(new_pi))
         if norm_factor > TOL_PROB:
-            new_dist.gm.pi = list(np.array(new_pi)/norm_factor)
+            new_dist.gm.pi = list(torch.tensor(new_pi)/norm_factor)
         return norm_factor, new_dist
 
 

@@ -89,5 +89,14 @@ class ASGMTListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ASGMTParser#par.
+    def enterPar(self, ctx:ASGMTParser.ParContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#par.
+    def exitPar(self, ctx:ASGMTParser.ParContext):
+        pass
+
+
 
 del ASGMTParser

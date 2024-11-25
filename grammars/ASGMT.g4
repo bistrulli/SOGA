@@ -5,13 +5,15 @@ assignment: symvars '=' add;
 add: add_term (('+')? add_term)*?;
 add_term: (term '*')? term;
 
-term: NUM | sub? symvars | sub? gm;
+term: NUM | par | sub? symvars | sub? gm;
 symvars : IDV | idd;
 idd : IDV '[' (NUM | IDV) ']';
 gm: 'gm(' list ',' list ',' list ')';
-list: '[' NUM (',' NUM)*? ']';
+list: '[' (NUM | par) (',' (NUM | par))*? ']';
 
 sub: '-';
+
+par: '_' IDV;
 
 IDV : ALPHA (ALPHA|DIGIT)*;
 NUM : ('-')? DIGIT+ ('.' DIGIT*)?;

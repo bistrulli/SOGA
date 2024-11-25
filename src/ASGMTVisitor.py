@@ -54,5 +54,10 @@ class ASGMTVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ASGMTParser#par.
+    def visitPar(self, ctx:ASGMTParser.ParContext):
+        return self.visitChildren(ctx)
+
+
 
 del ASGMTParser

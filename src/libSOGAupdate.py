@@ -82,9 +82,10 @@ def add_func(self, comp):
 
 class AsgmtRule(ASGMTListener):
     
-    def __init__(self, var_list, data):
+    def __init__(self, var_list, data, params_dict):
         self.var_list = var_list
         self.data = data
+        self.params = params_dict
         self.func = None           # stores the function
         self.target = None         # stores the index of the target variable
         
@@ -99,6 +100,7 @@ class AsgmtRule(ASGMTListener):
    
        
     def enterAdd(self, ctx):
+        # a product is a single add_term in which the terms are both variables
         if len(ctx.add_term())==1 and len(ctx.add_term(0).term()) == 2:
             self.is_prod = 1
             for term in ctx.add_term(0).term():
@@ -108,6 +110,7 @@ class AsgmtRule(ASGMTListener):
         else:
             self.add_coeff = torch.zeros(len(self.var_list))
             self.add_const = torch.tensor(0.)
+        print(self.is_prod)
     
     def enterAdd_term(self,ctx):
         # product between variables
@@ -136,9 +139,9 @@ class AsgmtRule(ASGMTListener):
                 elif not term.symvars() is None:
                     var_idx = self.var_list.index(term.symvars().getVar(self.data))
                 elif not term.gm() is None:
-                    self.aux_pis.append(torch.tensor(eval(term.gm().list_()[0].getText())))
-                    self.aux_means.append(torch.tensor(eval(term.gm().list_()[1].getText())))
-                    self.aux_covs.append(torch.pow(torch.tensor(eval(term.gm().list_()[2].getText())),2))
+                    self.aux_pis.append(term.gm().list_()[0].unpack(self.params))
+                    self.aux_means.append(term.gm().list_()[1].unpack(self.params))
+                    self.aux_covs.append(torch.pow(term.gm().list_()[2].unpack(self.params),2))
                     var_idx = len(self.add_coeff) + 1
             if not var_idx is None:
                 if var_idx < len(self.add_coeff):
@@ -155,24 +158,24 @@ class AsgmtRule(ASGMTListener):
             # here there was a part implementing constant assignment, but I removed it because everything must be differentiable
         
     
-def asgmt_parse(var_list, expr, data):
+def asgmt_parse(var_list, expr, data, params_dict):
     """ Parses expr using ANTLR4. Returns a function """
     lexer = ASGMTLexer(InputStream(expr))
     stream = CommonTokenStream(lexer)
     parser = ASGMTParser(stream)
     tree = parser.assignment()
-    asgmt_rule = AsgmtRule(var_list, data)
+    asgmt_rule = AsgmtRule(var_list, data, params_dict)
     walker = ParseTreeWalker()
     walker.walk(asgmt_rule, tree) 
     return asgmt_rule.func
         
         
-def update_rule(dist, expr, data):
+def update_rule(dist, expr, data, params_dict):
     """ Applies expr to dist. It first parses expr using the function asgmt_parse, implemented as an ANTLR listener. asgmt_parse returns a function rule_func, such that, rule_func(GaussianMix) returns a new GaussianMix object obtained applying expr to the initial distribution. rule_func is applied to each component of dist, and the resulting Gaussian mixtures are stored in a single GaussianMix object."""
     if expr == 'skip':
         return dist
     else:
-        rule_func = asgmt_parse(dist.var_list, expr, data)    # define function
+        rule_func = asgmt_parse(dist.var_list, expr, data, params_dict)    # define function
         new_pi = []
         new_mu = []
         new_sigma = []

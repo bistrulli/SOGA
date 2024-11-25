@@ -23,17 +23,17 @@ def copy_dist(dist):
     new_dist.gm.sigma = [torch.clone(s) for s in dist.gm.sigma]
     return new_dist
 
-def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
+def start_SOGA(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None,useR=False):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
         If pruning='classic' implements pruning at the merge nodes with maximum number of component Kmax.
         Returns an object Dist (defined in libSOGAshared) with the final computed distribution."""
     if(useR):
         initR()
-    
+
     # initializes current_dist
     var_list = cfg.ID_list
     data = cfg.data
-    gm = GaussianMix([1.], [torch.zeros(len(var_list), requires_grad=True)], [EPS*torch.eye(len(var_list))])
+    gm = GaussianMix([torch.tensor(1.)], [torch.zeros(len(var_list))], [EPS*torch.eye(len(var_list))])
     init_dist = Dist(var_list, gm)
     cfg.root.set_dist(init_dist)
     
@@ -42,7 +42,7 @@ def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
     
     # executes SOGA on nodes on exec_queue
     while(len(exec_queue)>0):
-        SOGA(exec_queue.pop(0), data, parallel, exec_queue)
+        SOGA(exec_queue.pop(0), data, parallel, exec_queue, params_dict)
     
     # returns output distribution
     p, current_dist = merge(cfg.node_list['exit'].list_dist)
@@ -50,7 +50,7 @@ def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
     return current_dist
 
 
-def SOGA(node, data, parallel, exec_queue):
+def SOGA(node, data, parallel, exec_queue, params_dict):
 
     #print(node, node.dist)
     #if not node.dist is None:
@@ -128,7 +128,7 @@ def SOGA(node, data, parallel, exec_queue):
             current_trunc = None
             current_p = p*current_p
         if current_p > TOL_PROB:
-            current_dist = update_rule(current_dist, node.expr, data)         ### see libSOGAupdate
+            current_dist = update_rule(current_dist, node.expr, data, params_dict)         ### see libSOGAupdate
         if node.children[0].type == 'merge' or node.children[0].type == 'exit':
             node.children[0].list_dist.append((current_p, current_dist))
         if node.children[0].type == 'loop' and not data[node.children[0].idx][0] is None:

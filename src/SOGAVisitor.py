@@ -109,11 +109,6 @@ class SOGAVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by SOGAParser#expr.
-    def visitExpr(self, ctx:SOGAParser.ExprContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by SOGAParser#vars.
     def visitVars(self, ctx:SOGAParser.VarsContext):
         return self.visitChildren(ctx)
@@ -141,6 +136,11 @@ class SOGAVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SOGAParser#list.
     def visitList(self, ctx:SOGAParser.ListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#par.
+    def visitPar(self, ctx:SOGAParser.ParContext):
         return self.visitChildren(ctx)
 
 

@@ -1,7 +1,3 @@
 /* TEST 1 (mettendo come parametro _std non funziona + non e' chiaro come fare il constraint a valori positivi) */
-/* a = gm([1.], [_mean], [1.]); */
+a = gm([1.], [_mean], [1.]); 
 
-/*TEST 2 */
-
-a = gm([1.], [0.], [1.]);
-b = 2 * a + 1; 

@@ -1876,6 +1876,7 @@ class SOGAParser ( Parser ):
 
 
 
+
     def idd(self):
 
         localctx = SOGAParser.IddContext(self, self._ctx, self.state)
@@ -1935,7 +1936,7 @@ class SOGAParser ( Parser ):
                 return visitor.visitSymvars(self)
             else:
                 return visitor.visitChildren(self)
-        
+
     def symvars(self):
 
         localctx = SOGAParser.SymvarsContext(self, self._ctx, self.state)

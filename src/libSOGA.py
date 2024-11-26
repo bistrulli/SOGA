@@ -124,7 +124,7 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             if parallel is not None and parallel >1:
                 p, current_dist = parallel_truncate(current_dist, current_trunc, data, parallel)   ### see libSOGAtruncate
             else:
-                p, current_dist = truncate(current_dist, current_trunc, data) 
+                p, current_dist = truncate(current_dist, current_trunc, data, params_dict) 
             current_trunc = None
             current_p = p*current_p
         if current_p > TOL_PROB:

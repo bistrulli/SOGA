@@ -134,5 +134,14 @@ class TRUNCListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by TRUNCParser#par.
+    def enterPar(self, ctx:TRUNCParser.ParContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#par.
+    def exitPar(self, ctx:TRUNCParser.ParContext):
+        pass
+
+
 
 del TRUNCParser

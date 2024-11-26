@@ -79,5 +79,10 @@ class TRUNCVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TRUNCParser#par.
+    def visitPar(self, ctx:TRUNCParser.ParContext):
+        return self.visitChildren(ctx)
+
+
 
 del TRUNCParser

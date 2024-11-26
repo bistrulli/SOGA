@@ -7,6 +7,8 @@ from TRUNCListener import *
 
 import multiprocessing as mp
 
+INFTY = torch.tensor(1e20)
+
 pool=None
 
 def ineq_func(self,comp):
@@ -57,8 +59,8 @@ def ineq_func(self,comp):
         red_transl_sigma = reduce_indices(transl_sigma, indices) 
         
         # STEP 4: creates the hyper-rectangle to integrate on
-        a = torch.ones(len(red_transl_alpha))*(-torch.inf)
-        b = torch.ones(len(red_transl_alpha))*(torch.inf)
+        a = torch.ones(len(red_transl_alpha))*(-INFTY)
+        b = torch.ones(len(red_transl_alpha))*(INFTY)
         if self.type=='>' or self.type=='>=':
             a[0] = ineq_const
         if self.type=='<' or self.type=='<=':
@@ -163,9 +165,10 @@ def negate(trunc):
 
 class TruncRule(TRUNCListener):
     
-    def __init__(self, var_list, data):
+    def __init__(self, var_list, data, params_dict):
         self.var_list = var_list
         self.data = data
+        self.params = params_dict
         self.type = None
         self.coeff = torch.zeros(len(var_list))
         self.const = torch.tensor(0.)
@@ -181,6 +184,8 @@ class TruncRule(TRUNCListener):
             self.const = torch.tensor(float(ctx.const().NUM().getText()))
         elif not ctx.const().idd() is None:
             self.const = ctx.const().idd().getValue(self.data)
+        elif not ctx.const().par() is None:
+            self.const = ctx.const().par().getValue(self.params)
                 
     
     def enterLexpr(self, ctx):
@@ -200,20 +205,24 @@ class TruncRule(TRUNCListener):
                     coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
                 elif not ctx.const().idd() is None:
                     coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
+                elif not ctx.const().par() is None:
+                    coeff = self.flag_sign*ctx.const().par().getValue(self.params)
             else:
                 coeff = self.flag_sign
             idx = self.var_list.index(ID)
             self.coeff[idx] = coeff
         # monom in the form const? '*' gm
         else:
-            self.aux_pis.append(torch.tensor(eval(ctx.var().gm().list_()[0].getText())))
-            self.aux_means.append(torch.tensor(eval(ctx.var().gm().list_()[1].getText())))
-            self.aux_covs.append(torch.pow(torch.tensor(eval(ctx.var().gm().list_()[2].getText())),2))
+            self.aux_pis.append(ctx.var().gm().list_()[0].unpack(self.params))
+            self.aux_means.append(ctx.var().gm().list_()[1].unpack(self.params))
+            self.aux_covs.append(torch.pow(ctx.var().gm().list_()[2].unpack(self.params),2))
             if not ctx.const() is None:
                 if not ctx.const().NUM() is None:
                     coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
                 elif not ctx.const().idd() is None:
                     coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
+                elif not ctx.const().par() is None:
+                    coeff = self.flag_sign*torch.tensor(ctx.const().par().getValue(self.params))
             else:
                 coeff = self.flag_sign 
             self.coeff = torch.hstack([self.coeff, coeff])            
@@ -233,17 +242,19 @@ class TruncRule(TRUNCListener):
                 self.const = torch.tensor(float(ctx.const().NUM().getText()))
             elif not ctx.const().idd() is None:
                 self.const = torch.tensor(ctx.const().idd().getValue(self.data))
+            elif not ctx.const().par() is None:
+                self.const = ctx.const().par().getValue(self.params)
         self.func = partial(eq_func,self)
 
 
-def truncate(dist, trunc, data):
+def truncate(dist, trunc, data, params_dict):
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
         return torch.tensor(1.), dist
     elif trunc == 'false':
         return torch.tensor(0.), dist
     else:
-        trunc_rule = trunc_parse(dist.var_list, trunc, data)
+        trunc_rule = trunc_parse(dist.var_list, trunc, data, params_dict)
         trunc_func = trunc_rule.func
         trunc_type = trunc_rule.type
         trunc_idx = torch.where(trunc_rule.coeff != 0)[0][0]
@@ -263,9 +274,10 @@ def truncate(dist, trunc, data):
         # this is needed because observing that a variable is equal to a value it is removed
         new_dist.var_list = trans_comp[0].var_list       
         # renormalizing
-        norm_factor = torch.sum(torch.tensor(new_pi))
+        norm_factor = torch.sum(torch.stack(new_pi))
         if norm_factor > TOL_PROB:
-            new_dist.gm.pi = list(torch.tensor(new_pi)/norm_factor)
+            norm_pis = torch.stack(new_pi)/norm_factor
+            new_dist.gm.pi = [norm_pi for norm_pi in norm_pis]
         return norm_factor, new_dist
 
 
@@ -336,13 +348,13 @@ def truncate(dist, trunc, data):
 #        return norm_factor, new_dist
     
     
-def trunc_parse(var_list, trunc, data):
+def trunc_parse(var_list, trunc, data, params_dict):
     """ Parses trunc using ANTLR4. Returns a function """
     lexer = TRUNCLexer(InputStream(trunc))
     stream = CommonTokenStream(lexer)
     parser = TRUNCParser(stream)
     tree = parser.trunc()
-    trunc_rule = TruncRule(var_list, data)
+    trunc_rule = TruncRule(var_list, data, params_dict)
     walker = ParseTreeWalker()
     walker.walk(trunc_rule, tree) 
     return trunc_rule
@@ -473,13 +485,13 @@ def compute_moments(mu, sigma, a, b):
         new_P = tn.norm_const
         new_mu = tn.mean()
         new_sigma = tn.var()
-        new_mu = torch.tensor([new_mu])
-        new_sigma = torch.tensor([[new_sigma]])
+        new_mu = new_mu.reshape((1,))
+        new_sigma = new_sigma.reshape((1,1))
         return new_P, new_mu, new_sigma
     # if in more dimensions applies Kan-Robotti formulas
     # first determines if the truncation is 'low' (i.e. x > c) or 'up' (i.e. x < c)
     trunc_idx = 0
-    if a[0] > -torch.inf:
+    if a[0] > -INFTY:
         trunc = 'low'
     else:
         trunc = 'up'  

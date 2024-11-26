@@ -50,6 +50,8 @@ def is_var(self, data):
     """ Returns 1 if term is a variable, 0 if it's a constant """
     if not self.NUM() is None:
         return False
+    if not self.par() is None:
+        return False
     elif not self.symvars() is None:
         if not self.symvars().IDV() is None:
             return True
@@ -64,12 +66,14 @@ def is_var(self, data):
 def is_const(self, data):
     return not self.is_var(data)
 
-def getValue(self, data):
+def getValue(self, data, params_dict):
     if self.is_const(data):
         if not self.NUM() is None:
             return float(self.NUM().getText())
         elif not self.symvars() is None:
             return self.symvars().idd().getValue(data)
+        elif not self.par() is None:
+            return self.par().getValue(params_dict)
     else:
         raise("Calling getValue for a variable")
 
@@ -84,6 +88,13 @@ def getValue(self, data):
                 else:
                     unpacked[i] = float(elem)
             return unpacked
+
+## Add this to ParContext
+
+        def getValue(self, params_dict):
+            name = self.getText()
+            name = name[1:]
+            return params_dict[name]
 
     
 # TRUNC PARSER
@@ -113,4 +124,21 @@ def getValue(self, data):
         data_idx = data[self.IDV(1).getText()][0]
     return data[data_name][data_idx]
 
+## Add this to ListContext + "import torch"
+
+    def unpack(self, params_dict):
+        str_list = self.getText()[1:-1].split(',')
+        unpacked = torch.zeros(len(str_list))
+        for i, elem in enumerate(str_list):
+            if elem[0] == '_':
+                unpacked[i] = params_dict[elem[1:]]
+            else:
+                unpacked[i] = float(elem)
+        return unpacked
             
+## Add this to ParContext
+
+        def getValue(self, params_dict):
+            name = self.getText()
+            name = name[1:]
+            return params_dict[name]

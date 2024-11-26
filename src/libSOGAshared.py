@@ -79,13 +79,13 @@ class GaussianMix():
         #    return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
     
     def pdf(self, x):
-        pdf = torch.tensor([0.])
+        pdf = torch.zeros(x.shape)
         for k in range(self.n_comp()):
             pdf += self.pi[k]*self.comp_pdf(x,k)
         return pdf 
         
     def marg_pdf(self, x, idx):
-        marg = torch.tensor([0.])
+        marg = torch.zeros(x.shape)
         for k in range(self.n_comp()):
             marg += self.pi[k]*self.marg_comp_pdf(x,k,idx) 
         return marg
@@ -101,13 +101,13 @@ class GaussianMix():
         return distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).cdf(x)
         
     def cdf(self, x):
-        cdf = torch.tensor([0.])
+        cdf = torch.zeros(x.shape)
         for k in range(self.n_comp()):
             cdf += self.pi[k]*self.comp_cdf(x,k) 
         return cdf
     
     def marg_cdf(self, x, idx):
-        marg = torch.tensor([0.])
+        marg = torch.zeros(x.shape)
         for k in range(self.n_comp()):
             marg += self.pi[k]*self.marg_comp_cdf(x,k,idx) 
         return marg      
@@ -162,7 +162,8 @@ class TruncatedNormal():
         self.alpha = (self.low_bound - self.loc)/self.scale
         self.beta = (self.up_bound - self.loc)/self.scale
         self.phi_alpha = self.norm.log_prob(self.alpha).exp()
-        self.phi_beta = self.norm.log_prob(self.beta).exp()
+        self.phi_beta = self.norm.log_prob(self.beta)
+        self.phi_beta = self.phi_beta.exp()
 
         # normalization constant
         self.norm_const = self.norm.cdf(self.up_bound) - self.norm.cdf(self.low_bound)

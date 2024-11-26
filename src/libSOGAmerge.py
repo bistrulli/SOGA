@@ -31,13 +31,14 @@ def merge(list_dist):
     
     if len(final_pi) == 0:
         d = len(list_dist[0][1].gm.mu[0])
-        #print('no components found')
+        print('No components found')
         return torch.tensor(0.), Dist(list_dist[0][1].var_list, GaussianMix([torch.tensor(0.)], [torch.zeros(d)], [torch.zeros((d,d))]))
-    
-    final_pi = list(torch.tensor(final_pi)/current_p)
+
+    norm_final_pi = torch.stack(final_pi)/current_p
+    final_pi = [p for p in norm_final_pi]
     
     # deletes components with probability less than tol
-    zero_list = np.where(np.array(final_pi) < TOL_PROB)[0]
+    zero_list = torch.where(torch.stack(final_pi) < TOL_PROB)[0]
     if len(zero_list)>0:
         if len(zero_list) == len(final_pi):
             d = len(dist.gm.mu[0])

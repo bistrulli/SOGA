@@ -110,16 +110,15 @@ class AsgmtRule(ASGMTListener):
         else:
             self.add_coeff = torch.zeros(len(self.var_list))
             self.add_const = torch.tensor(0.)
-        print(self.is_prod)
     
     def enterAdd_term(self,ctx):
         # product between variables
         if self.is_prod:
             for term in ctx.term():
                 if not term.gm() is None:
-                    self.aux_pis.append(torch.tensor(eval(term.gm().list_()[0].getText())))
-                    self.aux_means.append(torch.tensor(eval(term.gm().list_()[1].getText())))
-                    self.aux_covs.append(torch.pow(torch.tensor(eval(term.gm().list_()[2].getText())),2))
+                    self.aux_pis.append(term.gm().list_()[0].unpack(self.params))
+                    self.aux_means.append(term.gm().list_()[1].unpack(self.params))
+                    self.aux_covs.append(torch.pow(term.gm().list_()[2].unpack(self.params),2))
                     self.mul_idx.append(int(len(self.var_list)+len(self.aux_pis)-1))
                 elif not term.symvars() is None:
                     self.mul_idx.append(self.var_list.index(term.symvars().getVar(self.data)))
@@ -135,7 +134,7 @@ class AsgmtRule(ASGMTListener):
                 else:
                     coeff = 1*coeff
                 if term.is_const(self.data):
-                    coeff = coeff*term.getValue(self.data)
+                    coeff = coeff*term.getValue(self.data, self.params)
                 elif not term.symvars() is None:
                     var_idx = self.var_list.index(term.symvars().getVar(self.data))
                 elif not term.gm() is None:
@@ -182,7 +181,7 @@ def update_rule(dist, expr, data, params_dict):
         for k in range(dist.gm.n_comp()):
             comp = Dist(dist.var_list, dist.gm.comp(k))
             new_mix = rule_func(comp)
-            new_pi += list(dist.gm.pi[k]*np.array(new_mix.gm.pi))
+            new_pi += [dist.gm.pi[k]*new_mix.gm.pi[h] for h in range(len(new_mix.gm.pi))]
             new_mu += new_mix.gm.mu
             new_sigma += new_mix.gm.sigma
         return Dist(dist.var_list, GaussianMix(new_pi, new_mu, new_sigma))

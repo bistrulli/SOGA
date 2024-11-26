@@ -11,14 +11,16 @@ eqop: '==' | '!=';
 lexpr: monom ((sum|sub) monom)*?;
 monom: (const '*')? var;
 
-const: NUM | idd;
+const: NUM | par | idd;
 var: IDV | idd | gm;
 idd : IDV '[' (NUM | IDV) ']';
 gm: 'gm(' list ',' list ',' list ')';
-list: '[' NUM (',' NUM)*? ']';
+list: '[' (NUM | par) (',' (NUM | par))*? ']';
 
 sum: '+';
 sub: '-';
+
+par: '_' IDV;
 
 IDV : ALPHA (ALPHA|DIGIT)*;
 NUM : '-'? DIGIT+ ('.' DIGIT*)?; 

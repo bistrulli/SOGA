@@ -31,7 +31,7 @@ def merge(list_dist):
     
     if len(final_pi) == 0:
         d = len(list_dist[0][1].gm.mu[0])
-        print('No components found')
+        #print('No components found')
         return torch.tensor(0.), Dist(list_dist[0][1].var_list, GaussianMix([torch.tensor(0.)], [torch.zeros(d)], [torch.zeros((d,d))]))
 
     norm_final_pi = torch.stack(final_pi)/current_p

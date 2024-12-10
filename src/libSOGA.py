@@ -52,10 +52,12 @@ def start_SOGA(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None,useR=
 
 def SOGA(node, data, parallel, exec_queue, params_dict):
 
-    #print(node, node.dist)
-    #if not node.dist is None:
-    #    print(node.dist.gm.marg_pdf(torch.tensor([0.]), 0).requires_grad)   
+    #print(node)
     
+    if not node.dist is None:
+        d = node.dist.gm.n_dim()
+        node.dist.gm.pdf(torch.zeros(d))
+
     if node.type != 'merge' and node.type != 'exit':
         current_dist = copy_dist(node.dist)
         current_p = node.p
@@ -78,7 +80,8 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             child.set_dist(copy_dist(node.dist))
             child.set_p(current_p)
             child.set_trunc(current_trunc)
-            exec_queue.append(child)
+            if child not in exec_queue:
+                exec_queue.append(child)
             
     # if loop saves checks the condition and decides which child node must be accessed
     if node.type == 'loop':
@@ -105,7 +108,8 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
                     child.set_dist(copy_dist(node.dist))
                     child.set_p(current_p)
                     child.set_trunc(current_trunc)
-                    exec_queue.append(child)
+                    if child not in exec_queue:
+                        exec_queue.append(child)
         else:
             data[node.idx][0] = None
             for child in node.children:
@@ -113,11 +117,11 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
                     child.set_dist(copy_dist(node.dist))
                     child.set_p(current_p)
                     child.set_trunc(current_trunc)
-                    exec_queue.append(child)
+                    if child not in exec_queue:
+                        exec_queue.append(child)
      
     # if state checks wheter cond!=None. If yes, truncates to current_trunc, eventually negating it. In any case applies the rule in expr. Appends the distribution in the next merge node or calls recursively on children. If child is loop node increments its idx.
     if node.type == 'state':
-        
         if node.cond != None and not current_trunc is None:
             if node.cond == False:
                 current_trunc = negate(current_trunc) 
@@ -129,15 +133,29 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             current_p = p*current_p
         if current_p > TOL_PROB:
             current_dist = update_rule(current_dist, node.expr, data, params_dict)         ### see libSOGAupdate
-        if node.children[0].type == 'merge' or node.children[0].type == 'exit':
-            node.children[0].list_dist.append((current_p, current_dist))
-        if node.children[0].type == 'loop' and not data[node.children[0].idx][0] is None:
-            data[node.children[0].idx][0] += 1
+        # debugging 
+        #('output state node', current_p, current_dist)
+        #sigma = current_dist.gm.sigma[0]
+        #eigs, _ = torch.linalg.eigh(sigma)
+        #is_psd = torch.all(eigs > 0)
+        #if not is_psd:
+        #    print('is psd? ', torch.all(eigs > 0))
+        #    raise Error
+        # updating child
         child = node.children[0]
-        child.set_dist(copy_dist(current_dist))
-        child.set_p(current_p)
-        child.set_trunc(current_trunc)
-        exec_queue.append(child)
+        if child.type == 'merge' or child.type == 'exit':
+            child.list_dist.append((current_p, current_dist))
+        elif child.type == 'loop' and not data[child.idx][0] is None:
+            data[child.idx][0] += 1
+            child.set_dist(copy_dist(current_dist))
+            child.set_p(current_p)
+            child.set_trunc(current_trunc)
+        else:
+            child.set_dist(copy_dist(current_dist))
+            child.set_p(current_p)
+            child.set_trunc(current_trunc)
+        if child not in exec_queue:
+            exec_queue.append(child)
             
     # if observe truncates to LBC and calls on children
     if node.type == 'observe':
@@ -151,10 +169,12 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
         child = node.children[0]
         if child.type == 'merge' or child.type == 'exit':
             child.list_dist.append((current_p, current_dist))
-        child.set_dist(copy_dist(current_dist))
-        child.set_p(current_p)
-        child.set_trunc(current_trunc)
-        exec_queue.append(child)
+        else:
+            child.set_dist(copy_dist(current_dist))
+            child.set_p(current_p)
+            child.set_trunc(current_trunc)
+        if child not in exec_queue:
+            exec_queue.append(child)
 
     # if merge checks whether all paths have been explored.
     # Either returns or merge distributions and calls on children
@@ -171,7 +191,8 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
                 child.set_dist(copy_dist(current_dist))
                 child.set_p(current_p)
                 child.set_trunc(None)
-            exec_queue.append(child)
+            if child not in exec_queue:
+                exec_queue.append(child)
                 
                 
     if node.type == 'exit':

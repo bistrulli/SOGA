@@ -7,8 +7,6 @@ from TRUNCListener import *
 
 import multiprocessing as mp
 
-INFTY = torch.tensor(1e20)
-
 pool=None
 
 def ineq_func(self,comp):
@@ -39,7 +37,7 @@ def ineq_func(self,comp):
         aux_cov = torch.vstack([torch.hstack([sigma, torch.zeros((len(sigma), len(aux_sigma)))]), torch.hstack([torch.zeros((len(aux_sigma), len(sigma))), aux_sigma])])
         
         # here there was a part to deal with deltas, but we removed it because in torch everything is differentiable
-        
+
         # STEP 1: change variables
         norm = torch.linalg.norm(ineq_coeff)
         ineq_coeff = ineq_coeff/norm
@@ -272,13 +270,19 @@ def truncate(dist, trunc, data, params_dict):
                     new_dist.gm.sigma.append(new_mix.sigma[h])
                     new_pi.append(dist.gm.pi[k]*new_mix.pi[h])
         # this is needed because observing that a variable is equal to a value it is removed
-        new_dist.var_list = trans_comp[0].var_list       
+        new_dist.var_list = trans_comp[0].var_list     
         # renormalizing
-        norm_factor = torch.sum(torch.stack(new_pi))
+        if len(new_pi) > 0:
+            norm_factor = torch.sum(torch.stack(new_pi))
+        else: 
+            norm_factor = torch.tensor(0.)
+            return norm_factor, dist
         if norm_factor > TOL_PROB:
             norm_pis = torch.stack(new_pi)/norm_factor
             new_dist.gm.pi = [norm_pi for norm_pi in norm_pis]
-        return norm_factor, new_dist
+            return norm_factor, new_dist
+        else:
+            return norm_factor, dist
 
 
 # parallel implementation
@@ -478,7 +482,9 @@ def compute_moments(mu, sigma, a, b):
     all b_i=np.inf except at most one a_i or one b_i, computes exactly the mean and the covariance matrix of the 
     truncated distribution
     """        
+    
     n = len(a)   
+    
     # truncation in one dimension
     if n==1:
         tn = TruncatedNormal(mu[0], torch.sqrt(sigma[0,0]), a[0], b[0])
@@ -488,6 +494,7 @@ def compute_moments(mu, sigma, a, b):
         new_mu = new_mu.reshape((1,))
         new_sigma = new_sigma.reshape((1,1))
         return new_P, new_mu, new_sigma
+    
     # if in more dimensions applies Kan-Robotti formulas
     # first determines if the truncation is 'low' (i.e. x > c) or 'up' (i.e. x < c)
     trunc_idx = 0

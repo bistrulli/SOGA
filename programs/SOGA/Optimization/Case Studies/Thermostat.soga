@@ -1,0 +1,34 @@
+array[11] T;
+
+currT = gauss(16, 0.01);          /* smoothing added here */     
+isOn = gauss(-1, 0.01);           /* smoothing added here */
+
+for i in range(11) {
+
+    T[i] = currT + gauss(0., 0.05);           /* smoothing added here */
+
+    if isOn > 0 {
+        newT = 0.99*currT + 0.5 + gauss(0., 0.5);
+    } else {
+        newT = 0.99*currT + gauss(0., 0.5);
+    } end if;
+
+    currT = newT + gauss(0., 0.05);          /* smoothing added here */
+
+    if isOn > 0 {
+        if currT > _tOff {
+            isOn = gauss(-1, 0.01);          /* smoothing added here */
+        } else {
+            skip;
+        } end if;
+    } else {
+        if currT < _tOn {
+            isOn = gauss(1, 0.01);          /* smoothing added here */
+        } else {
+            skip;
+        } end if;
+    } end if;
+
+} end for;
+
+T[10] = currT + gauss(0., 0.05);          /* smoothing added here */

@@ -1,0 +1,54 @@
+array[21] v;
+
+w = gauss(0, 0.01);              /* smoothing added here */     
+gear = gauss(1, 0.01);           /* smoothing added here */
+currV = gauss(5, 0.01);         /* smoothing added here */
+
+for i in range(21) {
+
+    v[i] = currV + gauss(0., 0.05);           /* smoothing added here */
+
+    if gear > 0.5 {
+        newV = 1.078*currV + 0.1*gauss(5., 1.);
+    } else {
+        newV = currV*currV;
+        newV = 0.00005*newV;
+        newV = currV - newV + gauss(0, 1.);
+    } end if;
+
+    currV = newV + gauss(0., 0.05);          /* smoothing added here */
+
+    if gear > 0.5 {
+        if gear < 1.5 {
+            if currV > _s1 {
+                nxt = gear + 1 + gauss(0, 0.05);     /* smoothing added here */
+                gear = gauss(0, 0.01);               /* smoothing added here */
+                w = gauss(0.3, 0.01);                /* smoothing added here */
+            } else {
+                skip;
+            } end if;
+        } else {
+            if gear < 2.5 {
+                if currV > _s2 {
+                    nxt = gear + 1 + gauss(0, 0.005);   /* smoothing added here */
+                    gear = gauss(0, 0.01);              /* smoothing added here */
+                    w = gauss(0.3, 0.01);               /* smoothing added here */
+                } else {
+                    skip;
+                } end if;
+            } else {
+                skip;
+            } end if;
+        } end if;
+    } else {
+        if w < 0.05 {
+            gear = nxt + gauss(0, 0.05);              /* smoothing added here */
+        } else {
+            skip;
+        } end if;
+    } end if;
+
+    w = w - 0.1;
+
+} end for;
+                    

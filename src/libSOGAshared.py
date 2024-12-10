@@ -27,10 +27,13 @@ from functools import partial
 
 ### TOLERANCE PARAMETERS 
 
-EPS = 1e-8              # used on the diagonal of the initial distribution
-DELTA_EIG = 1e-8        # when making the cov matrix psd increases eigenvalues by this
-TOL_EIG = 1e-15         # eigenvalues below this value are considered zero
-TOL_PROB = 1e-10        # probability below prob_tol are treated as zero
+EPS = 1e-5              # used on the diagonal of the initial distribution
+#DELTA_EIG = 1e-8        # when making the cov matrix psd increases eigenvalues by this
+TOL_EIG = 1e-5          # eigenvalues below this value are considered zero
+TOL_PROB = 1e-4         # probability below prob_tol are treated as zero
+TOL_ERR = 5e-3          # error tolerance (print an error message if error is above)
+INFTY = 1e10            # infinity
+
 
 #delta_tol = 1e-10 # if the 1-norm of a covariance matrix is <= delta_tol the corresponding Gaussian component is treated as a delta
 #prob_tol = 1e-10 # probability below prob_tol are treated as zero
@@ -65,18 +68,36 @@ class GaussianMix():
             try:
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
             except ValueError:
-                print('Degenerate covariance matrix, I will proceed to correct it')
-                self.sigma[k] = make_psd(self.sigma[k])
+                #print('Degenerate covariance matrix, I will proceed to correct it')
+                sigma = self.sigma[k]
+                eigs, _ = torch.linalg.eigh(sigma)
+                is_psd = torch.all(eigs > 0)
+                is_sym = torch.all(sigma == sigma.T)
+                if not is_psd:
+                    print(eigs)
+                    print('matrix is not psd!')
+                    print(sigma)
+                    raise Error
+                if not is_sym:
+                    #print('matrix is not sym!')                    
+                    self.sigma[k] = make_sym(self.sigma[k])
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
         else:
             return torch.exp(distributions.Normal(self.mu[k], torch.sqrt(self.sigma[k])).log_prob(x))
             
     def marg_comp_pdf(self, x, k, idx):
-        return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
-        #except ValueError:
-        #    print('Degenerate covariance matrix, I will proceed to correct it')
-        #    self.sigma[k] = make_psd(self.sigma[k])
-        #    return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
+        if isinstance(idx, list):
+            cov_submatrix = torch.clone(self.sigma[k][torch.tensor(idx).unsqueeze(1), torch.tensor(idx)])
+            try:
+                return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], cov_submatrix).log_prob(x))
+            except ValueError as e:
+                # make the covariance matrix symmetric
+                cov_submatrix = make_psd(cov_submatrix)
+                cov_submatrix = make_sym(cov_submatrix)
+                return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], cov_submatrix).log_prob(x))
+        else:
+            return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
+
     
     def pdf(self, x):
         pdf = torch.zeros(x.shape)
@@ -159,8 +180,8 @@ class TruncatedNormal():
         self.norm = distributions.Normal(self.loc, self.scale)
 
         # rescaled bounds
-        self.alpha = (self.low_bound - self.loc)/self.scale
-        self.beta = (self.up_bound - self.loc)/self.scale
+        self.alpha = (self.low_bound - self.loc)/(self.scale)
+        self.beta = (self.up_bound - self.loc)/(self.scale)
         self.phi_alpha = self.norm.log_prob(self.alpha).exp()
         self.phi_beta = self.norm.log_prob(self.beta)
         self.phi_beta = self.phi_beta.exp()
@@ -187,40 +208,48 @@ class TruncatedNormal():
         
 ### FUNCTIONS FOR NUMERICAL STABILITY OF COVARIANCE MATRICES
 
-def make_psd(sigma):
-    """
-    Triggered when sigma is not positive semidefinite. Sets to 1e-10 negative eigenvalues of sigma. If the eigenvalues or the total error in the substitution are above a certain threshold prints an error message.
-    """
-    eig, M = torch.linalg.eigh(sigma)
-    add = 0
-    c_it = 0
-    while not torch.all(eig > TOL_EIG):
-    #while True:
-        c_it+=1
-        add += DELTA_EIG
-        for i, e in enumerate(eig):
-            if e <= TOL_EIG:
-                eig[i] = add
-        new_sigma = torch.mm(torch.mm(M, torch.diag(eig)), M.t())
-        eig, M = torch.linalg.eigh(new_sigma)
-    rel_err = torch.sum(torch.abs(new_sigma-sigma))
-    print('Warning: eigenvalue substitution led to an error of: {}'.format(rel_err))
-    return new_sigma
-
-#def make_sym(sigma):
-#    """ 
-#    Reassigns sigma to make it symmetric. For sigma[i,j]!=sigma[j,i] substitutes both with the average value. If the substitution leads to an error above a certain threshold prints an error message.
+# this is commented because it breaks the gradient, it is better not to cause non-psd matrices (use smoothing instead)
+#def make_psd(sigma):
 #    """
-#    for i in range(len(sigma)):
-#        for j in range(i+1,len(sigma)):
-#            if sigma[i,j] != sigma[j,i]:
-#                v = (sigma[i,j] + sigma[j,i])/2
-#                if abs(v-sigma[i,j]) > eig_tol: 
-#                    print('substituting {} with {}'.format(sigma[i,j], v))
-#                if abs(v-sigma[i,j]) > eig_tol: 
-#                    print('substituting {} with {}'.format(sigma[j,i], v))
-#                sigma[i,j] = sigma[j,i] = v
-#    return sigma
+#    Triggered when sigma is not positive semidefinite. Sets to 1e-10 negative eigenvalues of sigma. If the eigenvalues or the total error in the substitution are above a certain threshold prints an error message.
+#    """
+#    eig, M = torch.linalg.eigh(sigma)
+#    add = 0
+#    c_it = 0
+#    if torch.all(eig > TOL_EIG):
+#        #print('not correcting')
+#        return sigma
+#    while not torch.all(eig > TOL_EIG):
+#    #while True:
+#        c_it+=1
+#        add += DELTA_EIG
+#        for i, e in enumerate(eig):
+#            if e <= TOL_EIG:
+#                eig[i] = add
+#        new_sigma = torch.mm(torch.mm(M, torch.diag(eig)), M.t())
+#        eig, M = torch.linalg.eigh(new_sigma)
+#    rel_err = torch.sum(torch.abs(new_sigma-sigma))
+#    if rel_err > TOL_ERR:
+#        print('Warning: eigenvalue substitution led to an error of: {}'.format(rel_err))
+#    #print('corrected output', new_sigma)
+#    return new_sigma
+
+def make_sym(sigma, eig_tol=1e-3):
+    """
+    Makes a 2D PyTorch tensor symmetric by averaging mismatched elements.
+    Prints an error message if the error exceeds eig_tol.
+    """
+    # Ensure sigma is a PyTorch tensor
+    sigma = sigma.clone()  # To avoid modifying the input tensor
+    # Average the matrix with its transpose
+    symmetric_sigma = (sigma + sigma.T) / 2
+    # Compute the difference introduced by the symmetrization
+    diff = torch.abs(symmetric_sigma - sigma)
+    # Find indices where the difference exceeds the tolerance
+    indices = torch.nonzero(diff > TOL_ERR, as_tuple=False)
+    for i, j in indices:
+        print(f"Substituting {sigma[i, j].item()} with {symmetric_sigma[i, j].item()}")
+    return symmetric_sigma
 
         
 ### SHARED FUNCTIONS 

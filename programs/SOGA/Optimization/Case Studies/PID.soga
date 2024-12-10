@@ -1,0 +1,32 @@
+array[51] ang;
+
+v = gauss(0, 0.05);          /* smoothing added here */   
+currAng = gauss(0.5, 0.05);    /* smoothing added here */
+id = gauss(0, 0.05);         /* smoothing added here */ 
+oldv = gauss(0, 0.05);      /* smoothing added here */ 
+
+for i in range(51) {
+
+    ang[i] = currAng + gauss(0., 0.05);                      /* smoothing added here */ 
+
+    d = 3.14 - currAng + gauss(0., 0.05);                      /* smoothing added here */ 
+    torq = _s0*d + _s1*v + _s2*id  + gauss(0., 0.05);          /* smoothing added here */ 
+    id = 0.9*id + 0.1*d;                            /* smoothing added here */ 
+    oldv = v + gauss(0., 0.05);                    /* smoothing added here */ 
+    
+    v = v + 0.01*torq + gauss(0, 0.25);
+    currAng = currAng + 0.05*v + 0.05*oldv + gauss(0., 0.25);
+
+    /*if currAng > 6.28 {
+        currAng = currAng - 6.28;
+    } else {
+        if currAng < 0 {
+            currAng = currAng + 6.28;
+        } else {
+            skip;
+        } end if;
+    } end if; */
+
+} end for;
+
+ang[50] = currAng + gauss(0., 0.05);          /* smoothing added here */

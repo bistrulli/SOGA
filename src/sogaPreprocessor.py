@@ -271,6 +271,15 @@ if __name__ == '__main__':
 
 	#plot_mixture(gmm1)
 
+def compile2SOGA_text(input_prog):
+    progr=input_prog
+    progr=compileExpRnd(input_prog=progr)
+    #progr=compileUniform(input_prog=progr)
+    progr=compileBeta(input_prog=progr)
+    progr=compileLaplace(input_prog=progr)
+    progr=compileGauss(input_prog=progr)
+    progr=compileBernoulli(input_prog=progr)
+    return progr
 
 
 

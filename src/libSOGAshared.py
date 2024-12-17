@@ -83,7 +83,7 @@ class GaussianMix():
                     self.sigma[k] = make_sym(self.sigma[k])
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
         else:
-            return torch.exp(distributions.Normal(self.mu[k], torch.sqrt(self.sigma[k])).log_prob(x))
+            return torch.exp(distributions.Normal(self.mu[k], torch.sqrt(self.sigma[k])).log_prob(x)).reshape(x.shape)
             
     def marg_comp_pdf(self, x, k, idx):
         if isinstance(idx, list):

@@ -68,7 +68,6 @@ class GaussianMix():
             try:
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
             except ValueError:
-                #print('Degenerate covariance matrix, I will proceed to correct it')
                 sigma = self.sigma[k]
                 eigs, _ = torch.linalg.eigh(sigma)
                 is_psd = torch.all(eigs > 0)
@@ -77,9 +76,8 @@ class GaussianMix():
                     print(eigs)
                     print('matrix is not psd!')
                     print(sigma)
-                    raise Error
+                    raise 
                 if not is_sym:
-                    #print('matrix is not sym!')                    
                     self.sigma[k] = make_sym(self.sigma[k])
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
         else:
@@ -90,11 +88,19 @@ class GaussianMix():
             cov_submatrix = torch.clone(self.sigma[k][torch.tensor(idx).unsqueeze(1), torch.tensor(idx)])
             try:
                 return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], cov_submatrix).log_prob(x))
-            except ValueError as e:
-                # make the covariance matrix symmetric
-                cov_submatrix = make_psd(cov_submatrix)
-                cov_submatrix = make_sym(cov_submatrix)
-                return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], cov_submatrix).log_prob(x))
+            except ValueError:
+                sigma = self.sigma[k]
+                eigs, _ = torch.linalg.eigh(sigma)
+                is_psd = torch.all(eigs > 0)
+                is_sym = torch.all(sigma == sigma.T)
+                if not is_psd:
+                    print(eigs)
+                    print('matrix is not psd!')
+                    print(sigma)
+                    raise 
+                if not is_sym:
+                    self.sigma[k] = make_sym(self.sigma[k])
+                return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
         else:
             return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
 
@@ -162,7 +168,7 @@ def mvncdf(x, mean, cov):
     bounds = torch.tensor([[-torch.inf, x[i] - mean[i]] for i in range(len(x))])
     res = torch.exp(mvn.MVNXPB(covariance_matrix=cov, bounds=bounds).solve())
     if res.isnan():
-        cov = make_psd(cov)
+        cov = make_sym(cov)
         res = torch.exp(mvn.MVNXPB(covariance_matrix=cov, bounds=bounds).solve())
     return res
 

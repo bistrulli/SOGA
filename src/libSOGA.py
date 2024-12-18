@@ -54,9 +54,9 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
 
     #print(node)
     
-    if not node.dist is None:
-        d = node.dist.gm.n_dim()
-        node.dist.gm.pdf(torch.zeros(d))
+    #if not node.dist is None:
+    #    d = node.dist.gm.n_dim()
+    #    node.dist.gm.pdf(torch.zeros(d))
 
     if node.type != 'merge' and node.type != 'exit':
         current_dist = copy_dist(node.dist)

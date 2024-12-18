@@ -17,7 +17,7 @@ from copy import deepcopy, copy
 
 #from sympy import *
 #import re
-import numpy as np
+#import numpy as np
 #from scipy.stats import norm
 #from scipy.stats import truncnorm
 #from scipy.stats import multivariate_normal as mvnorm
@@ -100,15 +100,16 @@ class GaussianMix():
 
     
     def pdf(self, x):
-        pdf = torch.zeros(x.shape)
+        pdf = torch.zeros((x.shape[0], 1))
         for k in range(self.n_comp()):
             pdf += self.pi[k]*self.comp_pdf(x,k)
         return pdf 
         
     def marg_pdf(self, x, idx):
-        marg = torch.zeros(x.shape)
+        marg = torch.zeros((x.shape[0], 1))
         for k in range(self.n_comp()):
-            marg += self.pi[k]*self.marg_comp_pdf(x,k,idx) 
+            comp_marg = self.marg_comp_pdf(x,k,idx).reshape(marg.shape)
+            marg += self.pi[k]*comp_marg
         return marg
         
     # Cdfs
@@ -122,13 +123,13 @@ class GaussianMix():
         return distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).cdf(x)
         
     def cdf(self, x):
-        cdf = torch.zeros(x.shape)
+        cdf = torch.zeros((x.shape[0], 1))
         for k in range(self.n_comp()):
             cdf += self.pi[k]*self.comp_cdf(x,k) 
         return cdf
     
     def marg_cdf(self, x, idx):
-        marg = torch.zeros(x.shape)
+        marg = torch.zeros((x.shape[0], 1))
         for k in range(self.n_comp()):
             marg += self.pi[k]*self.marg_comp_cdf(x,k,idx) 
         return marg      

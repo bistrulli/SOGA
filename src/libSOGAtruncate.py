@@ -162,67 +162,76 @@ def negate(trunc):
 #    return trunc1, trunc2
 
 class TruncRule(TRUNCListener):
+    """ Class to parse truncation rules. The result of the parsing is a function stored in TruncRule.func that can be applied to distributions to truncate them."""
     
     def __init__(self, var_list, data, params_dict):
+        # variables, data, parameters
         self.var_list = var_list
         self.data = data
         self.params = params_dict
-        self.type = None
-        self.coeff = torch.zeros(len(var_list))
-        self.const = torch.tensor(0.)
+        # parameters of the inequality
+        self.type = None                             # <, <=, ==, !=, >=, >
+        self.coeff = torch.zeros(len(var_list))      # coefficients of the linear inequality
+        self.const = torch.tensor(0.)                # constant r.h.s. of the inequality
+        # additional random variables
+        self.aux_pis = torch.tensor([])                            # weights of additional random variables
+        self.aux_means = torch.tensor([])                          # means of additional random variables
+        self.aux_covs = torch.tensor([])                           # variances of additional random variables
+        # truncation function
         self.func = None
-        
-        self.aux_pis = []
-        self.aux_means = []
-        self.aux_covs = []
-        
+
+
+    def parse_const(self, ctx):
+        """ Parses the constant at r.h.s. of an (in)equality"""
+        if not ctx.const().NUM() is None:
+            const = torch.tensor(float(ctx.const().NUM().getText()))
+        elif not ctx.const().idd() is None:
+            const = ctx.const().idd().getValue(self.data)
+        elif not ctx.const().par() is None:
+            const = ctx.const().par().getValue(self.params)
+        return const
+    
+
+    def parse_monom_const(self, ctx):
+        """ Parses the constant in front of a monomial"""
+        if not ctx.const() is None:
+            if not ctx.const().NUM() is None:
+                coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
+            elif not ctx.const().idd() is None:
+                coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
+            elif not ctx.const().par() is None:
+                coeff = self.flag_sign*ctx.const().par().getValue(self.params)
+        else:
+            coeff = self.flag_sign
+        return coeff
+    
+
     def enterIneq(self, ctx):
         self.type = ctx.inop().getText()
-        if not ctx.const().NUM() is None:
-            self.const = torch.tensor(float(ctx.const().NUM().getText()))
-        elif not ctx.const().idd() is None:
-            self.const = ctx.const().idd().getValue(self.data)
-        elif not ctx.const().par() is None:
-            self.const = ctx.const().par().getValue(self.params)
-                
+        self.const = self.parse_const(ctx)
     
+
     def enterLexpr(self, ctx):
         self.flag_sign = torch.tensor(1.)
 
-            
+
     def exitLexpr(self, ctx):
         self.func = partial(ineq_func,self)
         
-        
+
     def enterMonom(self,ctx):
         if ctx.var().gm() is None:
             # monom in the form const? '*' (IDV | idd)
             ID = ctx.var()._getText(self.data)
-            if not ctx.const() is None:
-                if not ctx.const().NUM() is None:
-                    coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
-                elif not ctx.const().idd() is None:
-                    coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
-                elif not ctx.const().par() is None:
-                    coeff = self.flag_sign*ctx.const().par().getValue(self.params)
-            else:
-                coeff = self.flag_sign
+            coeff = self.parse_monom_const(ctx)
             idx = self.var_list.index(ID)
             self.coeff[idx] = coeff
-        # monom in the form const? '*' gm
         else:
+            # monom in the form const? '*' gm
             self.aux_pis.append(ctx.var().gm().list_()[0].unpack(self.params))
             self.aux_means.append(ctx.var().gm().list_()[1].unpack(self.params))
             self.aux_covs.append(torch.pow(ctx.var().gm().list_()[2].unpack(self.params),2))
-            if not ctx.const() is None:
-                if not ctx.const().NUM() is None:
-                    coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
-                elif not ctx.const().idd() is None:
-                    coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
-                elif not ctx.const().par() is None:
-                    coeff = self.flag_sign*torch.tensor(ctx.const().par().getValue(self.params))
-            else:
-                coeff = self.flag_sign 
+            coeff = self.parse_monom_const(ctx)
             self.coeff = torch.hstack([self.coeff, coeff])            
             
     def enterSub(self, ctx):
@@ -235,13 +244,7 @@ class TruncRule(TRUNCListener):
         self.type = ctx.eqop().getText()
         idx = self.var_list.index(ctx.var()._getText(self.data))
         self.coeff[idx] = torch.tensor(1.)
-        if not ctx.const() is None:
-            if not ctx.const().NUM() is None:
-                self.const = torch.tensor(float(ctx.const().NUM().getText()))
-            elif not ctx.const().idd() is None:
-                self.const = torch.tensor(ctx.const().idd().getValue(self.data))
-            elif not ctx.const().par() is None:
-                self.const = ctx.const().par().getValue(self.params)
+        self.const = self.parse_const(ctx)
         self.func = partial(eq_func,self)
 
 

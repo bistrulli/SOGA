@@ -43,7 +43,8 @@ def start_SOGA(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None,useR=
     # initializes current_dist
     var_list = cfg.ID_list
     data = cfg.data
-    gm = GaussianMix([torch.tensor(1.)], [torch.zeros(len(var_list))], [EPS*torch.eye(len(var_list))])
+    n_dim = len(var_list)
+    gm = GaussianMix(torch.tensor([[1.]]), torch.zeros((1,n_dim)), EPS*torch.eye(n_dim).reshape(1,n_dim, n_dim))
     init_dist = Dist(var_list, gm)
     cfg.root.set_dist(init_dist)
     
@@ -62,11 +63,9 @@ def start_SOGA(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None,useR=
 
 def SOGA(node, data, parallel, exec_queue, params_dict):
 
-    #print(node)
-    
-    #if not node.dist is None:
-    #    d = node.dist.gm.n_dim()
-    #    node.dist.gm.pdf(torch.zeros(d))
+    #print('Entering', node)
+    #print(node.dist)
+    #print('\n')
 
     if node.type != 'merge' and node.type != 'exit':
         current_dist = node.dist                  # previously copy_dist(node.dist)
@@ -129,6 +128,7 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             current_p = p*current_p
         if current_p > TOL_PROB:
             current_dist = update_rule(current_dist, node.expr, data, params_dict)         ### see libSOGAupdate
+
         # updating child
         child = node.children[0]
         if child.type == 'loop' and not data[child.idx][0] is None:

@@ -17,40 +17,39 @@ def merge(list_dist):
     """
     Given a list of couples (p,dist), where each dist is a Dist object, computes a couple (current_p, current_dist), in which current_pi is the sum of p and current_dist is a single GaussianMix object.
     """
-    final_pi = []
-    final_mu = []
-    final_sigma = []
-    current_p = torch.tensor(0.)
-    ## creates a single mixture
+    ## creates tensors for the new gm
+    p_list = []
+    pi_list = []
+    mu_list = []
+    sigma_list = []
     for (p, dist) in list_dist:
-        if p > 0.:
-            current_p += p
-            final_pi = final_pi + [p*pi for pi in dist.gm.pi]
-            final_mu = final_mu + dist.gm.mu
-            final_sigma = final_sigma + dist.gm.sigma
-    
-    if len(final_pi) == 0:
-        d = len(list_dist[0][1].gm.mu[0])
-        #print('No components found')
-        return torch.tensor(0.), Dist(list_dist[0][1].var_list, GaussianMix([torch.tensor(0.)], [torch.zeros(d)], [torch.zeros((d,d))]))
+        if p < TOL_PROB:
+            continue
+        p_list.append(p)
+        pi_list.append(dist.gm.pi)
+        mu_list.append(dist.gm.mu)
+        sigma_list.append(dist.gm.sigma)
+    # if list is empty
+    if len(p_list) == 0:
+        return torch.tensor(0.), list_dist[0][1]
+    # else
+    p = torch.stack(p_list).view(-1,1,1)
+    pi = torch.vstack([p[i]*pi_list[i] for i in range(len(p_list))])
+    mu = torch.vstack(mu_list)
+    sigma = torch.vstack(sigma_list)
 
-    norm_final_pi = torch.stack(final_pi)/current_p
-    final_pi = [p for p in norm_final_pi]
+    # normalizes weights
+    current_p = torch.sum(p)
+    if current_p > TOL_PROB:
+        pi = pi/current_p
+    else:
+        current_p = torch.tensor(0.)
+
+    # creates the new gm
+    new_gm = GaussianMix(pi, mu, sigma)
+    new_gm.delete_zeros()
     
-    # deletes components with probability less than tol
-    zero_list = torch.where(torch.stack(final_pi) < TOL_PROB)[0]
-    if len(zero_list)>0:
-        if len(zero_list) == len(final_pi):
-            d = len(dist.gm.mu[0])
-            #print('no components found')
-            return 0, Dist(list_dist[0][1].var_list, GaussianMix([torch.tendor(0.)], [np.array([0]*d)], [np.zeros((d,d))]))
-        else:
-            for index in sorted(zero_list, reverse=True):
-                del final_pi[index]
-                del final_mu[index]
-                del final_sigma[index]
-    current_dist = Dist(list_dist[0][1].var_list, GaussianMix(final_pi, final_mu, final_sigma))
-    return current_p, current_dist
+    return current_p, Dist(list_dist[0][1].var_list, new_gm)
 
 
 #def prune(current_dist, pruning, Kmax):

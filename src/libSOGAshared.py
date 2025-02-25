@@ -89,18 +89,18 @@ class GaussianMix():
             try:
                 return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], cov_submatrix).log_prob(x))
             except ValueError:
-                sigma = self.sigma[k]
-                eigs, _ = torch.linalg.eigh(sigma)
+                eigs, _ = torch.linalg.eigh(cov_submatrix)
                 is_psd = torch.all(eigs > 0)
-                is_sym = torch.all(sigma == sigma.T)
+                is_sym = torch.all(cov_submatrix == cov_submatrix.T)
                 if not is_psd:
                     print(eigs)
-                    print('matrix is not psd!')
-                    print(sigma)
+                    print('matrix k={} is not psd!'.format(k))
+                    print(cov_submatrix)
                     raise 
                 if not is_sym:
-                    self.sigma[k] = make_sym(self.sigma[k])
-                return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
+                    print('matrix k={} is not symmetric!'.format(k))
+                    self.sigma[k][torch.tensor(idx).unsqueeze(1), torch.tensor(idx)] = new_cov_submatrix = make_sym(cov_submatrix)
+                return torch.exp(distributions.MultivariateNormal(self.mu[k][idx], covariance_matrix=new_cov_submatrix).log_prob(x))
         else:
             return torch.exp(distributions.Normal(self.mu[k][idx], torch.sqrt(self.sigma[k][idx,idx])).log_prob(x))
 

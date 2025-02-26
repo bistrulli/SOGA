@@ -22,6 +22,7 @@ def normalize_weights(pi):
     return norm_fact, new_pi
 
 
+# version with no index selection
 def ineq_func(self, dist):
     """ Invoked when any inequality expression is encountered """
 
@@ -267,7 +268,7 @@ def compute_moments(mu, sigma, a, b):
         # excluding truncated components with probability 0
         indexes = torch.where(new_P > TOL_PROB)[0]
         if len(indexes) == 0:
-            return new_P, mu, sigma
+            return new_P, mu, sigma, indexes
         # keeping only components with non-zero prob
         new_tn = TruncatedNormal(mu[indexes], torch.sqrt(sigma[indexes]), a, b)
         new_mu = new_tn.mean()
@@ -350,6 +351,69 @@ def compute_mom2(mu, sigma, a, b, trunc, new_P, new_mu, muj):
     new_sigma = new_sigma/new_P.view(c,1,1) - torch.matmul(new_mu.unsqueeze(2), new_mu.unsqueeze(1))
     return new_sigma 
 
+# versions that selects the indices to truncate (slower)
+#def ineq_func(self, dist):
+#    """ Invoked when any inequality expression in encountered """
+#    
+#    ineq_coeff = self.coeff
+#    ineq_const = self.const
+#    
+#    # creates extended distribution
+#    extended_gm = extend_dist(self, dist)
+#        
+#    #   here there was a part to deal with deltas, but we removed it because in torch everything is differentiable
+#
+#    # STEP 1: change variables
+#    norm = torch.linalg.norm(ineq_coeff)
+#    ineq_coeff = ineq_coeff/norm
+#    ineq_const = ineq_const/norm
+#    A = find_basis(ineq_coeff)           
+#    transl_mu = torch.matmul(A, extended_gm.mu.unsqueeze(2)).squeeze(2)
+#    transl_sigma = torch.matmul(torch.matmul(A, extended_gm.sigma), A.t())
+#    transl_alpha = torch.zeros(len(ineq_coeff))
+#    transl_alpha[0] = 1
+#
+#    # STEP 2: finds the indices of the components that needs to be transformed
+#    indices = select_indices(transl_alpha, transl_sigma)
+#
+#    # STEP 3: creates reduced vectors taking into account only the coordinates that need to be transformed
+#    red_transl_alpha = reduce_indices(transl_alpha, indices)
+#    red_transl_mu = reduce_indices(transl_mu, indices)
+#    red_transl_sigma = reduce_indices(transl_sigma, indices) 
+#
+#    # STEP 4: creates the hyper-rectangle to integrate on
+#    a = torch.ones(len(red_transl_alpha))*(-INFTY)
+#    b = torch.ones(len(red_transl_alpha))*(INFTY)
+#    if self.type=='>' or self.type=='>=':
+#        a[0] = ineq_const
+#    if self.type=='<' or self.type=='<=':
+#        b[0] = ineq_const   
+#        
+#    # STEP 5: compute moments in the transformed coordinates
+#    # some components might have 0 prob in the truncation
+#    # indexes contains the comp_idxs of the components that have non-zero probability
+#    new_P, new_red_transl_mu, new_red_transl_sigma, comp_idxs = compute_moments(red_transl_mu, red_transl_sigma, a, b)
+#
+#    # if the whole distribution has zero prob in the truncation
+#    if len(comp_idxs) == 0:
+#        return torch.tensor(0.), dist
+#
+#    # STEP 6: recreates extended vectors
+#    new_transl_mu = extend_indices(new_red_transl_mu, transl_mu, indices, comp_idxs)
+#    new_transl_sigma = extend_indices(new_red_transl_sigma, transl_sigma, indices, comp_idxs)
+#
+#    # STEP 7: goes back to older coordinates
+#    old_dim = len(dist.var_list)
+#    A_inv = torch.linalg.inv(A)
+#    new_mu = torch.matmul(A_inv, new_transl_mu.unsqueeze(2)).squeeze(2)[:, :old_dim]
+#    new_sigma = torch.matmul( torch.matmul(A_inv, new_transl_sigma), A_inv.t())[:, :old_dim,:old_dim]
+#    
+#    # STEP 8: weights normalization
+#    new_pi = extended_gm.pi[comp_idxs]*new_P.view(-1,1)
+#    norm_fact, norm_new_pi = normalize_weights(new_pi)
+#
+#    return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_mu, new_sigma))
+
 #def insert_value(val, idx, mu, sigma):
 #    """ Extends mu and sigma by adding val in corresponding to the idx position (for sigma the other row- and column-entries are 0) """
 #    d = len(mu)
@@ -360,15 +424,20 @@ def compute_mom2(mu, sigma, a, b, trunc, new_P, new_mu, muj):
 #    return new_mu, new_sigma
 #    
 
-#def select_indices(alpha, aux_cov):
-#    no_zeros = torch.where(alpha != 0)[0].numpy()
-#    coeff_set = list(no_zeros)
-#    for idx in no_zeros:
-#        new_set = torch.where(aux_cov[idx,:] != 0)[0].numpy()
-#        coeff_set += list(new_set)
-#    # removed np.sort 
-#    coeff_set = list(set(coeff_set))
-#    return coeff_set
+#def select_indices(alpha, sigma):
+#    """ 
+#    Selects all indices i such that alpha[i] != 0 or j such that exists i such that sigma[i,j] != 0 and alpha[i] != 0 
+#    """
+#    queue = list(torch.where(alpha != 0)[0].numpy())
+#    coeff_set = []
+#    while len(queue) > 0:
+#        idx = queue.pop()
+#        coeff_set.append(idx)
+#        new_set = torch.where(sigma[:,idx] != 0)[1].numpy()
+#        for new_idx in set(new_set):
+#            if new_idx not in coeff_set:
+#                queue.append(new_idx)
+#    return list(set(coeff_set))
 
 
 #def reduce_indices(vec, indices):
@@ -378,22 +447,26 @@ def compute_mom2(mu, sigma, a, b, trunc, new_P, new_mu, muj):
 #    if len(vec.shape) == 1:
 #        red_vec = vec[indices]
 #    if len(vec.shape) == 2:
-#        red_vec = vec[indices][:,indices]
+#        red_vec = vec[:, indices]
+#    if len(vec.shape) == 3:
+#        red_vec = vec[:,indices][:,:,indices]
 #    return red_vec
 
-#def extend_indices(red_vec, old_vec, indices):
-#    """
-#    puts red_vec in the indices of old_vec
-#    """
-#    if len(old_vec.shape) == 1:
-#        red_vec = red_vec.reshape(len(red_vec),)
-#        old_vec[indices] = red_vec
-#    if len(old_vec.shape) == 2:
-#        C = old_vec[indices]
-#        C[:,indices] = red_vec
-#        old_vec[indices] = C
-#    return old_vec
 
+#def extend_indices(red_vec, old_vec, indices, comp_idxs):
+#    """
+#    Puts red_vec in the indices of old_vec, keeps only components indexed by comp_idxs
+#    """
+#    if len(old_vec.shape) == 2:
+#        C = old_vec[comp_idxs, :]
+#        C[:, indices] = red_vec
+#        return C
+#    if len(old_vec.shape) == 3:
+#        C1 = old_vec[comp_idxs]
+#        C2 = C1[:, indices] 
+#        C2[:, :, indices] = red_vec
+#        C1[:, indices] = C2
+#        return C1
 
 ### compute moments functions
 

@@ -1,0 +1,34 @@
+/* assigns distributions */
+skill1 = gm([1.],[100.],[10.]);
+skill2 = gm([1.],[100.],[10.]);
+skill3 = gm([1.],[100.],[10.]);
+skill4 = gm([1.],[100.],[10.]);
+skill5 = gm([1.],[100.],[10.]);
+skill6 = gm([1.],[100.],[10.]);
+skill7 = gm([1.],[100.],[10.]);
+skill8 = gm([1.],[100.],[10.]);
+skill9 = gm([1.],[100.],[10.]);
+skill10 = gm([1.],[100.],[10.]);
+
+
+perf1 = gm([1.],[0.],[15.])+skill1;
+perf2 = gm([1.],[0.],[15.])+skill2;
+perf3 = gm([1.],[0.],[15.])+skill3;
+perf4 = gm([1.],[0.],[15.])+skill4;
+perf5 = gm([1.],[0.],[15.])+skill5;
+perf6 = gm([1.],[0.],[15.])+skill6;
+perf7 = gm([1.],[0.],[15.])+skill7;
+perf8 = gm([1.],[0.],[15.])+skill8;
+perf9 = gm([1.],[0.],[15.])+skill9;
+perf10 = gm([1.],[0.],[15.])+skill10;
+    
+/* constraints to observations */
+observe(perf1 -perf2 > 0);
+observe(perf1-perf3 > 0);
+observe(perf1-perf4 > 0);
+observe(perf1-perf5 > 0);
+observe(perf1-perf6 > 0);
+observe(perf1-perf7 > 0);
+observe(perf1-perf8 > 0);
+observe(perf1-perf9 > 0);
+observe(perf1-perf10 > 0);

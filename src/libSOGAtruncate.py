@@ -21,6 +21,51 @@ def normalize_weights(pi):
         norm_fact = torch.tensor(0.)
     return norm_fact, new_pi
 
+def and_func(self, dist):
+    """ Truncates the distribution to var > self.low and var < self.up """
+
+    ineq_coeff = self.coeff
+    ineq_idx = torch.where(ineq_coeff != 0)[0][0]
+    low_const = self.low
+    up_const = self.up
+    
+    # This function only works for "var > self.low and var < self.up" so there is no need
+    # to extend the distribution and change variables
+        
+    # STEP 1: creates the hyper-rectangle to integrate on
+    a = torch.ones(len(ineq_coeff))*(-INFTY)
+    b = torch.ones(len(ineq_coeff))*(INFTY)
+    a[ineq_idx] = low_const
+    b[ineq_idx] = up_const   
+        
+    # STEP 2: compute moments in the transformed coordinates
+    # some components might have 0 prob in the truncation
+    # indexes contains the indexes of the components that have non-zero probability
+    new_P, new_mu, new_sigma, indexes = compute_moments(dist.gm.mu, dist.gm.sigma, a, b, ineq_idx)
+    # if the whole distribution has zero prob in the truncation
+    if len(indexes) == 0:
+        return torch.tensor(0.), dist
+    
+    # STEP 3: weights normalization
+    new_pi = dist.gm.pi[indexes]*new_P.view(-1,1)
+    norm_fact, norm_new_pi = normalize_weights(new_pi)
+
+    return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_mu, new_sigma))
+
+
+def or_func(self, dist):
+    """ Truncates the distribution to var > self.low or var < self.up """
+    idx = torch.where(self.coeff != 0)[0][0]
+    var = dist.var_list[idx]
+    trunc_low = '{} < {}'.format(var,self.up)
+    trunc_up = '{} > {}'.format(var,self.low)
+    p_low, dist_low = truncate(dist, trunc_low, {}, {})
+    p_up, dist_up = truncate(dist, trunc_up, {}, {})
+    new_pi = torch.vstack([p_low*dist_low.gm.pi, p_up*dist_up.gm.pi])
+    new_mu = torch.vstack([p_low*dist_low.gm.mu, p_up*dist_up.gm.mu])
+    new_sigma = torch.vstack([p_low*dist_low.gm.sigma, p_up*dist_up.gm.sigma])
+    norm_fact, norm_new_pi = normalize_weights(new_pi)
+    return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_mu, new_sigma))
 
 # version with no index selection
 def ineq_func(self, dist):
@@ -104,21 +149,33 @@ def eq_func(self, dist):
 
 def negate(trunc):
     """ Produces a string which is the logic negation of trunc """
+
+    if 'and' in trunc:
+        trunc1, trunc2 = trunc.split('and')
+        trunc1 = negate(trunc1)
+        trunc2 = negate(trunc2)
+        trunc = trunc1 + 'or' + trunc2
+    elif 'or' in trunc:
+        trunc1, trunc2 = trunc.split('or')
+        trunc1 = negate(trunc1)
+        trunc2 = negate(trunc2)
+        trunc = trunc2 + 'and' + trunc1
+    else:
+        if '<' in trunc:
+            if '<=' in trunc:
+                trunc = trunc.replace('<=', '>')
+            else:
+                trunc = trunc.replace('<', '>=')
+        elif '>' in trunc:
+            if '>=' in trunc:
+                trunc = trunc.replace('>=', '<')
+            else:
+                trunc = trunc.replace('>', '<=')
+        elif '==' in trunc:
+            trunc = trunc.replace('==', '!=')
+        elif '!=' in trunc:
+            trunc = trunc.replace('!=', '==')
     
-    if '<' in trunc:
-        if '<=' in trunc:
-            trunc = trunc.replace('<=', '>')
-        else:
-            trunc = trunc.replace('<', '>=')
-    elif '>' in trunc:
-        if '>=' in trunc:
-            trunc = trunc.replace('>=', '<')
-        else:
-            trunc = trunc.replace('>', '<=')
-    elif '==' in trunc:
-        trunc = trunc.replace('==', '!=')
-    elif '!=' in turnc:
-        trunc = trunc.replace('!=', '==')
     return trunc
 
 
@@ -144,13 +201,16 @@ class TruncRule(TRUNCListener):
 
     def parse_const(self, ctx):
         """ Parses the constant at r.h.s. of an (in)equality"""
-
-        if not ctx.const().NUM() is None:
-            const = torch.tensor(float(ctx.const().NUM().getText()))
-        elif not ctx.const().idd() is None:
-            const = ctx.const().idd().getValue(self.data)
-        elif not ctx.const().par() is None:
-            const = ctx.const().par().getValue(self.params)
+        if isinstance(ctx, TRUNCParser.ConstContext):
+            parse_ctx = ctx
+        else:
+            parse_ctx = ctx.const()   
+        if not parse_ctx.NUM() is None:
+            const = torch.tensor(float(parse_ctx.NUM().getText()))
+        elif not ctx.idd() is None:
+            const = parse_ctx.idd().getValue(self.data)
+        elif not parse_ctx.par() is None:
+            const = parse_ctx.par().getValue(self.params)
         return const
     
 
@@ -179,7 +239,37 @@ class TruncRule(TRUNCListener):
     def enterIneq(self, ctx):
         self.type = ctx.inop().getText()
         self.const = self.parse_const(ctx)
-    
+
+    def enterAnd_trunc(self, ctx):
+        ID = ctx.IDV()[0].getText()
+        idx = self.var_list.index(ID)
+        self.coeff[idx] = torch.tensor(1.)
+        inops = ctx.inop()
+        consts = ctx.const()
+        for i in range(2):
+            const = self.parse_const(consts[i])
+            inop = inops[i].getText()
+            if '<' in inop:
+                self.up = const
+            elif '>' in inop:
+                self.low = const
+        self.func = partial(and_func,self)
+
+
+    def enterOr_trunc(self, ctx):
+        ID = ctx.IDV()[0].getText()
+        idx = self.var_list.index(ID)
+        self.coeff[idx] = torch.tensor(1.)
+        inops = ctx.inop()
+        consts = ctx.const()
+        for i in range(2):
+            const = self.parse_const(consts[i])
+            inop = inops[i].getText()
+            if '<' in inop:
+                self.up = const
+            elif '>' in inop:
+                self.low = const
+        self.func = partial(or_func,self)
 
     def enterLexpr(self, ctx):
         self.flag_sign = torch.tensor(1.)
@@ -254,7 +344,7 @@ def find_basis(alpha):
     return A
 
 
-def compute_moments(mu, sigma, a, b):
+def compute_moments(mu, sigma, a, b, idx=0):
     """
     Given a normal distribution with mean mu and covariance matrix sigma, truncated to [a,b], where all a_i=-np.inf and
     all b_i=np.inf except at most one a_i or one b_i, computes exactly the mean and the covariance matrix of the 
@@ -276,23 +366,28 @@ def compute_moments(mu, sigma, a, b):
         return new_P[indexes], new_mu, new_sigma, indexes
     
     # if in more dimensions applies Kan-Robotti formulas
-    # first determines if the truncation is 'low' (i.e. x > c) or 'up' (i.e. x < c)
-    if a[0] > -INFTY:
+    # first determines if the truncation is 'low' (i.e. x > c) or 'up' (i.e. x < c) or None if in and_func
+    if a[idx] > -INFTY and b[idx] < INFTY:
+        trunc = None
+    elif a[0] > -INFTY:
         trunc = 'low'
     else:
         trunc = 'up'  
     
-    new_P = prob(mu, sigma, a, b)
+    new_P = prob(mu, sigma, a, b, idx)
     # excluding truncated components with probability 0
     indexes = torch.where(new_P > TOL_PROB)[0]
     if len(indexes) == 0:
         return new_P, mu, sigma, indexes
-    # keeping only components with non-zero probability
-    # returns the moments for the distribution of dimension n-1, in which the trunc_idx component has been removed
-    muj = compute_lower_mom(mu[indexes], sigma[indexes], a, b, trunc)
+    # keeping only components with non-zero 
     # computes first two order moments using the recurrence formulas of Kan-Robotti and stores them in a dictionary
-    new_mu = compute_mom1(mu[indexes], sigma[indexes], a, b, trunc, new_P[indexes])
-    new_sigma = compute_mom2(mu[indexes], sigma[indexes], a, b, trunc, new_P[indexes], new_mu, muj)
+    new_mu = compute_mom1(mu[indexes], sigma[indexes], a, b, trunc, new_P[indexes], idx)
+    if trunc:
+        # returns the moments for the distribution of dimension n-1, in which the trunc_idx component has been removed
+        muj = compute_lower_mom(mu[indexes], sigma[indexes], a, b, trunc)
+        new_sigma = compute_mom2(mu[indexes], sigma[indexes], a, b, trunc, new_P[indexes], new_mu, muj)
+    else:  # and_func
+        new_sigma = compute_mom2_and(mu[indexes], sigma[indexes], a, b, new_P[indexes], new_mu, idx)
     return new_P[indexes], new_mu, new_sigma, indexes
 
 
@@ -310,28 +405,31 @@ def compute_lower_mom(mu, sigma, a, b, trunc):
     return muj
 
 
-def prob(mu, sigma, a, b):
+def prob(mu, sigma, a, b, idx=0):
     """
     Computes the mass probability of the normal distribution with mean mu and covariance matrix sigma in the 
     hyper-rectangle [a,b].
     Even for one-dimensional distributions, mu, sigma, a, b must be vectors.
     """ 
     
-    norm = distributions.Normal(loc=mu[:,0], scale=torch.sqrt(sigma[:,0,0]))
-    P = norm.cdf(b[0]) - norm.cdf(a[0])
+    norm = distributions.Normal(loc=mu[:,idx], scale=torch.sqrt(sigma[:,idx,idx]))
+    P = norm.cdf(b[idx]) - norm.cdf(a[idx])
     return P
 
 
-def compute_mom1(mu, sigma, a, b, trunc, P):
+def compute_mom1(mu, sigma, a, b, trunc, P, idx=0):
 
     c = torch.zeros(mu.shape)
-    norm = distributions.Normal(mu[:,0], scale=torch.sqrt(sigma[:,0,0]))
-    if trunc == 'low':
-        c[:,0] = norm.log_prob(a[0]).exp()
-    elif trunc == 'up':
-        c[:,0] = -norm.log_prob(b[0]).exp()
-    return mu + torch.matmul(sigma, c.unsqueeze(2)).squeeze(2)/P.view(-1,1)
-
+    norm = distributions.Normal(mu[:,idx], scale=torch.sqrt(sigma[:,idx,idx]))
+    if trunc:
+        if trunc == 'low':
+            c[:,0] = norm.log_prob(a[0]).exp()
+        elif trunc == 'up':
+            c[:,0] = -norm.log_prob(b[0]).exp()
+        return mu + torch.matmul(sigma, c.unsqueeze(2)).squeeze(2)/P.view(-1,1)
+    else:   # for and_func
+        c[:,idx] = norm.log_prob(a[idx]).exp() - norm.log_prob(b[idx]).exp()
+        return mu + torch.matmul(sigma, c.unsqueeze(2)).squeeze(2)/P.view(-1,1) 
 
 def compute_mom2(mu, sigma, a, b, trunc, new_P, new_mu, muj):
     # vector dimensions
@@ -350,6 +448,40 @@ def compute_mom2(mu, sigma, a, b, trunc, new_P, new_mu, muj):
     new_sigma = new_P.view(c,1,1)*torch.matmul(mu.unsqueeze(2), new_mu.unsqueeze(1)) + torch.matmul(sigma, C.transpose(1,2))
     new_sigma = new_sigma/new_P.view(c,1,1) - torch.matmul(new_mu.unsqueeze(2), new_mu.unsqueeze(1))
     return new_sigma 
+
+# New functions to compute and/or truncations
+
+def compute_mom2_and(mu, sigma, a, b, new_P, new_mu, idx):
+    # vector dimensions
+    n = len(a)    # number of variables
+    c = mu.shape[0] # number of components
+    # creates auxialiary vectors
+    e0 = torch.zeros((c,n))
+    e0[:,idx] = torch.ones(c)
+    C = (new_P.view(c,1,1))*torch.eye(n).unsqueeze(0).expand(c,-1,-1)
+    norm = distributions.Normal(loc=mu[:,idx], scale=torch.sqrt(sigma[:,idx,idx]))
+    C[:, :, idx] += norm.log_prob(a[idx]).exp().view(-1,1)*(a[idx]**e0)*compute_muj(a, mu, sigma, idx) - norm.log_prob(b[idx]).exp().view(-1,1)*(b[idx]**e0)*compute_muj(b, mu, sigma, idx)
+    # computes the new matrix
+    new_sigma = new_P.view(c,1,1)*torch.matmul(mu.unsqueeze(2), new_mu.unsqueeze(1)) + torch.matmul(sigma, C.transpose(1,2))
+    new_sigma = new_sigma/new_P.view(c,1,1) - torch.matmul(new_mu.unsqueeze(2), new_mu.unsqueeze(1))
+    return new_sigma 
+
+def compute_muj(a, mu, sigma, idx):
+    # mask excluding index idx
+    mask = torch.ones(len(a), dtype=torch.bool)
+    mask[idx] = False
+    
+    mu_minusj = mu[:, mask]
+    sigmaj = sigma[:, mask][:, :, idx]
+    muj = mu_minusj + ((a[idx]-mu[:,idx])/sigma[:,idx,idx]).view(-1,1)*sigmaj
+
+    new_muj = torch.ones(mu.shape)
+    new_muj[:, :idx] = muj[:, :idx]
+    new_muj[:, idx+1:] = muj[:, idx:]
+
+    return new_muj
+
+
 
 # versions that selects the indices to truncate (slower)
 #def ineq_func(self, dist):

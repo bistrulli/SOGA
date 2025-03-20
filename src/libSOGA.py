@@ -14,7 +14,6 @@
 from libSOGAtruncate import *
 from libSOGAupdate import *
 from libSOGAmerge import *
-import timing
 
 #def copy_dist(dist):
 #    new_dist = Dist(dist.var_list, GaussianMix([], [], []))
@@ -81,6 +80,10 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
     # if tests saves LBC and calls on children
     if node.type == 'test':
         current_trunc = node.LBC
+        if '==' in current_trunc or '!=' in current_trunc:
+            print('Degeneracy in if condition detected. Please smooth the program.')
+            raise RuntimeError
+        
         for child in node.children:
             update_child(child, node.dist, current_p, current_trunc, exec_queue)
             
@@ -120,9 +123,9 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
         if node.cond != None and not current_trunc is None:
             if node.cond == False:
                 current_trunc = negate(current_trunc) 
-           # if parallel is not None and parallel >1:
-           #     p, current_dist = parallel_truncate(current_dist, current_trunc, data, parallel)   
-           # else:
+            # if parallel is not None and parallel >1:
+            #     p, current_dist = parallel_truncate(current_dist, current_trunc, data, parallel)   
+            # else:
             p, current_dist = truncate(current_dist, current_trunc, data, params_dict)     ### see libSOGAtruncate
             current_trunc = None
             current_p = p*current_p

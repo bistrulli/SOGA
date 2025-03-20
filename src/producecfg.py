@@ -71,6 +71,7 @@ class StateNode(CFGnode):
         super().__init__(node_name, 'state')
         self.expr = None
         self.cond = None
+        self.smooth = None # added for SOGAsmooth
         
     def set_expr(self, expr):
         self.expr = expr
@@ -79,7 +80,10 @@ class StateNode(CFGnode):
         self.cond = cond
         
     def __str__(self):
-        return 'StateNode<{},{},{}>'.format(self.name,self.cond,self.expr)
+        if self.smooth:
+            return 'StateNode<{},{},{},smoothed:{}>'.format(self.name,self.cond,self.expr,self.smooth)
+        else:
+            return 'StateNode<{},{},{}>'.format(self.name,self.cond,self.expr)
     
     def __repr__(self):
         return str(self)
@@ -89,12 +93,16 @@ class TestNode(CFGnode):
     def __init__(self, node_name):
         super().__init__(node_name, 'test')
         self.LBC = None
+        self.smooth = None # needed for smoothing
         
     def set_LBC(self, LBC):
         self.LBC = LBC
         
     def __str__(self):
-        return 'TestNode<{},{}>'.format(self.name,self.LBC)
+        if self.smooth:
+            return 'TestNode<{},{},smoothed:{}>'.format(self.name,self.LBC,self.smooth)
+        else:
+            return 'TestNode<{},{}>'.format(self.name,self.LBC)
     
     def __repr__(self):
         return str(self)
@@ -166,7 +174,7 @@ class ExitNode(CFGnode):
     
 class CFG(SOGAListener):
     
-    def __init__(self):
+    def __init__(self, extending = False):
         # counters for nodes of different types
         self.n_state = 0
         self.n_test = 0

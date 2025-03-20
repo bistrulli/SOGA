@@ -24,6 +24,16 @@ class TRUNCVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TRUNCParser#and_trunc.
+    def visitAnd_trunc(self, ctx:TRUNCParser.And_truncContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#or_trunc.
+    def visitOr_trunc(self, ctx:TRUNCParser.Or_truncContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by TRUNCParser#eq.
     def visitEq(self, ctx:TRUNCParser.EqContext):
         return self.visitChildren(ctx)

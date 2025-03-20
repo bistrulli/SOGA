@@ -24,11 +24,11 @@ perf10 = gm([1.],[0.],[15.])+skill10;
     
 /* constraints to observations */
 observe(perf1 -perf2 > 0);
-observe(perf1-perf3 > 0);
-observe(perf1-perf4 > 0);
-observe(perf1-perf5 > 0);
-observe(perf1-perf6 > 0);
-observe(perf1-perf7 > 0);
-observe(perf1-perf8 > 0);
-observe(perf1-perf9 > 0);
-observe(perf1-perf10 > 0);
+observe(perf2-perf3 > 0);
+observe(perf3-perf4 > 0);
+observe(perf4-perf5 > 0);
+observe(perf5-perf6 > 0);
+observe(perf6-perf7 > 0);
+observe(perf7-perf8 > 0);
+observe(perf8-perf9 > 0);
+observe(perf9-perf10 > 0);

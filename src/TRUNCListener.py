@@ -35,6 +35,24 @@ class TRUNCListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by TRUNCParser#and_trunc.
+    def enterAnd_trunc(self, ctx:TRUNCParser.And_truncContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#and_trunc.
+    def exitAnd_trunc(self, ctx:TRUNCParser.And_truncContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#or_trunc.
+    def enterOr_trunc(self, ctx:TRUNCParser.Or_truncContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#or_trunc.
+    def exitOr_trunc(self, ctx:TRUNCParser.Or_truncContext):
+        pass
+
+
     # Enter a parse tree produced by TRUNCParser#eq.
     def enterEq(self, ctx:TRUNCParser.EqContext):
         pass

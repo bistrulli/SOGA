@@ -1,0 +1,14 @@
+currT = gauss(16, 1.);        
+isOn = gauss(0, 1);           
+
+for i in range(4) {
+
+    if isOn > 0 {
+        newT = 0.99*currT + 0.5 + gauss(0., 1);
+    } else {
+        newT = 0.99*currT + gauss(0., 1);
+    } end if;
+
+    currT = newT + gauss(0., 0.5); 
+
+} end for;

@@ -1,9 +1,12 @@
 grammar TRUNC; 
 
-trunc: ineq | eq;
+trunc: ineq | eq | and_trunc | or_trunc;
 
 ineq: lexpr inop const;
 inop: '<=' | '<' | '>' | '>=';
+
+and_trunc: IDV inop const 'and' IDV inop const;
+or_trunc: IDV inop const 'or' IDV inop const;
 
 eq: var eqop const;
 eqop: '==' | '!=';

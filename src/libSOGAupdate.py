@@ -88,8 +88,10 @@ class AsgmtRule(ASGMTListener):
         if not self.is_prod:
             if not torch.all(self.add_coeff == 0):
                 self.func = partial(add_func, self)
-            # here there was a part implementing constant assignment, but I removed it because everything must be differentiable
-        
+            # this part makes the distribution non differentiable but is needed for the smoother
+            else:
+                self.func = partial(const_func, self)
+                
     
 def asgmt_parse(var_list, expr, data, params_dict):
     """ Parses expr using ANTLR4. Returns a function """
@@ -152,6 +154,15 @@ def mul_func(self, dist):
     return new_dist
     
 
+def const_func(self, dist):
+    i = self.target
+    new_mu = torch.clone(dist.gm.mu)
+    new_mu[:, i] = self.add_const*torch.ones(len(new_mu[:,i]))
+    new_sigma = torch.clone(dist.gm.sigma)
+    new_sigma[:, i, :] = new_sigma[:, :, i] = torch.zeros(new_sigma[:,:,i].shape)
+    new_dist = Dist(dist.var_list, GaussianMix(dist.gm.pi, new_mu, new_sigma))
+    return new_dist
+            
 
     
     

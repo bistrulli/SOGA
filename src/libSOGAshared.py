@@ -30,7 +30,7 @@ from functools import partial
 EPS = 1e-5              # used on the diagonal of the initial distribution
 #DELTA_EIG = 1e-8        # when making the cov matrix psd increases eigenvalues by this
 TOL_EIG = 1e-5          # eigenvalues below this value are considered zero
-TOL_PROB = 1e-4         # probability below prob_tol are treated as zero
+TOL_PROB = 1e-10# 1e-4         # probability below prob_tol are treated as zero
 TOL_ERR = 5e-3          # error tolerance (print an error message if error is above)
 INFTY = 1e10            # infinity
 

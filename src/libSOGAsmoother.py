@@ -7,55 +7,198 @@ from libSOGAtruncate import *
 from libSOGAupdate import *
 from libSOGAmerge import *
 
-SMOOTH_EPS = 1e-2    # starting noise for smoothing
-SMOOTH_DELTA = 1e-2  # addition to gaussian noise for smoothing
-TOL_DEG = 1e-15  # matrices with determinants below this threshold are considered degenerate
+# FUNCTIONS FOR CHECKING NON DEGENERACY
 
 def check_dist_non_deg(dist):    
-    """ Checks whether all cov matrices in dist are non-degenerate."""
+    """ Checks whether all cov matrices in dist are non-degenerate. Returns True if some are degenerate"""
     sigma = dist.gm.sigma
-    dets = torch.linalg.det(sigma)
-    if torch.any(torch.abs(dets) < TOL_DEG):
+    if torch.any(torch.linalg.eigh(sigma)[0] < TOL_EIG):
+        #deg_idx, _ = torch.where(torch.linalg.eigh(sigma)[0] < TOL_EIG)
+        #print(dist.gm.pi[deg_idx[0]], dist.gm.sigma[deg_idx[0]])
         return True
     else:
         return False
+
+# FUNCTIONS FOR STRING PARSING
+
+def extract_var_and_index(expression):
+    """
+    Extracts the variable name and index from a string like 'data[i]'.
+    """
+    # Define the regular expression pattern
+    pattern = r'(\w+)\[(\w+)\]'
     
-def smooth_asgmt(dist, node, data, params_dict):
-    """ dist is a distribution that when updated with node.expre is degenerate.
+    # Use re.match to find the variable name and index
+    match = re.match(pattern, expression)
+    
+    if match:
+        var_name = match.group(1)
+        index = match.group(2)
+        return var_name, index
+    
+def extract_variables(expression):
+    """
+    Estrae le variabili da un'espressione lineare.
+    """
+    # Pattern for finding variables
+    pattern = r'\b[a-zA-Z_]\w*\([^)]*\)|\b[a-zA-Z_]\w*\[[^]]*\]|\b[a-zA-Z_]\w*\b'
+    # Finding pattern occurences
+    matches = re.findall(pattern, expression)
+    # Filter numbers out
+    variables = [match for match in matches if not re.match(r'^\d+$', match)]
+    return variables
+
+
+def extract_lists(gm_string):
+    """ Estrae le liste di parametri da una stringa gm."""
+    # Pattern for lists
+    pattern = r'\[[^\]]*\]'
+    # Finding pattern occurrences
+    matches = re.findall(pattern, gm_string)
+    return matches
+
+
+def format_float_list(float_list):
+    """ Formats a list of floats to avoid scientific notation. """
+    formatted_list = '['
+    for num in float_list:
+        formatted_list += f'{float(num):.10f}, '
+    formatted_list = formatted_list[:-2] +']'
+    return formatted_list
+
+# SMOOTHING FUNCTION
+
+def smooth_asgmt_gm(var, expr, eps):
+    """ Smooths var = 'gm([], [], [])' adding gaussian noise to components with 0 variance. """
+    weights, mean, variances = extract_lists(var)
+    variances = eval(variances)
+    for i, variance in enumerate(variances):
+        if variance == 0:
+            variances[i] = eps
+    variances = format_float_list(variances)
+    expr = expr.replace(var, 'gm({}, {}, {})'.format(weights, mean, variances))
+    return expr
+
+
+def smooth_asgmt(dist, updated_dist, node, smoothed_vars, data, params_dict):
+    """ dist is a distribution that when updated with node.expr gives the degenerate distribution updated_dist.
     This function adds to node.expr a Gaussian noise to avoid degeneracy and computes the new dist.
     The new expression for the update is saved in the attribute node.smooth"""
+    
     current_EPS = SMOOTH_EPS
     new_expr = None
     smooth_flag = True
-    while smooth_flag:
-        new_expr = node.expr + '+ gm([1.], [0.], [{}])'.format(current_EPS)
+    
+    if node.smooth:
+        orig_expr = node.smooth
+    else:
+        orig_expr = node.expr
+
+    lhs, rhs = orig_expr.replace(' ', '').split('=')
+    # target variable and corresponding index
+    target_var = lhs
+    if '[' in target_var:
+        var_name, idx = extract_var_and_index(target_var)
+        idx = int(data[idx][0].item())
+        target_idx = dist.var_list.index('{}[{}]'.format(var_name, idx))
+    else:
+        target_idx = dist.var_list.index(target_var)
+    # variables used in the asgmt
+    vars = extract_variables(rhs)
+
+    while smooth_flag and current_EPS < 1.:
+
+        # There are two cases in which the distributions can be degenerate
+        # Observe that if CASE 1 is verified, after the smoothing CASE 2 cannot happen
+
+        # CASE 1: for some components the distribution is degenerate
+        # In this case the variable needs to be smoothed
+        if torch.any(updated_dist.gm.sigma[:,target_idx,target_idx] == 0):
+            
+            smoothed_vars.append(target_var)
+            gm_vars = [var for var in vars if 'gm(' in var]
+            # if a random term is present at the rhs we smooth that
+            if len(gm_vars) > 0:
+                var = gm_vars[0]
+                new_expr = smooth_asgmt_gm(var, orig_expr, current_EPS)
+            # if no random term is present we add a Gaussian noise
+            else:
+                new_expr = orig_expr + '+ gm([1.], [0.], [{:.10f}])'.format(current_EPS)
+        # CASE 2: one variable is deterministically determined by the others
+        # in this case we add Gaussian noise, but we are not smoothing a variable, unless all variables from which it depends are smoothed
+        else:
+            new_expr = orig_expr + '+ gm([1.], [0.], [{:.10f}])'.format(current_EPS)
+            if all(var in smoothed_vars for var in vars):
+                smoothed_vars.append(target_var)
+        
+        # checks if with the new expression the distribution is smooth
         updated_dist = update_rule(dist, new_expr, data, params_dict)
         smooth_flag = check_dist_non_deg(updated_dist)
         if smooth_flag is True:
             current_EPS += SMOOTH_DELTA
+    
+    # saves the smoothed expression in the node
     node.smooth = new_expr
+
+    # if too much noise needs to be added raises an error 
+    if current_EPS >= 1.:
+        print('Smoothing failed for node', node, orig_expr)
+        print('Cannot smooth', updated_dist)
+        raise ValueError
+
     return updated_dist
 
-def smooth_trunc(trunc, node):
+
+def smooth_trunc(trunc, node, smoothed_vars, data, params_dict):
     """ trunc is a truncation var ('==' | '!=') val.
     This functions transforms the conditions:
     var == val -> var > val - delta and var < val + delta
     var != val -> var < val - delta or var > val + delta
     where delta is selected by the function select_delta, depending on the current distribution"""
+    
     if '==' in trunc:
         ops = '=='
     elif '!=' in trunc:
         ops = '!='
+    elif '<=' in trunc:
+        ops = '<='
+    elif '<' in trunc:
+        ops = '<'
+    elif '>=' in trunc:
+        ops = '>='
+    elif '>' in trunc:
+        ops = '>'
+        
     target_var, target_val = trunc.split(ops)
-    target_val = eval(target_val)
+    if not target_var.replace(' ', '') in smoothed_vars:
+        return trunc 
+    
+    if '[' in target_val:
+        target_val, idx = extract_var_and_index(target_val)
+        idx = int(data[idx][0].item())
+        target_val = data[target_val][idx]
+    else:
+        target_val = eval(target_val)
+        
     dist = node.dist 
     delta = select_delta(dist, target_var, target_val)
     if ops == '==':
-        new_trunc = '{} > {} and {} < {}'.format(target_var, target_val - delta, target_var, target_val + delta)
+        new_trunc = '{} > {:.10f} and {} < {:.10f}'.format(target_var, target_val - delta, target_var, target_val + delta)
     elif ops == '!=':
-        new_trunc = '{} < {} or {} > {}'.format(target_var, target_val - delta, target_var, target_val + delta)
+        new_trunc = '{} < {:.10f} or {} > {:.10f}'.format(target_var, target_val - delta, target_var, target_val + delta)
+    elif ops == '<=':
+        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val + delta)
+    elif ops == '<':
+        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val - delta)
+    elif ops == '>=':
+        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val - delta)
+    elif ops == '>':
+        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val + delta)
+    
     node.smooth = new_trunc
+    
     return new_trunc    
+
 
 def select_delta(dist, var, val):
     """ Selects the delta for the smooth_trunc function.
@@ -69,6 +212,8 @@ def select_delta(dist, var, val):
     std = torch.sqrt(dist.gm.sigma[min_index,var_idx,var_idx])
     return 5*std
 
+# SOGA SMOOTH FUNCTIONS
+
 def start_SOGA_smooth(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
         eps is a dictionary containing 'eps_asgmt' and 'eps_test', the smoothing coefficients for assignments and if branches."""
@@ -76,6 +221,7 @@ def start_SOGA_smooth(cfg, params_dict={}, pruning=None, Kmax=None, parallel=Non
     # initializes current_dist
     var_list = cfg.ID_list
     data = cfg.data
+    smoothed_vars = cfg.smoothed_vars
     n_dim = len(var_list)
     gm = GaussianMix(torch.tensor([[1.]]), torch.zeros((1,n_dim)), EPS*torch.eye(n_dim).reshape(1,n_dim, n_dim))
     init_dist = Dist(var_list, gm)
@@ -86,7 +232,7 @@ def start_SOGA_smooth(cfg, params_dict={}, pruning=None, Kmax=None, parallel=Non
     
     # executes SOGA on nodes on exec_queue
     while(len(exec_queue)>0):
-        SOGAsmooth(exec_queue.pop(0), data, parallel, exec_queue, params_dict)
+        SOGAsmooth(exec_queue.pop(0), smoothed_vars, data, parallel, exec_queue, params_dict)
     
     # returns output distribution
     p, current_dist = merge(cfg.node_list['exit'].list_dist)
@@ -94,10 +240,15 @@ def start_SOGA_smooth(cfg, params_dict={}, pruning=None, Kmax=None, parallel=Non
     return current_dist
 
 
-def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
+def SOGAsmooth(node, smoothed_vars, data, parallel, exec_queue, params_dict):
 
     #print('Entering', node)
-    #print(node.dist)
+    #if node.dist:
+    #    print(node.dist.gm.n_comp(), ' components')
+    #    print(check_dist_non_deg(node.dist))
+    #    print(node.dist)
+    #    print('mean', node.dist.gm.mean())
+    #    print('cov', node.dist.gm.cov())
     #print('\n')
 
     if node.type != 'merge' and node.type != 'exit':
@@ -114,8 +265,7 @@ def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
     # if tests saves LBC and calls on children
     if node.type == 'test':
         current_trunc = node.LBC
-        if '==' in current_trunc or '!=' in current_trunc:
-            current_trunc = smooth_trunc(current_trunc, node)
+        current_trunc = smooth_trunc(current_trunc, node, smoothed_vars, data, params_dict)
         for child in node.children:
             update_child(child, node.dist, current_p, current_trunc, exec_queue)
             
@@ -158,15 +308,26 @@ def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
             p, current_dist = truncate(current_dist, current_trunc, data, params_dict)     ### see libSOGAtruncate
             current_trunc = None
             current_p = p*current_p
+        #print('After truncation:')
+        #print('current_p: ', current_p)
+        #print('mean: ', current_dist.gm.mean())
+        #print('cov: ', current_dist.gm.cov())
+        #print('\n')
         if current_p > TOL_PROB:
-            updated_dist = update_rule(current_dist, node.expr, data, params_dict)         ### see libSOGAupdate
+            if node.smooth:
+                updated_dist = update_rule(current_dist, node.smooth, data, params_dict)         ### see libSOGAupdate
+            else:
+                updated_dist = update_rule(current_dist, node.expr, data, params_dict)
             
             # smoothing
             smooth_flag = check_dist_non_deg(updated_dist)
             if smooth_flag:
-                updated_dist = smooth_asgmt(updated_dist, node, data, params_dict)
+                updated_dist = smooth_asgmt(current_dist, updated_dist, node, smoothed_vars, data, params_dict)
             current_dist = updated_dist
-
+        #print('After update:')
+        #print('mean: ', current_dist.gm.mean())
+        #print('cov: ', current_dist.gm.cov())
+        #print('\n')
         # updating child
         child = node.children[0]
         if child.type == 'loop' and not data[child.idx][0] is None:
@@ -180,6 +341,7 @@ def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
         #if parallel is not None and parallel >1:
         #    p, current_dist = parallel_truncate(current_dist, current_trunc, data,parallel)
         #else:
+        current_trunc = smooth_trunc(current_trunc, node, smoothed_vars, data, params_dict)
         p, current_dist = truncate(current_dist, current_trunc, data, params_dict)                     ### see libSOGAtruncate
         #current_p = current_p*p
         current_trunc = None
@@ -193,6 +355,9 @@ def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
         if len(node.list_dist) != len(node.parent):
             return
         else:
+            #print('List_dist')
+            #for p, dist in node.list_dist:
+            #    print('p: ', p, 'mean: ', dist.gm.mean())
             current_p, current_dist = merge(node.list_dist)        ### see libSOGAmerge
             node.list_dist = []
             child = node.children[0]
@@ -213,102 +378,3 @@ def SOGAsmooth(node, data, parallel, exec_queue, params_dict):
     #            child.set_p(current_p)
     #            child.set_trunc(current_trunc)
     #        exec_queue.append(child)
-
-## OLD STUFF
-
-## These functions where written when trying to make a syntactic smoothing (no semantics information used)
-## They are not currently used but might be useful in the future
-
-#def add_smooth_gm(gm, eps=1e-2):
-#    """ gm is a GmContext to be smoothed """
-#    w_list = eval(gm.list_()[0].getText())
-#    mean_list = eval(gm.list_()[1].getText())
-#    std_list = eval(gm.list_()[2].getText())
-#    for i in range(len(std_list)):
-#        if std_list[i] == 0.:
-#            std_list[i] = eps
-#    return 'gm({}, {}, {})'.format(str(w_list), str(mean_list), str(std_list))
-
-#def extract_coeff(add_term):
-#    if add_term.NUM():
-#        coeff = add_term.NUM().getText()
-#    elif add_term.idd():
-#        coeff = add_term.idd().getText()
-#    elif add_term.par():
-#        coeff = add_term.par().getText()
-#    else:
-#        coeff = None
-#    return coeff
-
-#def check_smooth_expr(expr, eps):
-#    target_var = expr.symvars().getText()
-#    # the assignment is constant
-#    if expr.const():
-#        new_expr = expr.getText() + '+ gm([1.], [0.], [{}])'.format(eps)
-#    # the assignment is a linear expression with possible random terms
-#    elif expr.add():
-#        var_list = []
-#        new_expr = str(target_var) + ' ='
-#        ops = extract_operators(expr.add().getText())
-#        for i, add_term in enumerate(expr.add().add_term()):
-#            # sets the next operation
-#            if new_expr[-1] == '=':
-#                new_expr = new_expr + ' '
-#            else:
-#                new_expr = new_expr + ' {} '.format(ops[i-1])
-#            if add_term.vars_():
-#                # if the term is const*var
-#                if add_term.vars_().symvars():
-#                    var_list.append(add_term.vars_().symvars().getText())
-#                    new_expr = new_expr + add_term.getText()
-#                # random term
-#                elif add_term.vars_().gm():
-#                    gm = add_term.vars_().gm()
-#                    coeff = extract_coeff(add_term)
-#                    new_gm = add_smooth_gm(gm, eps)
-#                    if coeff:
-#                        new_expr = new_expr + coeff + '*' + new_gm
-#                    else:
-#                        new_expr = new_expr + new_gm
-#            # constant term
-#            elif add_term.const_term():
-#                new_expr = new_expr + add_term.const_term().getText()
-#        if target_var not in var_list and 'gm' not in new_expr:
-#            new_expr = new_expr + ' + gm([1.], [0.], [{}])'.format(eps)       
-#    else:        
-#        new_expr = expr.getText()
-#    return new_expr
-#    
-#def extract_subprogram(node, subprogram='', stack=[]):
-#    """ Extracts the subprogram starting from a state node and returns it as a string"""
-#    
-#    print(node, subprogram, stack)
-#
-#    if node.type == 'entry':
-#        child = node.children[0]
-#        subprogram = extract_subprogram(child, subprogram, stack)
-#
-#    if node.type == 'state':
-#        subprogram += node.expr + ';'
-#        child = node.children[0]
-#        subprogram = extract_subprogram(child, subprogram, stack)
-#    
-#    if node.type == 'test':
-#        subprogram += 'if ' + node.LBC + ' {'
-#        stack.append(node)
-#        for child in node.children:
-#            if child.cond is True:
-#                subprogram = extract_subprogram(child, subprogram, stack)
-#        
-#    if node.type == 'merge':
-#        if len(stack) > 0:
-#            subprogram += ' } else {'
-#            test = stack.pop()
-#            for child in test.children:
-#                if child.cond is False:
-#                    subprogram = extract_subprogram(child, subprogram, stack)
-#                    subprogram += ' } end if;'
-#    
-#    return subprogram
-
-

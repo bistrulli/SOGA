@@ -112,13 +112,16 @@ class ObserveNode(CFGnode):
     def __init__(self, node_name):
         super().__init__(node_name, 'observe')
         self.LBC = None
-        self.hard = None
+        self.smooth = None # needed for smoothing
         
     def set_LBC(self, LBC):
         self.LBC = LBC
         
     def __str__(self):
-        return 'ObserveNode<{},{}>'.format(self.name,self.LBC)
+        if self.smooth:
+            return 'ObserveNode<{},{},smoothed:{}>'.format(self.name,self.LBC,self.smooth)
+        else:
+            return 'ObserveNode<{},{}>'.format(self.name,self.LBC)
   
     def __repr__(self):
         return str(self)
@@ -174,7 +177,7 @@ class ExitNode(CFGnode):
     
 class CFG(SOGAListener):
     
-    def __init__(self, extending = False):
+    def __init__(self):
         # counters for nodes of different types
         self.n_state = 0
         self.n_test = 0
@@ -193,6 +196,8 @@ class CFG(SOGAListener):
         self._current_node = self.root
         self._flag = None
         self._subroot = []
+        # smoothed vars
+        self.smoothed_vars = []
         
     def enterData(self, ctx):
         data_name = ctx.symvars().getText()

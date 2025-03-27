@@ -547,7 +547,7 @@ class ASGMTParser ( Parser ):
             if not self.NUM() is None:
                 data_idx = int(self.NUM().getText())
             elif not self.IDV(1) is None:
-                data_idx = data[self.IDV(1).getText()][0]
+                data_idx = int(data[self.IDV(1).getText()][0].item())
             return data[data_name][data_idx]
 
     

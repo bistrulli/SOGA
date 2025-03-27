@@ -55,15 +55,16 @@ def and_func(self, dist):
 
 def or_func(self, dist):
     """ Truncates the distribution to var > self.low or var < self.up """
+
     idx = torch.where(self.coeff != 0)[0][0]
     var = dist.var_list[idx]
-    trunc_low = '{} < {}'.format(var,self.up)
-    trunc_up = '{} > {}'.format(var,self.low)
+    trunc_low = '{} < {:.10f}'.format(var,self.up)
+    trunc_up = '{} > {:.10f}'.format(var,self.low)
     p_low, dist_low = truncate(dist, trunc_low, {}, {})
     p_up, dist_up = truncate(dist, trunc_up, {}, {})
     new_pi = torch.vstack([p_low*dist_low.gm.pi, p_up*dist_up.gm.pi])
-    new_mu = torch.vstack([p_low*dist_low.gm.mu, p_up*dist_up.gm.mu])
-    new_sigma = torch.vstack([p_low*dist_low.gm.sigma, p_up*dist_up.gm.sigma])
+    new_mu = torch.vstack([dist_low.gm.mu, dist_up.gm.mu])
+    new_sigma = torch.vstack([dist_low.gm.sigma, dist_up.gm.sigma])
     norm_fact, norm_new_pi = normalize_weights(new_pi)
     return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_mu, new_sigma))
 
@@ -128,38 +129,46 @@ def eq_func(self, dist):
     
     # here there was a part to deal with deltas, but we removed it because in torch everything is differentiable
     # I suppressed the parts in which we truncate only some variables
-    
     # observed and non-observed variables
     obs_idx = int(list(torch.where(eq_coeff!=0))[0][0])
     select = (torch.arange(dist.gm.n_dim())!=obs_idx)
     # computes conditional cov and mean
     cond_sigma = torch.clone(dist.gm.sigma[:, select, :][:, :, select])
-    cond_sigma = cond_sigma - (1/dist.gm.sigma[:,obs_idx,obs_idx])*torch.bmm(dist.gm.sigma[:,select,obs_idx].unsqueeze(2), dist.gm.sigma[:,obs_idx,select].unsqueeze(1))
-    cond_mu = dist.gm.mu[:,select] + (eq_const-dist.gm.mu[:,obs_idx]).view(dist.gm.sigma.shape[0],1)*dist.gm.sigma[:,select,obs_idx]
+    cond_sigma = cond_sigma - (1/dist.gm.sigma[:,obs_idx,obs_idx]).view(-1,1,1)*torch.bmm(dist.gm.sigma[:,select,obs_idx].unsqueeze(2), dist.gm.sigma[:,obs_idx,select].unsqueeze(1))
+    cond_mu = dist.gm.mu[:,select] + (1/dist.gm.sigma[:,obs_idx,obs_idx]).view(-1,1)*(eq_const-dist.gm.mu[:,obs_idx]).view(dist.gm.sigma.shape[0],1)*dist.gm.sigma[:,select,obs_idx]
     # if conditioned matrix is Null, it is equivalent to observing a single independent component
     all_zeros = torch.all(cond_sigma == 0, dim=(1,2))
     new_pi = torch.where(all_zeros, 0., dist.gm.pi.flatten()).view(-1,1)
     # normalizes weights
     norm_fact, norm_new_pi = normalize_weights(new_pi)
-    # excludes observed varibles
-    new_var_list = [dist.var_list[i] for i in range(len(dist.var_list)) if i!= obs_idx]
-        
-    return norm_fact, Dist(new_var_list, GaussianMix(norm_new_pi, cond_mu, cond_sigma))
+    # extends cond mu and sigma with values for observed bar (puts small variance to the observed variable)
+    new_cond_mu = torch.zeros((cond_mu.shape[0], cond_mu.shape[1]+1))
+    new_cond_mu[:, :obs_idx] = cond_mu[:, :obs_idx]
+    new_cond_mu[:, obs_idx] = torch.ones(cond_mu.shape[0])*eq_const
+    new_cond_mu[:, obs_idx+1:] = cond_mu[:, obs_idx:]
+    mask = torch.ones(cond_mu.shape[1] + 1, dtype=torch.bool)
+    mask[obs_idx] = False
+    new_cond_sigma = torch.zeros((cond_sigma.shape[0], cond_sigma.shape[1]+1, cond_sigma.shape[2]+1))
+    C = new_cond_sigma[:, mask, :]
+    C[:, :, mask] = cond_sigma
+    new_cond_sigma[:, mask, :] = C
+    new_cond_sigma[:, obs_idx, obs_idx] = torch.ones(cond_sigma.shape[0])*SMOOTH_EPS
+    return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_cond_mu, new_cond_sigma))
 
 
 def negate(trunc):
     """ Produces a string which is the logic negation of trunc """
 
-    if 'and' in trunc:
-        trunc1, trunc2 = trunc.split('and')
+    if ' and ' in trunc:
+        trunc1, trunc2 = trunc.split(' and ')
         trunc1 = negate(trunc1)
         trunc2 = negate(trunc2)
-        trunc = trunc1 + 'or' + trunc2
-    elif 'or' in trunc:
-        trunc1, trunc2 = trunc.split('or')
+        trunc = trunc1 + ' or ' + trunc2
+    elif ' or ' in trunc:
+        trunc1, trunc2 = trunc.split(' or ')
         trunc1 = negate(trunc1)
         trunc2 = negate(trunc2)
-        trunc = trunc2 + 'and' + trunc1
+        trunc = trunc2 + ' and ' + trunc1
     else:
         if '<' in trunc:
             if '<=' in trunc:
@@ -175,7 +184,7 @@ def negate(trunc):
             trunc = trunc.replace('==', '!=')
         elif '!=' in trunc:
             trunc = trunc.replace('!=', '==')
-    
+
     return trunc
 
 
@@ -207,7 +216,7 @@ class TruncRule(TRUNCListener):
             parse_ctx = ctx.const()   
         if not parse_ctx.NUM() is None:
             const = torch.tensor(float(parse_ctx.NUM().getText()))
-        elif not ctx.idd() is None:
+        elif not parse_ctx.idd() is None:
             const = parse_ctx.idd().getValue(self.data)
         elif not parse_ctx.par() is None:
             const = parse_ctx.par().getValue(self.params)
@@ -308,7 +317,6 @@ class TruncRule(TRUNCListener):
 
 def truncate(dist, trunc, data, params_dict):
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
-    
     if trunc == 'true':
         return torch.tensor(1.), dist
     elif trunc == 'false':

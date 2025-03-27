@@ -14,7 +14,8 @@ if b0 == 1 {
     observe(x <= 0);
     y = uniform([-1, 0], 2) + uniform([0,1], 2);
     observe(y > 0);
-    if gm([0.83333,0.16667],[1,0],[0,0]) > 0 {
+    flip = gm([0.83333,0.16667],[1,0],[0,0]);
+    if flip > 0 {
         o0 = x0 + x;
     } else {
         o0 = x0 + y;
@@ -24,7 +25,8 @@ if b0 == 1 {
     observe(x <= 0);
     y = uniform([-5, 0], 2) + uniform([0,5], 2);
     observe(y > 0);
-    if gm([0.5,0.5],[1,0],[0,0]) > 0 {
+    flip = gm([0.5,0.5],[1,0],[0,0]);
+    if flip > 0 {
         o0 = x + x0;
     } else {
         o0 = y + x0;
@@ -36,7 +38,8 @@ if b1 == 1 {
     observe(x <= 0);
     y = uniform([-1, 0], 2) + uniform([0,1], 2);
     observe(y > 0);
-    if gm([0.83333,0.16667],[1,0],[0,0]) > 0 {
+    flip = gm([0.83333,0.16667],[1,0],[0,0]);
+    if flip > 0 {
         o1 = x + x1;
     } else {
         o1 = y + x1;
@@ -46,7 +49,8 @@ if b1 == 1 {
     observe(x <= 0);
     y = uniform([-5, 0], 2) + uniform([0,5], 2);
     observe(y > 0);
-    if gm([0.5,0.5],[1,0],[0,0]) > 0 {
+    flip = gm([0.5,0.5],[1,0],[0,0]);
+    if flip > 0 {
         o1 = x + x1;
     } else {
         o1 = y + x1;

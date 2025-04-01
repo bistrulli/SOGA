@@ -89,12 +89,39 @@ class TRUNCListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by TRUNCParser#const_expr.
+    def enterConst_expr(self, ctx:TRUNCParser.Const_exprContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#const_expr.
+    def exitConst_expr(self, ctx:TRUNCParser.Const_exprContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#pos_const.
+    def enterPos_const(self, ctx:TRUNCParser.Pos_constContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#pos_const.
+    def exitPos_const(self, ctx:TRUNCParser.Pos_constContext):
+        pass
+
+
     # Enter a parse tree produced by TRUNCParser#const.
     def enterConst(self, ctx:TRUNCParser.ConstContext):
         pass
 
     # Exit a parse tree produced by TRUNCParser#const.
     def exitConst(self, ctx:TRUNCParser.ConstContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#num.
+    def enterNum(self, ctx:TRUNCParser.NumContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#num.
+    def exitNum(self, ctx:TRUNCParser.NumContext):
         pass
 
 
@@ -134,30 +161,21 @@ class TRUNCListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by TRUNCParser#sum.
-    def enterSum(self, ctx:TRUNCParser.SumContext):
-        pass
-
-    # Exit a parse tree produced by TRUNCParser#sum.
-    def exitSum(self, ctx:TRUNCParser.SumContext):
-        pass
-
-
-    # Enter a parse tree produced by TRUNCParser#sub.
-    def enterSub(self, ctx:TRUNCParser.SubContext):
-        pass
-
-    # Exit a parse tree produced by TRUNCParser#sub.
-    def exitSub(self, ctx:TRUNCParser.SubContext):
-        pass
-
-
     # Enter a parse tree produced by TRUNCParser#par.
     def enterPar(self, ctx:TRUNCParser.ParContext):
         pass
 
     # Exit a parse tree produced by TRUNCParser#par.
     def exitPar(self, ctx:TRUNCParser.ParContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#aop.
+    def enterAop(self, ctx:TRUNCParser.AopContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#aop.
+    def exitAop(self, ctx:TRUNCParser.AopContext):
         pass
 
 

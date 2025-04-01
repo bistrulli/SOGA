@@ -2,31 +2,39 @@ grammar TRUNC;
 
 trunc: ineq | eq | and_trunc | or_trunc;
 
-ineq: lexpr inop const;
+ineq: lexpr inop const_expr;
 inop: '<=' | '<' | '>' | '>=';
 
-and_trunc: IDV inop const 'and' IDV inop const;
-or_trunc: IDV inop const 'or' IDV inop const;
+and_trunc: IDV inop const_expr 'and' IDV inop const_expr;
+or_trunc: IDV inop const_expr 'or' IDV inop const_expr;
 
-eq: var eqop const;
+eq: var eqop const_expr;
 eqop: '==' | '!=';
 
-lexpr: monom ((sum|sub) monom)*?;
-monom: (const '*')? var;
+lexpr: monom (aop monom)*?;
+monom: (const MUL)? var;
 
-const: NUM | par | idd;
+const_expr: const (aop pos_const)*?;
+pos_const: POSNUM | par | idd;
+const: num | par | idd;
+
+num: POSNUM | SUB POSNUM;
 var: IDV | idd | gm;
-idd : IDV '[' (NUM | IDV) ']';
+idd : IDV '[' (num | IDV) ']';
 gm: 'gm(' list ',' list ',' list ')';
-list: '[' (NUM | par) (',' (NUM | par))*? ']';
-
-sum: '+';
-sub: '-';
+list: '[' (num | par) (',' (num | par))*? ']';
 
 par: '_' IDV;
 
+aop: SUM | SUB;
+SUM: '+';
+SUB: '-';
+MUL: '*';
+
+
 IDV : ALPHA (ALPHA|DIGIT)*;
-NUM : '-'? DIGIT+ ('.' DIGIT*)?; 
+
+POSNUM : DIGIT+ ('.' DIGIT*)?;
 
 COMM : '/*' .*? '*/' -> skip;
 WS : (' '|'\t'|'\r'|'\n') -> skip;

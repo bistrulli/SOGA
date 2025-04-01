@@ -173,43 +173,41 @@ def smooth_trunc(trunc, node, smoothed_vars, data, params_dict):
     if not target_var.replace(' ', '') in smoothed_vars:
         return trunc 
     
-    if '[' in target_val:
-        target_val, idx = extract_var_and_index(target_val)
-        idx = int(data[idx][0].item())
-        target_val = data[target_val][idx]
-    else:
-        target_val = eval(target_val)
+    #if '[' in target_val:
+    #    target_val, idx = extract_var_and_index(target_val)
+    #    idx = int(data[idx][0].item())
+    #    target_val = data[target_val][idx]
+    #elif target_val[0] == '_':
+    #    target_val = params_dict[target_val[1:]]
+    #else:
+    #    target_val = eval(target_val)
         
     dist = node.dist 
-    delta = select_delta(dist, target_var, target_val)
+    delta = select_delta(dist, target_var)
     if ops == '==':
-        new_trunc = '{} > {:.10f} and {} < {:.10f}'.format(target_var, target_val - delta, target_var, target_val + delta)
+        new_trunc = '{} > {} - {:.10f} and {} < {} + {:.10f}'.format(target_var, target_val, delta, target_var, target_val, delta)
     elif ops == '!=':
-        new_trunc = '{} < {:.10f} or {} > {:.10f}'.format(target_var, target_val - delta, target_var, target_val + delta)
+        new_trunc = '{} < {} - {:.10f} or {} > {} + {:.10f}'.format(target_var, target_val, delta, target_var, target_val, delta)
     elif ops == '<=':
-        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val + delta)
+        new_trunc = '{} {} {} + {:.10f}'.format(target_var, ops, target_val, delta)
     elif ops == '<':
-        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val - delta)
+        new_trunc = '{} {} {} - {:.10f}'.format(target_var, ops, target_val, delta)
     elif ops == '>=':
-        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val - delta)
+        new_trunc = '{} {} {} - {:.10f}'.format(target_var, ops, target_val, delta)
     elif ops == '>':
-        new_trunc = '{} {} {:.10f}'.format(target_var, ops, target_val + delta)
+        new_trunc = '{} {} {} + {:.10f}'.format(target_var, ops, target_val, delta)
     
     node.smooth = new_trunc
     
     return new_trunc    
 
 
-def select_delta(dist, var, val):
+def select_delta(dist, var):
     """ Selects the delta for the smooth_trunc function.
     It is based on the standard deviation of the variable var in the distribution dist."""
     var_idx = dist.var_list.index(var)
-    # computes the component of the mixturewith mean closest to val
-    marg_mean = dist.gm.mu[:,var_idx]
-    diff = torch.abs(marg_mean - val)
-    min_index = torch.argmin(diff)   # torch.argsort for ranked indices
-    # selects the std of the component
-    std = torch.sqrt(dist.gm.sigma[min_index,var_idx,var_idx])
+    # takes the smallest std
+    std = torch.max(torch.sqrt(dist.gm.sigma[:,var_idx,var_idx]))
     return 5*std
 
 # SOGA SMOOTH FUNCTIONS
@@ -358,6 +356,7 @@ def SOGAsmooth(node, smoothed_vars, data, parallel, exec_queue, params_dict):
             #print('List_dist')
             #for p, dist in node.list_dist:
             #    print('p: ', p, 'mean: ', dist.gm.mean())
+            #print('\n')
             current_p, current_dist = merge(node.list_dist)        ### see libSOGAmerge
             node.list_dist = []
             child = node.children[0]

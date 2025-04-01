@@ -212,30 +212,48 @@ class TruncRule(TRUNCListener):
         """ Parses the constant at r.h.s. of an (in)equality"""
         if isinstance(ctx, TRUNCParser.ConstContext):
             parse_ctx = ctx
-        else:
-            parse_ctx = ctx.const()   
-        if not parse_ctx.NUM() is None:
-            const = torch.tensor(float(parse_ctx.NUM().getText()))
-        elif not parse_ctx.idd() is None:
-            const = parse_ctx.idd().getValue(self.data)
-        elif not parse_ctx.par() is None:
-            const = parse_ctx.par().getValue(self.params)
+            if not parse_ctx.num() is None:
+                const = torch.tensor(float(parse_ctx.num().getText()))
+            elif not parse_ctx.idd() is None:
+                const = parse_ctx.idd().getValue(self.data)
+            elif not parse_ctx.par() is None:
+                const = parse_ctx.par().getValue(self.params)
+        elif isinstance(ctx, TRUNCParser.Pos_constContext):
+            parse_ctx = ctx
+            if not parse_ctx.POSNUM() is None:
+                const = torch.tensor(float(parse_ctx.POSNUM().getText()))
+            elif not parse_ctx.idd() is None:
+                const = parse_ctx.idd().getValue(self.data)
+            elif not parse_ctx.par() is None:
+                const = parse_ctx.par().getValue(self.params)
         return const
     
+    def parse_const_expr(self, ctx):
+        init_const = self.parse_const(ctx.const())
+        if ctx.pos_const():
+            for aop, pos_const in zip(ctx.aop(), ctx.pos_const()):
+                if aop.getText() == '+':
+                    init_const = init_const + self.parse_const(pos_const)
+                elif aop.getText() == '-':
+                    init_const = init_const - self.parse_const(pos_const)     
+                elif aop.getText() == '*':
+                    init_const = init_const * self.parse_const(pos_const)       
+        return init_const
 
-    def parse_monom_const(self, ctx):
-        """ Parses the constant in front of a monomial"""
-        
-        if not ctx.const() is None:
-            if not ctx.const().NUM() is None:
-                coeff = self.flag_sign*torch.tensor(float(ctx.const().NUM().getText()))
-            elif not ctx.const().idd() is None:
-                coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
-            elif not ctx.const().par() is None:
-                coeff = self.flag_sign*ctx.const().par().getValue(self.params)
-        else:
-            coeff = self.flag_sign
-        return coeff
+
+    #def parse_monom_const(self, ctx):
+    #    """ Parses the constant in front of a monomial"""
+    #    
+    #    if ctx.const():
+    #        if ctx.const().num():
+    #            coeff = self.flag_sign*torch.tensor(float(ctx.const().num().getText()))
+    #        elif ctx.const().idd():
+    #            coeff = self.flag_sign*torch.tensor(ctx.const().idd().getValue(self.data))
+    #        elif ctx.const().par():
+    #            coeff = self.flag_sign*ctx.const().par().getValue(self.params)
+    #    else:
+    #        coeff = self.flag_sign
+    #    return coeff
     
     def unpack_rvs(self, term):
         """ Unpacks the different terms when unpacking gm([pi],[mu],[sigma]) """
@@ -247,16 +265,17 @@ class TruncRule(TRUNCListener):
 
     def enterIneq(self, ctx):
         self.type = ctx.inop().getText()
-        self.const = self.parse_const(ctx)
+        self.const = self.parse_const_expr(ctx.const_expr())
+
 
     def enterAnd_trunc(self, ctx):
         ID = ctx.IDV()[0].getText()
         idx = self.var_list.index(ID)
         self.coeff[idx] = torch.tensor(1.)
         inops = ctx.inop()
-        consts = ctx.const()
+        const_exprs = ctx.const_expr()
         for i in range(2):
-            const = self.parse_const(consts[i])
+            const = self.parse_const_expr(const_exprs[i])
             inop = inops[i].getText()
             if '<' in inop:
                 self.up = const
@@ -270,9 +289,9 @@ class TruncRule(TRUNCListener):
         idx = self.var_list.index(ID)
         self.coeff[idx] = torch.tensor(1.)
         inops = ctx.inop()
-        consts = ctx.const()
+        const_exprs = ctx.const_expr()
         for i in range(2):
-            const = self.parse_const(consts[i])
+            const = self.parse_const_expr(const_exprs[i])
             inop = inops[i].getText()
             if '<' in inop:
                 self.up = const
@@ -282,36 +301,51 @@ class TruncRule(TRUNCListener):
 
     def enterLexpr(self, ctx):
         self.flag_sign = torch.tensor(1.)
+        monom = ctx.monom()[0]
+        self.parse_monom(monom)
+        for aop, monom in zip(ctx.aop(), ctx.monom()[1:]):
+            self.parse_monom(monom, aop)
 
 
     def exitLexpr(self, ctx):
         self.func = partial(ineq_func,self)
         
 
-    def enterMonom(self,ctx):
+    def parse_monom(self,ctx,op=None):
+        """ Parses a monomial, if op is not None, is the operator before the monomial"""
         if ctx.var().gm() is None:
             # monom in the form const? '*' (IDV | idd)
             ID = ctx.var()._getText(self.data)
-            coeff = self.parse_monom_const(ctx)
+            coeff = torch.tensor(1.)
+            if ctx.const():
+                coeff = self.parse_const(ctx)
+            if op:
+                if op.SUB():
+                    coeff = -coeff
             idx = self.var_list.index(ID)
             self.coeff[idx] = coeff
         else:
             # monom in the form const? '*' gm
             self.unpack_rvs(ctx.var())
-            coeff = self.parse_monom_const(ctx)
+            coeff = torch.tensor(1.)
+            if ctx.const():
+                coeff = self.parse_const(ctx)
+            if op:
+                if op.SUB():
+                    coeff = -coeff
             self.coeff = torch.hstack([self.coeff, coeff])            
             
-    def enterSub(self, ctx):
-        self.flag_sign = torch.tensor(-1.)
+    #def enterSub(self, ctx):
+    #    self.flag_sign = torch.tensor(-1.)
         
-    def enterSum(self, ctx):
-        self.flag_sign = torch.tensor(1.)
+    #def enterSum(self, ctx):
+    #    self.flag_sign = torch.tensor(1.)
         
     def enterEq(self, ctx):
         self.type = ctx.eqop().getText()
         idx = self.var_list.index(ctx.var()._getText(self.data))
         self.coeff[idx] = torch.tensor(1.)
-        self.const = self.parse_const(ctx)
+        self.const = self.parse_const_expr(ctx.const_expr())
         self.func = partial(eq_func,self)
 
 

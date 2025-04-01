@@ -54,8 +54,23 @@ class TRUNCVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TRUNCParser#const_expr.
+    def visitConst_expr(self, ctx:TRUNCParser.Const_exprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#pos_const.
+    def visitPos_const(self, ctx:TRUNCParser.Pos_constContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by TRUNCParser#const.
     def visitConst(self, ctx:TRUNCParser.ConstContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#num.
+    def visitNum(self, ctx:TRUNCParser.NumContext):
         return self.visitChildren(ctx)
 
 
@@ -79,18 +94,13 @@ class TRUNCVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by TRUNCParser#sum.
-    def visitSum(self, ctx:TRUNCParser.SumContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by TRUNCParser#sub.
-    def visitSub(self, ctx:TRUNCParser.SubContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by TRUNCParser#par.
     def visitPar(self, ctx:TRUNCParser.ParContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#aop.
+    def visitAop(self, ctx:TRUNCParser.AopContext):
         return self.visitChildren(ctx)
 
 

@@ -1,5 +1,3 @@
 x = gauss(0,1);
-y = gauss(1,1) + x;
-z = gauss(1,1) + y;
-observe(y==1.5);
-/*observe(z==2.25);*/
+y = x + gauss(1,1);
+y = exp(x);

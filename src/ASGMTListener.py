@@ -80,6 +80,15 @@ class ASGMTListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ASGMTParser#exp.
+    def enterExp(self, ctx:ASGMTParser.ExpContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#exp.
+    def exitExp(self, ctx:ASGMTParser.ExpContext):
+        pass
+
+
     # Enter a parse tree produced by ASGMTParser#sub.
     def enterSub(self, ctx:ASGMTParser.SubContext):
         pass

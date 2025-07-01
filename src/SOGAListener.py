@@ -98,6 +98,15 @@ class SOGAListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SOGAParser#exp.
+    def enterExp(self, ctx:SOGAParser.ExpContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#exp.
+    def exitExp(self, ctx:SOGAParser.ExpContext):
+        pass
+
+
     # Enter a parse tree produced by SOGAParser#conditional.
     def enterConditional(self, ctx:SOGAParser.ConditionalContext):
         pass

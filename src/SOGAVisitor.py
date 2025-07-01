@@ -59,6 +59,11 @@ class SOGAVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by SOGAParser#exp.
+    def visitExp(self, ctx:SOGAParser.ExpContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by SOGAParser#conditional.
     def visitConditional(self, ctx:SOGAParser.ConditionalContext):
         return self.visitChildren(ctx)

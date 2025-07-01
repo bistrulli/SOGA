@@ -21,6 +21,7 @@ class AsgmtRule(ASGMTListener):
         # parameters of the assignment
         self.target = None         # stores the index of the target variable
         self.is_prod = None        # checks whether a term is a product of two vars
+        self.exp_arg = None        # stores the argument of an exp term
         #additional random variables (cannot use a tensors here because different a.r.v.s can have different numbers of components)
         self.aux_pis = []             # stores the weights of auxiliary variables
         self.aux_means = []           # stores the means of auxiliary variables
@@ -35,7 +36,11 @@ class AsgmtRule(ASGMTListener):
         
     def enterAssignment(self, ctx):
         self.target = self.var_list.index(ctx.symvars().getVar(self.data))
-   
+
+    def enterExp(self, ctx):
+        arg = ctx.symvars().getVar(self.data)
+        self.exp_arg = self.var_list.index(arg)
+        self.func = partial(exp_func, self)
        
     def enterAdd(self, ctx):
         # a product is a single add_term in which the terms are both variables
@@ -86,10 +91,10 @@ class AsgmtRule(ASGMTListener):
                                 
     def exitAdd(self, ctx):
         if not self.is_prod:
-            if not torch.all(self.add_coeff == 0):
+            if not torch.all(self.add_coeff == 0) and self.exp_arg is None:
                 self.func = partial(add_func, self)
             # this part makes the distribution non differentiable but is needed for the smoother
-            else:
+            elif self.exp_arg is None:
                 self.func = partial(const_func, self)
                 
     
@@ -110,7 +115,7 @@ def update_rule(dist, expr, data, params_dict):
     if expr == 'skip':
         return dist
     else:
-        rule_func = asgmt_parse(dist.var_list, expr, data, params_dict)    
+        rule_func = asgmt_parse(dist.var_list, expr, data, params_dict)  
         return rule_func(dist)
     
 def add_func(self, dist):
@@ -164,6 +169,22 @@ def const_func(self, dist):
     return new_dist
             
 
+def exp_func(self, dist):
+    """ Transforms the distribution after the assignment X_i = exp(X_j)"""
+
+    i = self.target
+    j = self.exp_arg
     
-    
-    
+    mu = torch.clone(dist.gm.mu)
+    sigma = torch.clone(dist.gm.sigma)
+    t = torch.zeros((1, mu.shape[1]))
+    t[0, j] = 1.0
+    mu[:, i] = torch.exp(dist.gm.mu @ t.T + 0.5*(t @ dist.gm.sigma @ t.T).squeeze(1)).reshape(mu[:, i].shape)
+
+    sigma[:, i, :] = sigma[:, :, i] = (dist.gm.mu + dist.gm.sigma[:, :, j])*torch.exp(dist.gm.mu[:,j] + 0.5*dist.gm.sigma[:, j, j]).unsqueeze(1) - (dist.gm.mu*mu[:, i].unsqueeze(1))
+    t = torch.zeros((1, mu.shape[1]))
+    t[0, j] = 2.0
+    sigma[:, i, i] = torch.exp(dist.gm.mu @ t.T + 0.5 * ( t @ dist.gm.sigma @ t.T).squeeze(1)).reshape(mu[:, i].shape) - mu[:, i]**2
+
+    new_dist = Dist(dist.var_list, GaussianMix(dist.gm.pi, mu, sigma))
+    return new_dist

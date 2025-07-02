@@ -8,7 +8,7 @@ array: 'array[' NUM ']' IDV;
 
 instr : assignment | conditional | prune | observe | loop;
 
-assignment: symvars '=' (const | add | mul | exp) | 'skip';
+assignment: symvars '=' (const | add | mul | exp | sin | cos) | 'skip';
 
 const: const_term (('+'|'-') const_term)*?;
 const_term: (NUM | par | idd) ('*' (NUM | idd | par))?;
@@ -16,6 +16,8 @@ add: add_term (('+'|'-') add_term)*?;
 add_term: ((NUM | idd | par) '*')? vars | const_term;
 mul: ((NUM | idd | par) '*')? vars '*' vars;
 exp: 'exp(' symvars ')';
+sin: 'sin(' symvars ')';
+cos: 'cos(' symvars ')';
 
 conditional: ifclause elseclause 'end if';
 

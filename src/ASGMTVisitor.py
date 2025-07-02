@@ -54,6 +54,16 @@ class ASGMTVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ASGMTParser#sin.
+    def visitSin(self, ctx:ASGMTParser.SinContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#cos.
+    def visitCos(self, ctx:ASGMTParser.CosContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by ASGMTParser#sub.
     def visitSub(self, ctx:ASGMTParser.SubContext):
         return self.visitChildren(ctx)

@@ -41,6 +41,16 @@ class AsgmtRule(ASGMTListener):
         arg = ctx.symvars().getVar(self.data)
         self.exp_arg = self.var_list.index(arg)
         self.func = partial(exp_func, self)
+
+    def enterSin(self, ctx):
+        arg = ctx.symvars().getVar(self.data)
+        self.exp_arg = self.var_list.index(arg)
+        self.func = partial(sin_func, self)
+
+    def enterCos(self, ctx):
+        arg = ctx.symvars().getVar(self.data)
+        self.exp_arg = self.var_list.index(arg)
+        self.func = partial(cos_func, self)
        
     def enterAdd(self, ctx):
         # a product is a single add_term in which the terms are both variables
@@ -171,20 +181,91 @@ def const_func(self, dist):
 
 def exp_func(self, dist):
     """ Transforms the distribution after the assignment X_i = exp(X_j)"""
-
+    # Extracts indices
     i = self.target
     j = self.exp_arg
-    
+    # Computes mean
     mu = torch.clone(dist.gm.mu)
     sigma = torch.clone(dist.gm.sigma)
     t = torch.zeros((1, mu.shape[1]))
     t[0, j] = 1.0
     mu[:, i] = torch.exp(dist.gm.mu @ t.T + 0.5*(t @ dist.gm.sigma @ t.T).squeeze(1)).reshape(mu[:, i].shape)
-
+    # Computes covariance matrix
     sigma[:, i, :] = sigma[:, :, i] = (dist.gm.mu + dist.gm.sigma[:, :, j])*torch.exp(dist.gm.mu[:,j] + 0.5*dist.gm.sigma[:, j, j]).unsqueeze(1) - (dist.gm.mu*mu[:, i].unsqueeze(1))
     t = torch.zeros((1, mu.shape[1]))
     t[0, j] = 2.0
     sigma[:, i, i] = torch.exp(dist.gm.mu @ t.T + 0.5 * ( t @ dist.gm.sigma @ t.T).squeeze(1)).reshape(mu[:, i].shape) - mu[:, i]**2
+    # Creates new distribution
+    new_dist = Dist(dist.var_list, GaussianMix(dist.gm.pi, mu, sigma))
+    return new_dist
 
+def char_func(dist, t):
+    """ Computes the vector of the characteristic functions of the normals in dist at t"""
+    real = -0.5*torch.einsum('i,cij,j->c', t, dist.gm.sigma, t).reshape(-1, 1) # real part
+    imag = (dist.gm.mu @ t.reshape(-1,1)).reshape(-1, 1)
+    expt = torch.view_as_complex(torch.hstack([real, imag]))
+    return torch.exp(expt)
+
+def der_char_func(dist, t):
+    """ Computes the vector of the derivatives of the characteristic functions of the normals in dist at t"""
+    real = - dist.gm.sigma @ t
+    imag = dist.gm.mu
+    return torch.complex(real, imag) * char_func(dist, t).unsqueeze(1)  # derivative of the char func in t
+
+def sin_func(self, dist):
+    """ Transforms the distribution after the assignment X_i = sin(X_j)"""
+    # Extracts indices
+    i = self.target
+    j = self.exp_arg
+    # Computes mean
+    mu = torch.clone(dist.gm.mu)
+    sigma = torch.clone(dist.gm.sigma)
+    t = torch.zeros((2, mu.shape[1]))
+    t[:, j] = torch.tensor([-1.0, 1.0])
+    new_mu = -0.5j*(-char_func(dist, t[0, :]) + char_func(dist, t[1, :]))
+    if torch.sum(torch.abs(new_mu.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    mu[:, i] = new_mu.real
+    # Computes covariance matrix
+    new_cov = -0.5*(-der_char_func(dist, t[0, :]) + der_char_func(dist, t[1, :]))
+    if torch.sum(torch.abs(new_cov.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    sigma[:, i, :] = sigma[:, :, i] = new_cov.real - (dist.gm.mu*mu[:, i].unsqueeze(1))
+    t = torch.zeros((3, mu.shape[1]))
+    t[:, j] = torch.tensor([-2.0, 0.0, 2.0])
+    new_var = -0.25*(char_func(dist, t[0, :]) - 2*char_func(dist, t[1, :]) + char_func(dist, t[2, :]))
+    if torch.sum(torch.abs(new_var.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    sigma[:, i, i] = new_var.real - mu[:, i]**2
+    # Creates new distribution
+    new_dist = Dist(dist.var_list, GaussianMix(dist.gm.pi, mu, sigma))
+    return new_dist
+
+def cos_func(self, dist):
+    """ Transforms the distribution after the assignment X_i = cos(X_j)"""
+    # Extracts indices
+    i = self.target
+    j = self.exp_arg
+    # Computes mean
+    mu = torch.clone(dist.gm.mu)
+    sigma = torch.clone(dist.gm.sigma)
+    t = torch.zeros((2, mu.shape[1]))
+    t[:, j] = torch.tensor([-1.0, 1.0])
+    new_mu = 0.5*(char_func(dist, t[0, :]) + char_func(dist, t[1, :]))
+    if torch.sum(torch.abs(new_mu.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    mu[:, i] = new_mu.real
+    # Computes covariance matrix
+    new_cov = -0.5j*(der_char_func(dist, t[0, :]) + der_char_func(dist, t[1, :]))
+    if torch.sum(torch.abs(new_cov.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    sigma[:, i, :] = sigma[:, :, i] = new_cov.real - (dist.gm.mu*mu[:, i].unsqueeze(1))
+    t = torch.zeros((3, mu.shape[1]))
+    t[:, j] = torch.tensor([-2.0, 0.0, 2.0])
+    new_var = 0.25*(char_func(dist, t[0, :]) + 2*char_func(dist, t[1, :]) + char_func(dist, t[2, :]))
+    if torch.sum(torch.abs(new_var.imag)) > 1e-10:
+        print("Warning: imaginary part of the characteristic function is not zero.")
+    sigma[:, i, i] = new_var.real - mu[:, i]**2
+    # Creates new distribution
     new_dist = Dist(dist.var_list, GaussianMix(dist.gm.pi, mu, sigma))
     return new_dist

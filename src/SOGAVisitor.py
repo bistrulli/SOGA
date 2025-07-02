@@ -64,6 +64,16 @@ class SOGAVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by SOGAParser#sin.
+    def visitSin(self, ctx:SOGAParser.SinContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#cos.
+    def visitCos(self, ctx:SOGAParser.CosContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by SOGAParser#conditional.
     def visitConditional(self, ctx:SOGAParser.ConditionalContext):
         return self.visitChildren(ctx)

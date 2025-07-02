@@ -89,6 +89,24 @@ class ASGMTListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ASGMTParser#sin.
+    def enterSin(self, ctx:ASGMTParser.SinContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#sin.
+    def exitSin(self, ctx:ASGMTParser.SinContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#cos.
+    def enterCos(self, ctx:ASGMTParser.CosContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#cos.
+    def exitCos(self, ctx:ASGMTParser.CosContext):
+        pass
+
+
     # Enter a parse tree produced by ASGMTParser#sub.
     def enterSub(self, ctx:ASGMTParser.SubContext):
         pass

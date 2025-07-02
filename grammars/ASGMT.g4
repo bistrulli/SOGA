@@ -2,7 +2,7 @@ grammar ASGMT;
 
 assignment: symvars '=' add;
 
-add: add_term (('+')? add_term)*? | exp;
+add: add_term (('+')? add_term)*? | exp | sin | cos;
 add_term: (term '*')? term;
 
 term: NUM | sub? par | sub? symvars | sub? gm;
@@ -12,6 +12,8 @@ gm: 'gm(' list ',' list ',' list ')';
 list: '[' (NUM | par) (',' (NUM | par))*? ']';
 
 exp: 'exp(' symvars ')';
+sin: 'sin(' symvars ')';
+cos: 'cos(' symvars ')';
 
 sub: '-';
 

@@ -107,6 +107,24 @@ class SOGAListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SOGAParser#sin.
+    def enterSin(self, ctx:SOGAParser.SinContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#sin.
+    def exitSin(self, ctx:SOGAParser.SinContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#cos.
+    def enterCos(self, ctx:SOGAParser.CosContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#cos.
+    def exitCos(self, ctx:SOGAParser.CosContext):
+        pass
+
+
     # Enter a parse tree produced by SOGAParser#conditional.
     def enterConditional(self, ctx:SOGAParser.ConditionalContext):
         pass

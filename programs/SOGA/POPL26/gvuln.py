@@ -1,0 +1,716 @@
+import torch
+import sys
+sys.path.append('../../../src')
+
+from sogaPreprocessor import *
+from producecfg import *
+from libSOGA import *
+
+from torch.distributions import Normal, Laplace, Gamma, MultivariateNormal
+
+### Extracting marginal
+
+def extract_marginal(dist, var_list):
+    """
+    Extract the marginal of the variables specified in var_list from the distribution dist
+    """
+
+    indices = []
+    for var in var_list:
+        indices.append(dist.var_list.index(var))
+    
+    marg_pi = dist.gm.pi
+    marg_mu = dist.gm.mu[:, indices]
+    marg_sigma = dist.gm.sigma[:, :, indices][:, indices, :]
+    return Dist(var_list, GaussianMix(marg_pi, marg_mu, marg_sigma))
+
+### V_{g_\Delta} 
+
+def vdelta_bivariate_gaussian(mu, sigma, idx_o=0):
+    """
+    Computes V_g_Delta for a bivariate Gaussian distribution with mean mu and covariance sigma analytically
+    idx_o is the index of the output variable.
+    """
+    return torch.sqrt(sigma[idx_o,idx_o]/(torch.det(sigma)*2*torch.pi))
+
+def vdelta_mvariate_gaussian(mu, sigma, idx_o):
+    """
+    Computes V_g_Delta for a multivariate Gaussian distribution with mean mu and covariance sigma analytically
+    idx_o is a list of indices of the output variables. All other variables are considered secrets
+    """
+    # extract indices of output and secrete variables
+    idx_s = [i for i in range(len(mu)) if i not in idx_o]
+    # computes the conditional covariance matrix
+    d = len(idx_o)
+    sigma_ss = sigma[idx_s, :][:, idx_s] 
+    sigma_so = sigma[idx_s, :][:, idx_o]
+    sigma_oo = sigma[idx_o, :][:, idx_o]
+    inv_sigma_oo = torch.linalg.inv(sigma_oo)
+    cond_sigma = sigma_ss - sigma_so @ inv_sigma_oo @ sigma_so.transpose(-1, -2)
+    return 1/((2*torch.pi)**(d/2) * torch.sqrt(torch.linalg.det(cond_sigma)))
+
+def vdelta_lower_bound(dist, idx_o=0, mvariate=False):
+    """ 
+    Computes the lower bound on the V_{g_Delta} for dist Gaussian Mixture.
+    If mvariate is True, idx_o can be a list of indices of output variables
+    """
+    bounds = []
+    for i in range(dist.gm.n_comp()):
+        if mvariate:
+            bounds.append(dist.gm.pi[i]*vdelta_mvariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], idx_o))
+        else:
+            bounds.append(dist.gm.pi[i]*vdelta_bivariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], idx_o))
+    return torch.max(torch.stack(bounds))
+
+def vdelta_upper_bound(dist, idx_o=0, mvariate=False):
+    """ 
+    Computes the upper bound on the V_{g_Delta} for dist Gaussian Mixture
+    If mvariate is True, idx_o can be a list of indices of output variables
+    """
+    bounds = []
+    for i in range(dist.gm.n_comp()):
+        if mvariate:
+            bounds.append(dist.gm.pi[i]*vdelta_mvariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], idx_o))
+        else:
+            bounds.append(dist.gm.pi[i]*vdelta_bivariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], idx_o))
+    return torch.sum(torch.stack(bounds))
+
+### V_{g_gauss}
+
+def vgauss_bivariate_gaussian(mu, sigma, eps, idx_o=0):
+    """
+    Computes the g-Vulnerability of a bivariate gaussian distribution with mean mu and cov matrix sigma
+    with respect to the gain function g(s,w) = exp(-0.5*(w-s)**2/eps).
+    idx_o is the index of the output variable.
+    """
+    return torch.sqrt(sigma[idx_o,idx_o]/((1/eps)*torch.det(sigma)+sigma[idx_o,idx_o]))
+
+def vgauss_mvariate_gaussian(mu, sigma, eps, idx_o):
+    """
+    Computes V_g_N for a multivariate Gaussian distribution with mean mu and covariance sigma analytically 
+    with respect to the gain function g(s,w) = exp(-0.5*(w-s)**2/eps).
+    idxs_o is a list of indices of the output variables. All other variables are considered secrets
+    """
+    # extract indices of output and secrete variables
+    idx_s = [i for i in range(len(mu)) if i not in idx_o]
+    # computes the conditional covariance matrix
+    d = len(idx_o)
+    sigma_ss = sigma[idx_s, :][:, idx_s] 
+    sigma_so = sigma[idx_s, :][:, idx_o]
+    sigma_oo = sigma[idx_o, :][:, idx_o]
+    inv_sigma_oo = torch.linalg.inv(sigma_oo)
+    cond_sigma = sigma_ss - sigma_so @ inv_sigma_oo @ sigma_so.transpose(-1, -2)
+    # create sigma_eps
+    sigma_eps = eps*torch.eye(d)
+    return  torch.sqrt(torch.linalg.det(sigma_eps @ torch.linalg.inv(cond_sigma + sigma_eps)))
+
+def vgauss_lower_bound(dist,  eps=1, idx_o=0, mvariate=False):
+    """
+    Computes the lower bound on the V_{g_N} for dist Gaussian Mixture
+    eps = float parameter for the gain function
+    """ 
+    bounds = []
+    for i in range(dist.gm.n_comp()):
+        if mvariate:
+            bounds.append(dist.gm.pi[i]*vgauss_mvariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], eps, idx_o))
+        else:
+            bounds.append(dist.gm.pi[i]*vgauss_bivariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], eps, idx_o))
+    return torch.max(torch.stack(bounds))
+
+def vgauss_upper_bound(dist, eps=1, idx_o=0, mvariate=False):
+    """
+    Computes the lower bound on the V_{g_N} for dist Gaussian Mixture
+    eps = float parameter for the gain function
+    """ 
+    bounds = []
+    for i in range(dist.gm.n_comp()):
+        if mvariate:
+            bounds.append(dist.gm.pi[i]*vgauss_mvariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], eps, idx_o))
+        else:
+            bounds.append(dist.gm.pi[i]*vgauss_bivariate_gaussian(dist.gm.mu[i], dist.gm.sigma[i], eps, idx_o))
+    return torch.sum(torch.stack(bounds))
+
+# Fitting Laplace
+
+def fit_laplace(mu, b):
+    """
+    Finds the parameters of a two-component Gaussian mixture that approximates a Laplace distribution
+    using moment matching constraints.
+    """
+
+    # Target distribution 
+    target_dist = Laplace(mu, b)
+
+    # Grid for evaluation
+    x = torch.linspace(mu-2*torch.sqrt(2*b**2), mu+2*torch.sqrt(2*b**2), 200)
+
+    # Initial parameters for the mixture - only optimize alpha
+    alpha = torch.tensor(0.5, requires_grad=True)
+
+    def lap_mix_log_pdf(x, alpha, mu, b):
+        # Compute mixture params from moment matching constraints
+        pi = torch.clamp(8/(alpha**2-4*alpha+12), min = 0.01, max=0.99)
+        mu1 = mu2 = mu
+        sigma1 = torch.sqrt(torch.clamp(alpha*b**2, min = 0.01))
+        sigma2 = torch.sqrt(torch.clamp((2-alpha*pi)*b**2/(1-pi), min = 0.01))
+        return torch.log(pi*Normal(mu1, sigma1).log_prob(x).exp() + (1-pi)*Normal(mu2, sigma2).log_prob(x).exp()), pi, mu1, mu2, sigma1, sigma2
+
+    optimizer = torch.optim.Adam([alpha], lr=0.01)
+
+    for step in range(1000):
+        
+        optimizer.zero_grad()
+        # Compute the mixture and the target log densities
+        p, pi, mu1, mu2, sigma1, sigma2 = lap_mix_log_pdf(x, alpha, mu, b)
+        q = target_dist.log_prob(x)
+        # Computes KL
+        kl = torch.sum(torch.kl_div(p, q, log_target=True))
+        # Add normalization penalty for parameters
+        mu_norm = (mu1**2 + mu2**2) 
+        sigma_norm = (sigma1**2 + sigma2**2) 
+        # Combined loss with normalization
+        total_loss = kl #+ 0.001 * mu_norm + 0.001 * sigma_norm
+        # Backpropagation
+        total_loss.backward()
+        optimizer.step()
+        if step % 100 == 0:
+            print(f"Step {step}, KL: {kl.item():.4f}")
+
+    # Compute final mu2 and sigma2 for display
+    with torch.no_grad():
+        pi_final = torch.clamp(pi, min=0.01, max=0.99)
+        sigma1_final = torch.clamp(sigma1, min=0.01)
+        sigma2_final = torch.clamp(sigma2, min=0.01)
+
+    return pi_final.item(), mu1.item(), mu2.item(), sigma1_final.item(), sigma2_final.item(), x
+
+### Sampling Univariate
+
+def sample_univariate_gm(dist, idx, n_samples):
+    """
+    Samples coordinate idx from dist
+    Returns:
+    - samples: tensor of shape (n_samples, ) containing the samples from the specified coordinate
+    """
+    # Choose components for each sample
+    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
+    samples = torch.empty(n_samples)
+    for i in range(n_samples):
+        comp = component_choices[i]
+        samples[i] = torch.normal(dist.gm.mu[comp, idx], dist.gm.sigma[comp, idx, idx])
+    return samples
+
+def compute_conditioned_stats(dist, value_to_cond, idx_to_cond):
+    """"
+    Given a dist computes the conditional means and variances, when conditioning with 
+    respect to the idx_to_cond coordinate.
+    Returns the conditioned distribution
+    """
+    d = dist.gm.n_dim()
+    c = dist.gm.n_comp()
+    idxs = [i for i in range(d) if i != idx_to_cond]   
+    cond_mus = []
+    cond_sigmas = []
+    for k in range(c):
+        mu = dist.gm.mu[k].clone()
+        sigma = dist.gm.sigma[k].clone()
+        # Partition mean and covariance
+        mu_1 = mu[idxs]  # shape (d-1,)
+        mu_2 = mu[idx_to_cond]  # scalar
+        sigma_11 = sigma[idxs][:, idxs]  # (d-1, d-1)
+        sigma_12 = sigma[idxs, idx_to_cond].unsqueeze(1)  # (d-1, 1)
+        sigma_21 = sigma[idx_to_cond, idxs].unsqueeze(0)  # (1, d-1)
+        sigma_22 = sigma[idx_to_cond, idx_to_cond].unsqueeze(0).unsqueeze(0)  # (1, 1)
+        # Compute conditional mean and covariance (for x2 = 0)
+        sigma_22_inv = 1.0 / sigma_22  # (1, 1)
+        cond_mu = mu_1 - (sigma_12 @ sigma_22_inv).squeeze() * (value_to_cond - mu_2)
+        cond_mu = torch.hstack([cond_mu, mu_2.reshape(1,)])
+        cond_mus.append(cond_mu)
+        cond_sigma = sigma_11 - sigma_12 @ sigma_22_inv @ sigma_21
+        new_sigma = torch.zeros((d, d))
+        new_sigma[:d-1, :d-1] = cond_sigma
+        new_sigma[-1, -1] = torch.tensor(0.001)
+        cond_sigmas.append(new_sigma)
+    cond_mus = torch.stack(cond_mus)  # (c, d-1)
+    cond_sigmas = torch.stack(cond_sigmas)  # (c, d-1, d-1)
+    return Dist(dist.var_list, GaussianMix(dist.gm.pi, cond_mus, cond_sigmas))
+
+def gamma_gauss(w, cond_dist, eps):
+    """
+    V_{g_N} = \mathbb{E}_{p(o)} [ \sup_w gamma_gauss(w)] 
+    NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
+    """
+    value = 0.0
+    for i in range(cond_dist.gm.n_comp()):
+        value += cond_dist.gm.pi[i]*torch.sqrt(eps/(eps + cond_dist.gm.sigma[i]))*torch.exp(-0.5*(w - cond_dist.gm.mu[i])**2/(eps + cond_dist.gm.sigma[i])) 
+    return value.reshape([])
+
+def gamma_delta(w, cond_dist):
+    """
+    V_{g_Delta} = \mathbb{E}_{p(o)} [ \sup_w gamma_delta(w)] 
+    NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
+    """
+    value = 0.0
+    for i in range(cond_dist.gm.n_comp()):
+        value += cond_dist.gm.pi[i]*(1/torch.sqrt(2*torch.pi*cond_dist.gm.sigma[i]))*torch.exp(-0.5*(w - cond_dist.gm.mu[i])**2/cond_dist.gm.sigma[i])
+    return value.reshape([])
+
+def sample_gvuln(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, num_steps=100, lr=0.05):
+    """
+    Approximates the g-vulnerability of a mixture of bivariate Gaussian distributions by sampling.
+    secret_var: name of the secrete variable
+    output_var: name of the output variable
+    gain_type: 'gauss' for g_N or 'delta' for g_Delta
+    """
+
+    output_idx = dist.var_list.index(output_var)
+    samples = sample_univariate_gm(dist, output_idx, n_samples)  # Sample output coordinate
+
+    total = 0.0
+
+    for i in range(len(samples)):
+
+        o = samples[i]
+
+        cond_dist = compute_conditioned_stats(dist, o, output_idx)
+        marg_cond_dist = extract_marginal(cond_dist, [secret_var])
+        marg_cond_dist.gm.mu = marg_cond_dist.gm.mu.detach()
+        marg_cond_dist.gm.sigma = marg_cond_dist.gm.sigma.detach()
+
+        if gain_type == 'delta':
+            f = lambda w : gamma_delta(w, marg_cond_dist)
+        elif gain_type == 'gauss':
+            f = lambda w : gamma_gauss(w, marg_cond_dist, 1.)
+
+        max_value, _ = find_global_maximum(f, marg_cond_dist.gm.mu.flatten(), num_steps=num_steps, lr=lr)
+
+        curr_total = total + max_value
+        
+        old_estimate = total / i if i > 0 else 0.0
+        new_estimate = curr_total / (i + 1)
+
+        if abs(new_estimate - old_estimate) < tol:
+            return new_estimate
+        else:
+            total = curr_total
+
+    print("Convergence not reached for MCMC.")
+    return new_estimate
+
+def find_global_maximum(f, starts, num_steps=500, lr=0.05):
+    """
+    Finds the maximum value of f by running gradient ascent from multiple random starting points.
+    Args:
+        f: function to maximize, takes a tensor of shape (dim,)
+        starts: tensor of starting points
+        num_steps: gradient ascent steps per start
+        lr: learning rate
+    Returns:
+        max_value: the maximum value found
+        max_point: the point where the maximum was found
+    """
+    all_local_maxima = []
+    for start in starts:
+        # Random starting point
+        w = start.clone().detach().requires_grad_(True)
+        optimizer = torch.optim.SGD([w], lr=lr)
+        for i in range(num_steps):
+            optimizer.zero_grad()
+            gamma_value = -f(w)
+            # Gradient ascent: maximize f
+            gamma_value.backward()
+            #if i%100 == 0:
+            #    print('Gamma value: ', gamma_value)
+            optimizer.step()
+        # Store local maximum
+        local_max = f(w.detach())
+        all_local_maxima.append((local_max.item(), w.detach().clone()))
+    # Find the global maximum among local maxima
+    max_value, max_point = max(all_local_maxima, key=lambda x: x[0])
+    return max_value, max_point
+
+## Geometric Mechanism
+
+def discrete_V1(dist, secret_var, output_var):
+    """
+    Computes Bayes risk for a discrete distribution
+    """
+    tot = 0.0
+    marg_dist = extract_marginal(dist, [secret_var, output_var])
+    secret_idx = marg_dist.var_list.index(secret_var)
+    output_idx = marg_dist.var_list.index(output_var)
+    o_supp = []
+    s_supp = []
+    # finds the support of the output and the secrete
+    for i in range(marg_dist.gm.n_comp()):
+        o_supp.append(marg_dist.gm.mu[i, output_idx].item())
+        s_supp.append(marg_dist.gm.mu[i, secret_idx].item())
+    o_supp = sorted(set(o_supp))
+    s_supp = sorted(set(s_supp))
+    # cycles on o values
+    for o in o_supp:
+        # selects components for given value of o
+        indices = marg_dist.gm.mu[:, output_idx] == o
+        conditional_pi = marg_dist.gm.pi[indices]
+        conditional_mu = marg_dist.gm.mu[indices]
+        # probability of o 
+        po = torch.sum(conditional_pi)
+        # cycles on s values computing the prob of s given o
+        ps = []
+        for s in s_supp:
+            ps.append(torch.sum(conditional_pi[conditional_mu[:, secret_idx] == s]))
+        ps = torch.stack(ps)
+        ps = ps/torch.sum(ps)  # normalization of the conditional probabilities
+        # computes the contribution to the total risk
+        tot = tot + po*torch.max(ps)
+    return tot
+
+def create_gm_from_p(p, tol=1e-6):
+    """
+    Returns a string representing a gm in SOGA language, approximating the geometric with parameter p.
+    """
+    # support and prob mass of the geometric
+    x = torch.arange(0, 50)
+    y = (1 - p)**x*p
+    # truncates to significant prob mass
+    y = y[y > tol]
+    # creates the string
+    pi_list = '['
+    mean_list = '['
+    cov_list = '['
+    for i in range(len(y)):
+        pi_list += '{:.5f},'.format(y[i].item())
+        mean_list += '{:.5f},'.format(x[i].item())
+        cov_list += '0.001,'
+    pi_list = pi_list[:-1] + ']'
+    mean_list = mean_list[:-1] + ']'
+    cov_list = cov_list[:-1] + ']'
+    gm_str = 'gm({}, {}, {})'.format(pi_list, mean_list, cov_list)
+    return gm_str
+
+## Geo-indistinguishability
+
+def fit_gamma(mean, scale):
+    """
+    Finds the parameters of a two-component Gaussian mixture that approximates a Gamma distribution
+    using moment-matching and squared error minimization.
+    """
+    # Second central moment of Gamma (needed for moment-matching)
+    second = mean*scale**2*(1 + mean)
+    
+    # Target gamma distribution 
+    target_dist = Gamma(torch.tensor([mean]), torch.tensor([1.0/scale]))
+
+    # Grid for evaluation
+    x = torch.linspace(0.01, torch.max(torch.tensor([4*scale**2, 1])), 200)
+
+    # Initial parameters for the mixture - only optimize pi, sigma1
+    pi1 = torch.tensor(0.5, requires_grad=True)
+    sigma1 = torch.tensor(1.0, requires_grad=True)
+
+    def mix_log_pdf(x, pi1, sigma1, mean, scale):
+        second = mean*scale**2*(1 + mean)
+        # Compute mu2 and sigma2 from moment matching constraints
+        pi2 = 1 - pi1
+        mu1 = (mean - 1)*scale
+        mu2 = (mean*scale - pi1*mu1)/(1 - pi1)
+        sigma2_sq = (second - pi1*(mu1**2 + sigma1**2))/pi2 - mu2**2
+        sigma2 = torch.sqrt(torch.clamp(sigma2_sq, min=0.01))  # Clamp to avoid negative values
+        return pi1*Normal(mu1, sigma1).log_prob(x).exp() + pi2*Normal(mu2, sigma2).log_prob(x).exp(), pi2, mu1, mu2, sigma2
+
+    optimizer = torch.optim.Adam([pi1, sigma1], lr=0.01)
+
+    for step in range(1000):
+        optimizer.zero_grad()
+        # Clamp pi to [0,1] and sigma1 to positive values for stability
+        pi_clamped = torch.clamp(pi1, 0.01, 0.99)
+        sigma1_clamped = torch.clamp(sigma1, 0.1)
+    
+        p, pi2, mu1, mu2, sigma2 = mix_log_pdf(x, pi_clamped, sigma1_clamped, mean, scale)
+        q = target_dist.log_prob(x).exp()
+    
+        loss = torch.sum((p - q)**2)
+    
+        # Add normalization penalty for parameters
+        # Normalize to target distribution's scale
+        #mu_norm = (mu1**2 + mu2**2) 
+        #sigma_norm = (sigma1_clamped**2 + sigma2**2) 
+
+        # Combined loss with normalization
+        total_loss = loss# + torch.abs(pi1*(mu1**3 + 3*mu1*sigma1_clamped**2) + pi2*(mu2**3 + 3*mu2*sigma2**2) - third)
+    
+        total_loss.backward()
+        optimizer.step()
+        #if step % 100 == 0:
+        #    print(f"Step {step}, Loss: {loss.item():.4f}")
+
+    # Compute final mu2 and sigma2 for display
+    with torch.no_grad():
+        pi1 = torch.clamp(pi1, 0.01, 0.99)
+        sigma1 = torch.clamp(sigma1, 0.1)
+        pi2 = 1 - pi1
+        mu1 = (mean - 1)*scale
+        mu2 = (mean - pi1*mu1)/(1 - pi1)
+        sigma2_sq = (second - pi1*(mu1**2 + sigma1**2))/pi2 - mu2**2
+        sigma2 = torch.sqrt(torch.clamp(sigma2_sq, min=0.01))  # Clamp to avoid negative values
+
+    return (x, p), pi1, pi2, mu1, mu2, sigma1, sigma2
+
+## Sample multivariate
+
+def sample_gm_multivariate(dist, idxs, n_samples):
+    """
+    Samples coordinates idxs from dist
+    """
+    # Choose components for each sample
+    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
+    samples = torch.empty((n_samples, len(idxs)))
+    for i in range(n_samples):
+        comp = component_choices[i]
+        samples[i] = MultivariateNormal(dist.gm.mu[comp][idxs], dist.gm.sigma[comp][:, idxs][idxs, :]).sample()
+    return samples
+
+def compute_conditioned_stats_multivariate(dist, value_to_cond, idxs_to_cond):
+    """"
+    Given a dist computes the conditional means and variances, when conditioning with 
+    respect to the idx_to_cond coordinate.
+    Returns the conditioned distribution
+    """
+    d = dist.gm.n_dim()
+    c = dist.gm.n_comp()
+    idxs = [i for i in range(d) if i not in idxs_to_cond] 
+    sigma_ss = dist.gm.sigma[:, idxs, :][:, :, idxs]
+    sigma_so = dist.gm.sigma[:, idxs, :][:, :, idxs_to_cond]
+    sigma_oo = dist.gm.sigma[:, idxs_to_cond, :][:, :, idxs_to_cond]
+    inv_sigma_oo = torch.linalg.inv(sigma_oo)
+    # Computes conditioned mu
+    cond_mu = (dist.gm.mu[:, idxs].unsqueeze(2) + sigma_so @ inv_sigma_oo @ (value_to_cond - dist.gm.mu[:, idxs_to_cond]).unsqueeze(2)).reshape((c, len(idxs)))
+    # Computes conditioned sigma
+    cond_sigma = sigma_ss - sigma_so @ inv_sigma_oo @ sigma_so.transpose(-1, -2)    
+    return Dist([dist.var_list[i] for i in idxs], GaussianMix(dist.gm.pi, cond_mu, cond_sigma))
+
+def gamma_delta_multivariate(w, cond_dist):
+    """
+    V_{g_Delta} = \mathbb{E}_{p(o)} [ \sup_w gamma_delta(w)] 
+    NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
+    """
+    value = 0.0
+    for i in range(cond_dist.gm.n_comp()):
+        value += cond_dist.gm.pi[i]*MultivariateNormal(cond_dist.gm.mu[i].detach(), cond_dist.gm.sigma[i].detach()).log_prob(w).exp()
+    return value.reshape([])
+
+def gamma_gauss_multivariate(w, cond_dist, eps):
+    """
+    V_{g_N} = \mathbb{E}_{p(o)} [ \sup_w gamma_gauss(w)] 
+    NOTE: cond_dist is a multivariate mixture conditioned to a value of the output.
+    """
+    value = 0.0
+    sigma_eps = eps*torch.eye(len(w))
+    for i in range(cond_dist.gm.n_comp()):
+        sigma_sum = cond_dist.gm.sigma[i].detach() + sigma_eps
+        inv_sigma_sum = torch.linalg.inv(sigma_sum)
+        value += cond_dist.gm.pi[i]*torch.sqrt(torch.linalg.det(sigma_eps)/torch.linalg.det(sigma_sum))*torch.exp(-0.5*(w - cond_dist.gm.mu[i].detach()) @ inv_sigma_sum @ (w - cond_dist.gm.mu[i].detach()).reshape(-1, 1)) 
+    return value.reshape([])
+
+def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, num_steps=100, lr=0.05):
+    """
+    Approximates the g-vulnerability of a mixture of bivariate Gaussian distributions by sampling.
+    secret_var: name of the secrete variable
+    output_var: name of the output variable
+    gain_type: 'gauss' for g_N or 'delta' for g_Delta
+    """
+
+    output_idxs = []
+    for output in output_var:
+        output_idxs.append(dist.var_list.index(output))
+
+    samples = sample_gm_multivariate(dist, output_idxs, n_samples)  # Sample output coordinate
+
+    total = 0.0
+
+    for i in range(len(samples)):
+
+        o = samples[i]
+
+        cond_dist = compute_conditioned_stats_multivariate(dist, o, output_idxs)
+
+        if gain_type == 'delta':
+            f = lambda w : gamma_delta_multivariate(w, cond_dist)
+        elif gain_type == 'gauss':
+            f = lambda w : gamma_gauss_multivariate(w, cond_dist, 1.)
+
+        max_value, _ = find_global_maximum(f, cond_dist.gm.mu, num_steps=num_steps, lr=lr)
+
+        curr_total = total + max_value
+        
+        old_estimate = total / i if i > 0 else 0.0
+        new_estimate = curr_total / (i + 1)
+
+        if abs(new_estimate - old_estimate) < tol:
+            return new_estimate
+        else:
+            total = curr_total
+
+    print("Convergence not reached for MCMC.")
+    return new_estimate
+
+###############################################################
+# ENTROPY RELATED METRICS
+###############################################################
+
+# Entropy 
+
+def entropy_gaussian(mu, sigma):
+    """
+    Computes the differential entropy of a Gaussian distribution with mean mu and covariance sigma.
+    """
+    d = mu.shape[0]
+    return 0.5 * torch.log((torch.tensor(2.)*torch.pi*torch.e)**d*torch.det(sigma))
+
+def entropy_ub(dist):
+    """
+    Computes the lower bound on the entropy of a Gaussian Mixture distribution.
+    """
+    lb = torch.tensor([0.])
+    for c in range(dist.gm.n_comp()):
+        lb += dist.gm.pi[c]*(- torch.log(dist.gm.pi[c]) + entropy_gaussian(dist.gm.mu[c], dist.gm.sigma[c]))
+    return lb.item()
+
+def entropy_lb(dist):
+    """
+    Computes the upper bound on the entropy of a Gaussian Mixture distribution.
+    """
+    ub = torch.tensor([0.])
+    c = dist.gm.n_comp()
+    for i in range(c):
+        sum_zij = torch.tensor([0.])
+        for j in range(c):
+            gm = GaussianMix(torch.tensor([[1.]]), dist.gm.mu[j].unsqueeze(0), (dist.gm.sigma[j] + dist.gm.sigma[i]).unsqueeze(0))
+            sum_zij += dist.gm.pi[j]*gm.pdf(dist.gm.mu[i]).squeeze(0)
+        ub += dist.gm.pi[i]*torch.log(sum_zij)
+    return -ub.item()
+
+# Conditional Entropy
+
+def cond_entropy_gaussian(mu, sigma, idx_o):
+    """ 
+    Computes the conditional entropy of a Gaussian distribution with mean mu and covariance sigma, 
+    where the conditioning variables have indices idx_0
+    """
+    joint_entropy = entropy_gaussian(mu, sigma)
+    marg_mu = mu[idx_o]
+    marg_sigma = sigma[idx_o, :][:, idx_o]
+    marg_entropy = entropy_gaussian(marg_mu, marg_sigma)
+    return joint_entropy - marg_entropy
+
+def cond_entropy_lb(dist, idx_o):
+    """
+    Computes the lower bound on the conditional entropy of a Gaussian Mixture distribution.
+    idx_o is a list of the the indices of the output variable.
+    """
+    var_names = [dist.var_list[i] for i in idx_o]
+    marg_dist = extract_marginal(dist, var_names)
+    return entropy_lb(dist) - entropy_ub(marg_dist)
+
+def cond_entropy_ub(dist, idx_o):
+    """
+    Computes the upper bound on the conditional entropy of a Gaussian Mixture distribution.
+    idx_o is a list of the the indices of the output variable.
+    """
+    var_names = [dist.var_list[i] for i in idx_o]
+    marg_dist = extract_marginal(dist, var_names)
+    return entropy_ub(dist) - entropy_lb(marg_dist)
+
+# Mutual Information
+
+def mi_gaussian(mu, sigma, idx_o):
+    """
+    I(X; Y) = H(X) - H(X | Y)
+    """
+    idx_s = [i for i in range(len(mu)) if i not in idx_o]
+    mu_s = mu[idx_s]
+    sigma_s = sigma[idx_s][:, idx_s]
+    s_entropy = entropy_gaussian(mu_s, sigma_s)
+    cond_entropy = cond_entropy_gaussian(mu, sigma, idx_o)
+    return (s_entropy - cond_entropy).item()
+
+def mi_lb(dist, idx_o):
+    """
+    Computes the lower bound on the mutual information of a Gaussian Mixture distribution.
+    idx_o is a list of the the indices of the output variable.
+    """
+    return entropy_lb(dist) - cond_entropy_ub(dist, idx_o)
+
+def mi_ub(dist, idx_o):
+    """
+    Computes the upper bound on the mutual information of a Gaussian Mixture distribution.
+    idx_o is a list of the the indices of the output variable.
+    """
+    return entropy_ub(dist) - cond_entropy_lb(dist, idx_o)
+
+# KL Divergence
+
+def kl_div_gaussian(mu1, sigma1, mu2, sigma2):
+    """
+    Computes the KL divergence between two Gaussian distributions with means mu1, mu2 and covariances sigma1, sigma2.
+    """
+    d = mu1.shape[0]
+    inv_sigma2 = torch.linalg.inv(sigma2)
+    term1 = torch.log(torch.det(sigma2) / torch.det(sigma1))
+    term2 = torch.trace(inv_sigma2 @ sigma1)
+    term3 = (mu1 - mu2).reshape(1, d) @ inv_sigma2 @ (mu1 - mu2).reshape(d, 1)
+    return 0.5 * (term1 + term2 - d + term3).item()
+
+def L_gaussian(mu1, sigma1, mu2, sigma2):
+    """ 
+    Computes the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Normal densities with means mu_i and
+    covariances sigma_i.
+    """
+    return - entropy_gaussian(mu1, sigma1) - kl_div_gaussian(mu1, sigma1, mu2, sigma2)
+
+def kl_div_lb(dist1, dist2):
+    """
+    Computes the lower bound on the KL divergence between two Gaussian Mixture distributions.
+    """
+    return - L_ub(dist1, dist2) - entropy_ub(dist1)
+
+def kl_div_ub(dist1, dist2):
+    """
+    Computes the upper bound on the KL divergence between two Gaussian Mixture distributions.
+    """
+    return - L_lb(dist1, dist2) - entropy_lb(dist1)
+
+def L_ub(dist1, dist2):
+    """
+    Computes the upper bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
+    """
+    a = dist1.gm.n_comp()
+    b = dist2.gm.n_comp()
+    value = torch.tensor([0.])
+    for i in range(a):
+        mu = dist1.gm.mu[i]
+        log_arg = torch.tensor([0.])
+        for j in range(b):
+            sigma = dist1.gm.sigma[i] + dist2.gm.sigma[j]
+            log_arg += dist2.gm.pi[j] * Normal(dist2.gm.mu[j], sigma).log_prob(mu).exp().squeeze(0)
+        value += dist1.gm.pi[i] * torch.log(log_arg)
+    return value.item()
+
+def L_lb(dist1, dist2):
+    """
+    Computes the lower bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
+    """
+    a = dist1.gm.n_comp()
+    b = dist2.gm.n_comp()
+    value = torch.tensor([0.])
+    for i in range(a):
+        phi_list = torch.zeros(b)
+        L_list = torch.zeros(b)
+        for j in range(b):
+            phi_list[j] = dist2.gm.pi[j] * torch.exp(-kl_div_gaussian(dist1.gm.mu[i], dist1.gm.sigma[i], dist2.gm.mu[j], dist2.gm.sigma[j]))
+            L_list[j] = L_gaussian(dist1.gm.mu[i], dist1.gm.sigma[i], dist2.gm.mu[j], dist2.gm.sigma[j])
+        phi_list = phi_list / torch.sum(phi_list) 
+        log_arg = dist2.gm.pi / phi_list
+        a_sum = torch.sum(phi_list * (phi_list + torch.log(log_arg)))
+        value += dist1.gm.pi[i] * a_sum
+    return value.item()

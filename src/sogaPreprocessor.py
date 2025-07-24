@@ -148,11 +148,11 @@ def compileGauss(input_prog):
 	#gauss(mean,std)
 	matches,oText=extractMatch(input_prog,regex = r"gauss\((.*?)\)")
 	for idx,m in enumerate(matches):
-		mean=float(m.split(",")[0].strip())
-		std=float(m.split(",")[1].strip())
+		mean=m.split(",")[0].strip()
+		std=m.split(",")[1].strip()
 
 		input_prog=input_prog.replace(oText[idx],
-			"gm([1.0],[%f],[%f])"%(mean,std))
+			"gm([1.0],[%s],[%s])"%(mean,std))
 	
 	return input_prog
 

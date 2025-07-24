@@ -109,7 +109,8 @@ class GaussianMix():
 
     
     def pdf(self, x):
-        comp_pdfs = torch.stack([self.comp_pdf(x, k) for k in range(self.n_comp())], dim=1)
+        #comp_pdfs = torch.stack([self.comp_pdf(x, k) for k in range(self.n_comp())], dim=1)
+        comp_pdfs = torch.vstack([self.comp_pdf(x, k) for k in range(self.n_comp())])
         pdf = torch.matmul(comp_pdfs, self.pi.view(-1, 1))
         return pdf
         

@@ -8,21 +8,9 @@ from libSOGA import *
 
 from torch.distributions import Normal, Laplace, Gamma, MultivariateNormal
 
-### Extracting marginal
-
-def extract_marginal(dist, var_list):
-    """
-    Extract the marginal of the variables specified in var_list from the distribution dist
-    """
-
-    indices = []
-    for var in var_list:
-        indices.append(dist.var_list.index(var))
-    
-    marg_pi = dist.gm.pi
-    marg_mu = dist.gm.mu[:, indices]
-    marg_sigma = dist.gm.sigma[:, :, indices][:, indices, :]
-    return Dist(var_list, GaussianMix(marg_pi, marg_mu, marg_sigma))
+#################################################################
+# G-VULNERABILITY METRICS
+#################################################################
 
 ### V_{g_\Delta} 
 
@@ -173,8 +161,8 @@ def fit_laplace(mu, b):
         # Backpropagation
         total_loss.backward()
         optimizer.step()
-        if step % 100 == 0:
-            print(f"Step {step}, KL: {kl.item():.4f}")
+        #if step % 100 == 0:
+        #    print(f"Step {step}, KL: {kl.item():.4f}")
 
     # Compute final mu2 and sigma2 for display
     with torch.no_grad():
@@ -316,11 +304,11 @@ def find_global_maximum(f, starts, num_steps=500, lr=0.05):
         optimizer = torch.optim.SGD([w], lr=lr)
         for i in range(num_steps):
             optimizer.zero_grad()
-            gamma_value = -f(w)
+            gamma_value = -f(w)  # Reverting to minimize -f for maximization
             # Gradient ascent: maximize f
             gamma_value.backward()
-            #if i%100 == 0:
-            #    print('Gamma value: ', gamma_value)
+            #if i%10 == 0:
+                #print('Gamma value: ', gamma_value)
             optimizer.step()
         # Store local maximum
         local_max = f(w.detach())
@@ -341,12 +329,9 @@ def discrete_V1(dist, secret_var, output_var):
     output_idx = marg_dist.var_list.index(output_var)
     o_supp = []
     s_supp = []
-    # finds the support of the output and the secrete
-    for i in range(marg_dist.gm.n_comp()):
-        o_supp.append(marg_dist.gm.mu[i, output_idx].item())
-        s_supp.append(marg_dist.gm.mu[i, secret_idx].item())
-    o_supp = sorted(set(o_supp))
-    s_supp = sorted(set(s_supp))
+    # finds the support of the output and the secret
+    s_supp = torch.unique(marg_dist.gm.mu[:, secret_idx])
+    o_supp = torch.unique(marg_dist.gm.mu[:, output_idx])
     # cycles on o values
     for o in o_supp:
         # selects components for given value of o
@@ -402,25 +387,30 @@ def fit_gamma(mean, scale):
     target_dist = Gamma(torch.tensor([mean]), torch.tensor([1.0/scale]))
 
     # Grid for evaluation
-    x = torch.linspace(0.01, torch.max(torch.tensor([4*scale**2, 1])), 200)
+    lb = torch.tensor(0.01)
+    ub = torch.max(torch.tensor([4*scale**2, 1]))
+    x = torch.linspace(lb, ub, 200)
 
-    # Initial parameters for the mixture - only optimize pi, sigma1
-    pi1 = torch.tensor(0.5, requires_grad=True)
+    # Initial parameters for the mixture - only optimize pi, sigma1 
+    # The optimization will start by putting most of the mass in correspondence of the mode of the Gamma
+    pi1 = torch.tensor(0.9, requires_grad=True)
     sigma1 = torch.tensor(1.0, requires_grad=True)
 
     def mix_log_pdf(x, pi1, sigma1, mean, scale):
         second = mean*scale**2*(1 + mean)
         # Compute mu2 and sigma2 from moment matching constraints
         pi2 = 1 - pi1
-        mu1 = (mean - 1)*scale
-        mu2 = (mean*scale - pi1*mu1)/(1 - pi1)
+        # clamping the means to keep them in the support of the Gamma
+        mu1 = torch.clamp((mean - 1)*scale, min=lb, max=ub)  # one component fits the mode of the Gamma
+        mu2 = torch.clamp((mean*scale - pi1*mu1)/(1 - pi1), min=lb, max=ub)
         sigma2_sq = (second - pi1*(mu1**2 + sigma1**2))/pi2 - mu2**2
         sigma2 = torch.sqrt(torch.clamp(sigma2_sq, min=0.01))  # Clamp to avoid negative values
+        #print('pi1:', pi1.item(), ', mu1:', mu1.item(), ', sigma1:', sigma1.item(), ', mu2:', mu2.item(), ', sigma2:', sigma2.item())
         return pi1*Normal(mu1, sigma1).log_prob(x).exp() + pi2*Normal(mu2, sigma2).log_prob(x).exp(), pi2, mu1, mu2, sigma2
 
     optimizer = torch.optim.Adam([pi1, sigma1], lr=0.01)
 
-    for step in range(1000):
+    for step in range(100):
         optimizer.zero_grad()
         # Clamp pi to [0,1] and sigma1 to positive values for stability
         pi_clamped = torch.clamp(pi1, 0.01, 0.99)
@@ -431,17 +421,12 @@ def fit_gamma(mean, scale):
     
         loss = torch.sum((p - q)**2)
     
-        # Add normalization penalty for parameters
-        # Normalize to target distribution's scale
-        #mu_norm = (mu1**2 + mu2**2) 
-        #sigma_norm = (sigma1_clamped**2 + sigma2**2) 
-
         # Combined loss with normalization
         total_loss = loss# + torch.abs(pi1*(mu1**3 + 3*mu1*sigma1_clamped**2) + pi2*(mu2**3 + 3*mu2*sigma2**2) - third)
     
         total_loss.backward()
         optimizer.step()
-        #if step % 100 == 0:
+        #if step % 10 == 0:
         #    print(f"Step {step}, Loss: {loss.item():.4f}")
 
     # Compute final mu2 and sigma2 for display
@@ -449,8 +434,8 @@ def fit_gamma(mean, scale):
         pi1 = torch.clamp(pi1, 0.01, 0.99)
         sigma1 = torch.clamp(sigma1, 0.1)
         pi2 = 1 - pi1
-        mu1 = (mean - 1)*scale
-        mu2 = (mean - pi1*mu1)/(1 - pi1)
+        mu1 = torch.clamp((mean - 1)*scale, min=lb, max=ub)
+        mu2 = torch.clamp((mean - pi1*mu1)/(1 - pi1), min=lb, max=ub)
         sigma2_sq = (second - pi1*(mu1**2 + sigma1**2))/pi2 - mu2**2
         sigma2 = torch.sqrt(torch.clamp(sigma2_sq, min=0.01))  # Clamp to avoid negative values
 
@@ -515,7 +500,7 @@ def gamma_gauss_multivariate(w, cond_dist, eps):
 def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, num_steps=100, lr=0.05):
     """
     Approximates the g-vulnerability of a mixture of bivariate Gaussian distributions by sampling.
-    secret_var: name of the secrete variable
+    secret_var: name of the secret variable
     output_var: name of the output variable
     gain_type: 'gauss' for g_N or 'delta' for g_Delta
     """
@@ -540,6 +525,8 @@ def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type
             f = lambda w : gamma_gauss_multivariate(w, cond_dist, 1.)
 
         max_value, _ = find_global_maximum(f, cond_dist.gm.mu, num_steps=num_steps, lr=lr)
+        #if i%10 == 0:
+        #    print(f"Sample {i}, max_value: {max_value}")
 
         curr_total = total + max_value
         
@@ -585,10 +572,22 @@ def entropy_lb(dist):
     for i in range(c):
         sum_zij = torch.tensor([0.])
         for j in range(c):
-            gm = GaussianMix(torch.tensor([[1.]]), dist.gm.mu[j].unsqueeze(0), (dist.gm.sigma[j] + dist.gm.sigma[i]).unsqueeze(0))
-            sum_zij += dist.gm.pi[j]*gm.pdf(dist.gm.mu[i]).squeeze(0)
-        ub += dist.gm.pi[i]*torch.log(sum_zij)
+            sum_zij += dist.gm.pi[j]*MultivariateNormal(dist.gm.mu[j], dist.gm.sigma[j]+dist.gm.sigma[i]).log_prob(dist.gm.mu[i]).exp().squeeze(0)
     return -ub.item()
+
+def discrete_entropy(dist):
+    """
+    Computes the discrete entropy of a distribution.
+    """
+    # Extracts the support of the distribution
+    s_supp = torch.unique(dist.gm.mu)
+    value = torch.tensor([0.])
+    # cycles on support of the secret
+    for s in s_supp:
+        mask = (dist.gm.mu == s).all(dim=1)
+        p_s = dist.gm.pi[mask].sum()
+        value += p_s * torch.log(p_s)
+    return -value.item()
 
 # Conditional Entropy
 
@@ -621,6 +620,34 @@ def cond_entropy_ub(dist, idx_o):
     marg_dist = extract_marginal(dist, var_names)
     return entropy_ub(dist) - entropy_lb(marg_dist)
 
+def discrete_cond_entropy(dist, secret_var, output_var):
+    """
+    Computes Conditional Entropy of secret given output for a discrete distribution
+    """
+    joint_dist = extract_marginal(dist, [secret_var, output_var])
+    output_dist = extract_marginal(dist, [output_var])
+    secret_idx = joint_dist.var_list.index(secret_var)
+    output_idx = joint_dist.var_list.index(output_var)
+    # finds the support of the output and the secret
+    o_supp = torch.unique(joint_dist.gm.mu[:, output_idx])
+    s_supp = torch.unique(joint_dist.gm.mu[:, secret_idx])
+    value = torch.tensor([0.])
+    # cycles on support of the joint
+    for o in o_supp:
+        for s in s_supp:
+            # computes probability mass for (s, o)
+            mask = (joint_dist.gm.mu == torch.tensor([s, o])).all(dim=1)
+            p_xy = torch.sum(joint_dist.gm.pi[mask])
+            # computes probability mass for o
+            mask = (output_dist.gm.mu == torch.tensor([o])).all(dim=1)
+            p_y = torch.sum(output_dist.gm.pi[mask])
+            # sums to total
+            if p_xy == 0.:
+                continue
+            else:
+                value += p_xy * torch.log(p_xy / p_y)
+    return - value.item()
+
 # Mutual Information
 
 def mi_gaussian(mu, sigma, idx_o):
@@ -647,6 +674,12 @@ def mi_ub(dist, idx_o):
     idx_o is a list of the the indices of the output variable.
     """
     return entropy_ub(dist) - cond_entropy_lb(dist, idx_o)
+
+def discrete_mi(dist, secret_var, output_var):
+    secret_dist = extract_marginal(dist, [secret_var])
+    Hx = discrete_entropy(secret_dist)
+    Hxy = discrete_cond_entropy(dist, secret_var, output_var)
+    return Hx - Hxy
 
 # KL Divergence
 
@@ -684,33 +717,198 @@ def L_ub(dist1, dist2):
     """
     Computes the upper bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
     """
-    a = dist1.gm.n_comp()
-    b = dist2.gm.n_comp()
+    Na = dist1.gm.n_comp()
+    Nb = dist2.gm.n_comp()
     value = torch.tensor([0.])
-    for i in range(a):
-        mu = dist1.gm.mu[i]
+    for a in range(Na):
         log_arg = torch.tensor([0.])
-        for j in range(b):
-            sigma = dist1.gm.sigma[i] + dist2.gm.sigma[j]
-            log_arg += dist2.gm.pi[j] * Normal(dist2.gm.mu[j], sigma).log_prob(mu).exp().squeeze(0)
-        value += dist1.gm.pi[i] * torch.log(log_arg)
+        for b in range(Nb):
+            sigma = dist1.gm.sigma[a] + dist2.gm.sigma[b]
+            z_ab = MultivariateNormal(dist2.gm.mu[b], sigma).log_prob(dist1.gm.mu[a]).exp().squeeze(0)
+            log_arg += dist2.gm.pi[b] * z_ab
+        value += dist1.gm.pi[a] * torch.log(log_arg)
     return value.item()
 
 def L_lb(dist1, dist2):
     """
     Computes the lower bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
     """
-    a = dist1.gm.n_comp()
-    b = dist2.gm.n_comp()
+    Na = dist1.gm.n_comp()
+    Nb = dist2.gm.n_comp()
     value = torch.tensor([0.])
-    for i in range(a):
-        phi_list = torch.zeros(b)
-        L_list = torch.zeros(b)
-        for j in range(b):
-            phi_list[j] = dist2.gm.pi[j] * torch.exp(-kl_div_gaussian(dist1.gm.mu[i], dist1.gm.sigma[i], dist2.gm.mu[j], dist2.gm.sigma[j]))
-            L_list[j] = L_gaussian(dist1.gm.mu[i], dist1.gm.sigma[i], dist2.gm.mu[j], dist2.gm.sigma[j])
+    for a in range(Na):
+        phi_list = torch.zeros(Nb)
+        L_list = torch.zeros(Nb)
+        for b in range(Nb):
+            phi_list[b] = dist2.gm.pi[b] * torch.exp(-torch.tensor(kl_div_gaussian(dist1.gm.mu[a], dist1.gm.sigma[a], dist2.gm.mu[b], dist2.gm.sigma[b])))
+            L_list[b] = L_gaussian(dist1.gm.mu[a], dist1.gm.sigma[a], dist2.gm.mu[b], dist2.gm.sigma[b])
         phi_list = phi_list / torch.sum(phi_list) 
-        log_arg = dist2.gm.pi / phi_list
-        a_sum = torch.sum(phi_list * (phi_list + torch.log(log_arg)))
-        value += dist1.gm.pi[i] * a_sum
+        a_sum = torch.sum(phi_list * (torch.log(dist2.gm.pi.reshape(Nb,)) - torch.log(phi_list) + L_list))
+        value += dist1.gm.pi[a] * a_sum
     return value.item()
+
+def discrete_kl(dist1, dist2, var):
+    """
+    Computes the discrete KL divergence between two distributions.
+    """
+    marg1 = extract_marginal(dist1, [var])
+    marg2 = extract_marginal(dist2, [var])
+    
+    kl_value = torch.tensor([0.])
+
+    supp1 = torch.unique(marg1.gm.mu[:, 0])
+    supp2 = torch.unique(marg2.gm.mu[:, 0])
+    supp = torch.unique(torch.cat((supp1, supp2)))
+    
+    for x in supp:
+        mask1 = (marg1.gm.mu[:, 0] == x)
+        p1 = marg1.gm.pi[mask1].sum()
+        mask2 = (marg2.gm.mu[:, 0] == x)
+        p2 = marg2.gm.pi[mask2].sum()
+        if p1 > 0 and p2 > 0:
+            kl_value += p1 * torch.log(p1 / p2)
+    
+    return kl_value.item()
+
+#################################################################
+# UTILS
+#################################################################
+
+def extract_marginal(dist, var_list):
+    """
+    Extract the marginal of the variables specified in var_list from the distribution dist
+    """
+
+    indices = []
+    for var in var_list:
+        indices.append(dist.var_list.index(var))
+    
+    marg_pi = dist.gm.pi
+    marg_mu = dist.gm.mu[:, indices]
+    marg_sigma = dist.gm.sigma[:, :, indices][:, indices, :]
+    return Dist(var_list, GaussianMix(marg_pi, marg_mu, marg_sigma))
+
+
+def aggregate_mixture(dist):
+    """
+    Aggregates together components with same mean and variance
+    """
+    mu_sigma_list = [torch.vstack([dist.gm.mu[i], dist.gm.sigma[i]]) for i in range(dist.gm.mu.shape[0])]
+    unique_tensors = []
+    for tensor in mu_sigma_list:
+        if not any(torch.equal(tensor, unique) for unique in unique_tensors):
+            unique_tensors.append(tensor)
+
+    new_pis = torch.zeros((len(unique_tensors), 1))
+    new_mus = torch.zeros((len(unique_tensors), dist.gm.mu.shape[1]))
+    new_sigmas = torch.zeros((len(unique_tensors), dist.gm.sigma.shape[1], dist.gm.sigma.shape[2]))
+
+    for i, tensor in enumerate(unique_tensors):
+        # this condition expresses that mean and variance are the same
+        condition = torch.all(dist.gm.mu == tensor[0], dim=1) * torch.all(dist.gm.sigma == tensor[1:], dim=(1,2))
+        new_pis[i] = torch.sum(dist.gm.pi[condition])
+        new_mus[i] = tensor[0]
+        new_sigmas[i] = tensor[1:]
+
+    return Dist(dist.var_list, GaussianMix(new_pis, new_mus, new_sigmas))
+
+def ranking_prune(current_dist, Kmax):
+    """ Keeps only the Kmax component with higher prob"""
+    if current_dist.gm.n_comp() > Kmax:
+        rank = torch.argsort(current_dist.gm.pi, dim=0, descending=True)
+        current_dist.gm.pi = current_dist.gm.pi[rank].squeeze(1)[:Kmax]
+        current_dist.gm.mu = current_dist.gm.mu[rank].squeeze(1)[:Kmax]
+        current_dist.gm.sigma = current_dist.gm.sigma[rank].squeeze(1)[:Kmax]
+        current_dist.gm.pi = current_dist.gm.pi/torch.sum(current_dist.gm.pi)
+    return current_dist
+
+def from_gm_to_string(gm):
+    """
+    Converts a univariate GaussianMix object into its string representation in SOGA language.
+    """
+    pi_list = '['
+    mean_list = '['
+    cov_list = '['
+    for i in range(gm.n_comp()):
+        pi_list += '{:.5f},'.format(gm.pi[i][0].item())
+        mean_list += '{:.5f},'.format(gm.mu[i][0].item())
+        cov_list += '{:.5f},'.format(gm.sigma[i][0][0].item())
+    pi_list = pi_list[:-1] + ']'
+    mean_list = mean_list[:-1] + ']'
+    cov_list = cov_list[:-1] + ']'
+    gm_str = 'gm({}, {}, {})'.format(pi_list, mean_list, cov_list)
+    return gm_str
+
+def compute_matrix_mean(current_dist):
+    pi = current_dist.gm.pi
+    s = len(current_dist.gm.pi)
+    pmu = pi.view(-1,1)*current_dist.gm.mu
+    sums = pmu.unsqueeze(1) + pmu
+    pis = (pi + pi.unsqueeze(1)).reshape(s,s,1)
+    return sums/pis
+
+def delete_indices(tensor, idx_list):
+    """ Deletes elements from a tensor at the specified indices. """
+    mask = torch.ones(tensor.size(0), dtype=torch.bool)
+    mask[idx_list] = False  # Set the indices in idx_list to False
+    return tensor[mask]
+
+
+def merge_comp(current_dist, i, j, tot_mean):
+    pii, pij = current_dist.gm.pi[i], current_dist.gm.pi[j]
+    compi, compj = current_dist.gm.comp(i), current_dist.gm.comp(j)
+    # deletes component to be merged from the current dist
+    idx_list = [i,j]
+    current_dist.gm.pi = delete_indices(current_dist.gm.pi, idx_list)
+    current_dist.gm.mu = delete_indices(current_dist.gm.mu, idx_list)
+    current_dist.gm.sigma = delete_indices(current_dist.gm.sigma, idx_list)
+    # computes statistics of the merged component
+    tot_p = pii + pij
+    v = torch.stack([compi.mu[0], compj.mu[0]]) - tot_mean
+    pi_pair = torch.vstack([pii/tot_p, pij/tot_p])
+    sigma_pair = torch.stack([compi.sigma[0], compj.sigma[0]])
+    tot_cov = (pi_pair.view(-1, 1, 1) * sigma_pair).sum(dim=0) + torch.mm(v.t(), pi_pair*v)
+    # updates distribution
+    current_dist.gm.pi = torch.cat((current_dist.gm.pi, tot_p.unsqueeze(0)))
+    current_dist.gm.mu = torch.cat((current_dist.gm.mu, tot_mean.unsqueeze(0)))
+    current_dist.gm.sigma = torch.cat((current_dist.gm.sigma, tot_cov.unsqueeze(0)))
+    return current_dist
+        
+def classic_prune(current_dist, Kmax):
+    """ Merges components with optimal cost 
+        cost(i, j) = pi_i * || mu_i - weighted_sum_ij ||^2 + pi_j * || mu_j - weighted_sum_ij ||^2
+        until the number of components is less than Kmax. """
+    
+    if current_dist.gm.n_comp() > Kmax:
+        n = current_dist.gm.n_comp()
+
+        # Computes the cost matrix
+        matrix_mu = compute_matrix_mean(current_dist)     # elem (i,j) is the weighted sum of mu_i and mu_j
+        dist_matrix = torch.sum(torch.pow((current_dist.gm.mu - matrix_mu), 2), axis=2).T   # elem (i,j) is the distance between mu_i and the weighted sum of mu_i and mu_j
+        weight_dist_matrix = current_dist.gm.pi.view(-1,1)*dist_matrix   # row i is pi_i * || mu_i - weighted_sum_ij ||^2
+        cost_matrix = weight_dist_matrix + weight_dist_matrix.T          # elem (i,j) is the cost of merging i and j
+       
+        while n > Kmax:
+            # Computes indices of components with minimal cost
+            i_indices, j_indices = torch.triu_indices(cost_matrix.size(0), cost_matrix.size(1), offset=1)
+            upper_triangular_values = cost_matrix[i_indices, j_indices]
+            min_index = torch.argmin(upper_triangular_values)
+            i, j = i_indices[min_index].item(), j_indices[min_index].item()  
+            # Merges components
+            current_dist = merge_comp(current_dist, i, j, matrix_mu[i,j])
+            # Updates n and matrix_mu
+            n = current_dist.gm.n_comp()
+            matrix_mu = compute_matrix_mean(current_dist)
+            # Deletes the row and column of the merged components from the cost matrix
+            mask = torch.ones(cost_matrix.size(0), dtype=torch.bool)
+            mask[[i,j]] = False  # Set the indices to remove as False
+            cost_matrix = cost_matrix[mask][:, mask]
+            # If number of components still too high adds a new row and column to the cost matrix, corresponding to the new component
+            if n > Kmax:
+                # computes the costs for the newly added component
+                new_cost = torch.sum(torch.pow((current_dist.gm.mu[-1].unsqueeze(0) - matrix_mu[:, -1]), 2), axis = 1).unsqueeze(0)
+                new_column = new_cost[:, :-1].T  
+                new_row = new_cost  
+                cost_matrix = torch.cat((cost_matrix, new_column), dim=1)
+                cost_matrix = torch.cat((cost_matrix, new_row), dim=0)
+    return current_dist

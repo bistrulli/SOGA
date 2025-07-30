@@ -63,7 +63,7 @@ class GaussianMix():
         return str_repr
     
     def comp(self, k):
-        return GaussianMix(torch.tensor([[1.]]), torch.clone(self.mu[:,k]), torch.clone(self.sigma[:,:,k]))
+        return GaussianMix(torch.tensor([[1.]]), torch.clone(self.mu[k,:]), torch.clone(self.sigma[k,:,:]))
         
     # Pdfs 
     def comp_pdf(self, x, k):
@@ -84,7 +84,7 @@ class GaussianMix():
                     self.sigma[k] = make_sym(self.sigma[k])
                 return torch.exp(distributions.MultivariateNormal(self.mu[k], covariance_matrix=self.sigma[k]).log_prob(x))
         else:
-            return torch.exp(distributions.Normal(self.mu[:,k], torch.sqrt(self.sigma[:,:,k])).log_prob(x)).reshape(x.shape)
+            return torch.exp(distributions.Normal(self.mu[k, :], torch.sqrt(self.sigma[k,:,:])).log_prob(x)).reshape(x.shape)
             
     def marg_comp_pdf(self, x, k, idx):
         if isinstance(idx, list):
@@ -109,9 +109,10 @@ class GaussianMix():
 
     
     def pdf(self, x):
-        #comp_pdfs = torch.stack([self.comp_pdf(x, k) for k in range(self.n_comp())], dim=1)
-        comp_pdfs = torch.vstack([self.comp_pdf(x, k) for k in range(self.n_comp())])
-        pdf = torch.matmul(comp_pdfs, self.pi.view(-1, 1))
+        # x has shape (D, d) where D= # data point, d = # dimension
+        comp_pdfs = torch.stack([self.comp_pdf(x, k) for k in range(self.n_comp())], dim=1).reshape((x.shape[0], self.n_comp()))  # has dimension (D, C)
+        #pdf = torch.sum(comp_pdfs * self.pi[None, :, :], dim = 1)
+        pdf = comp_pdfs @ self.pi
         return pdf
         
     

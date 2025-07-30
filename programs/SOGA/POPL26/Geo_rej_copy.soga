@@ -1,0 +1,15 @@
+
+x = uniform([-90, 90], 2);
+y = uniform([-180, 180], 2);
+
+r = gm([0.59683,0.40317], [0.17692,0.15322], [0.00496,0.00410]);
+
+theta = uniform([0, 6.28], 2);
+
+cosTheta = cos(theta);
+xAnon = r*cosTheta;
+xAnon = x + xAnon;
+
+sinTheta = sin(theta);
+yAnon = r*sinTheta;
+yAnon = y + yAnon;

@@ -1,0 +1,37 @@
+array[4] fem;
+array[4] inc;
+
+nfem = gauss(0, 0.001);
+for i in range(4){
+    fem[i] = gm([0.5, 0.5], [0., 1.], [0.001, 0.001]);
+    inc[i] = gauss(10, 1);
+    nfem = nfem + fem[i];
+} end for;
+observe(nfem > 0);
+
+mu = 0;
+for i in range(4){
+    if fem[i] > 0.5 {
+        mu = mu + inc[i];
+    } else {
+        skip;
+    } end if;
+} end for;
+
+if nfem < 1.5 {
+    nu = gauss(0, _var1);
+} else {
+    if nfem < 2.5 {
+        nu = gauss(0, _var2);
+        mu = 0.5*mu;
+    } else {
+        if nfem < 3.5 {
+            nu = gauss(0, _var3);
+            mu = 0.33*mu;
+        } else {
+            nu = gauss(0, _var4);
+            mu = 0.25*mu;
+        } end if;
+    } end if;
+} end if;
+output = mu + nu;

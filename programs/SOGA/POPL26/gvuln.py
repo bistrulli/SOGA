@@ -174,19 +174,7 @@ def fit_laplace(mu, b):
 
 ### Sampling Univariate
 
-def sample_univariate_gm(dist, idx, n_samples):
-    """
-    Samples coordinate idx from dist
-    Returns:
-    - samples: tensor of shape (n_samples, ) containing the samples from the specified coordinate
-    """
-    # Choose components for each sample
-    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
-    samples = torch.empty(n_samples)
-    for i in range(n_samples):
-        comp = component_choices[i]
-        samples[i] = torch.normal(dist.gm.mu[comp, idx], dist.gm.sigma[comp, idx, idx])
-    return samples
+
 
 def compute_conditioned_stats(dist, value_to_cond, idx_to_cond):
     """"
@@ -558,6 +546,8 @@ def entropy_ub(dist):
     """
     Computes the lower bound on the entropy of a Gaussian Mixture distribution.
     """
+    if dist.gm.n_comp() == 1:
+        return entropy_gaussian(dist.gm.mu[0], dist.gm.sigma[0]).item()
     lb = torch.tensor([0.])
     for c in range(dist.gm.n_comp()):
         lb += dist.gm.pi[c]*(- torch.log(dist.gm.pi[c]) + entropy_gaussian(dist.gm.mu[c], dist.gm.sigma[c]))
@@ -567,13 +557,16 @@ def entropy_lb(dist):
     """
     Computes the upper bound on the entropy of a Gaussian Mixture distribution.
     """
-    ub = torch.tensor([0.])
+    if dist.gm.n_comp() == 1:
+        return entropy_gaussian(dist.gm.mu[0], dist.gm.sigma[0]).item()
+    lb = torch.tensor([0.])
     c = dist.gm.n_comp()
     for i in range(c):
         sum_zij = torch.tensor([0.])
         for j in range(c):
             sum_zij += dist.gm.pi[j]*MultivariateNormal(dist.gm.mu[j], dist.gm.sigma[j]+dist.gm.sigma[i]).log_prob(dist.gm.mu[i]).exp().squeeze(0)
-    return -ub.item()
+        lb += dist.gm.pi[i]*torch.log(sum_zij)
+    return -lb.item()
 
 def discrete_entropy(dist):
     """
@@ -588,6 +581,17 @@ def discrete_entropy(dist):
         p_s = dist.gm.pi[mask].sum()
         value += p_s * torch.log(p_s)
     return -value.item()
+
+
+def sample_entropy(dist, n_samples=1000):
+    """
+    Computes the entropy of dist using MCMC integration
+    dist is an object Dist as defined in libSOGAshared
+    """
+    samples = sample_from_gm(dist.gm, n_samples)
+    log_probs = torch.log(dist.gm.pdf(samples))
+    return -torch.mean(log_probs).item()
+
 
 # Conditional Entropy
 
@@ -609,6 +613,7 @@ def cond_entropy_lb(dist, idx_o):
     """
     var_names = [dist.var_list[i] for i in idx_o]
     marg_dist = extract_marginal(dist, var_names)
+    marg_dist = aggregate_mixture(marg_dist)
     return entropy_lb(dist) - entropy_ub(marg_dist)
 
 def cond_entropy_ub(dist, idx_o):
@@ -618,6 +623,7 @@ def cond_entropy_ub(dist, idx_o):
     """
     var_names = [dist.var_list[i] for i in idx_o]
     marg_dist = extract_marginal(dist, var_names)
+    marg_dist = aggregate_mixture(marg_dist)
     return entropy_ub(dist) - entropy_lb(marg_dist)
 
 def discrete_cond_entropy(dist, secret_var, output_var):
@@ -648,6 +654,16 @@ def discrete_cond_entropy(dist, secret_var, output_var):
                 value += p_xy * torch.log(p_xy / p_y)
     return - value.item()
 
+def sample_cond_entropy(dist, idx_o, n_samples):
+    """
+    Estimates conditional entropy using MCMC integration.
+    """
+    out_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_o])
+    out_marg = aggregate_mixture(out_marg)
+    joint_entropy = sample_entropy(dist, n_samples)
+    marg_entropy = sample_entropy(out_marg, n_samples)
+    return joint_entropy - marg_entropy
+
 # Mutual Information
 
 def mi_gaussian(mu, sigma, idx_o):
@@ -666,20 +682,35 @@ def mi_lb(dist, idx_o):
     Computes the lower bound on the mutual information of a Gaussian Mixture distribution.
     idx_o is a list of the the indices of the output variable.
     """
-    return entropy_lb(dist) - cond_entropy_ub(dist, idx_o)
+    idx_s = [i for i in range(dist.gm.n_dim()) if i not in idx_o]
+    s_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_s])
+    s_marg = aggregate_mixture(s_marg)
+    return entropy_lb(s_marg) - cond_entropy_ub(dist, idx_o)
 
 def mi_ub(dist, idx_o):
     """
     Computes the upper bound on the mutual information of a Gaussian Mixture distribution.
     idx_o is a list of the the indices of the output variable.
     """
-    return entropy_ub(dist) - cond_entropy_lb(dist, idx_o)
+    idx_s = [i for i in range(dist.gm.n_dim()) if i not in idx_o]
+    s_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_s])
+    s_marg = aggregate_mixture(s_marg)
+    return entropy_ub(s_marg) - cond_entropy_lb(dist, idx_o)
 
 def discrete_mi(dist, secret_var, output_var):
     secret_dist = extract_marginal(dist, [secret_var])
     Hx = discrete_entropy(secret_dist)
     Hxy = discrete_cond_entropy(dist, secret_var, output_var)
     return Hx - Hxy
+
+def sample_mi(dist, idx_o, n_samples):
+    """
+    Estimates mutual information using MCMC integration.
+    """
+    idx_s = [i for i in range(dist.gm.n_dim()) if i not in idx_o]
+    s_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_s])
+    s_marg = aggregate_mixture(s_marg)
+    return sample_entropy(s_marg, n_samples) - sample_cond_entropy(dist, idx_o, n_samples)
 
 # KL Divergence
 
@@ -770,9 +801,67 @@ def discrete_kl(dist1, dist2, var):
     
     return kl_value.item()
 
+def sample_kl(dist1, dist2, n_samples):
+    """
+    Estimates the KL divergence between two distributions using MCMC integration.
+    """
+    samples = sample_from_gm(dist1.gm, n_samples)
+    
+    pdfs1 = dist1.gm.pdf(samples)
+    mask = pdfs1 == 0.
+    log_probs1 = torch.empty(pdfs1.shape)
+    log_probs1[mask] = 0.0  # Avoid log(0) issues
+    log_probs1[~mask] = torch.log(pdfs1[~mask])
+
+    log_probs2 = torch.log(dist2.gm.pdf(samples))
+    
+    kl_value = torch.mean(log_probs1 - log_probs2).item()
+    
+    return kl_value
+
 #################################################################
 # UTILS
 #################################################################
+
+def sample_univariate_gm(dist, idx, n_samples):
+    """
+    Samples coordinate idx from dist
+    Returns:
+    - samples: tensor of shape (n_samples, ) containing the samples from the specified coordinate
+    """
+    # Choose components for each sample
+    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
+    samples = torch.empty(n_samples)
+    for i in range(n_samples):
+        comp = component_choices[i]
+        samples[i] = torch.normal(dist.gm.mu[comp, idx], dist.gm.sigma[comp, idx, idx])
+    return samples
+
+def sample_from_gm(gm, n_samples):
+    """
+    Samples from a Gaussian Mixture object
+    """
+    # Ensure the number of components matches the mixture weights
+    n_components = gm.n_comp()
+
+    # Sample component indices based on mixture weights
+    component_indices = (torch.multinomial(gm.pi.flatten(), n_samples, replacement=True))
+
+    # Initialize an empty tensor for samples
+    samples = torch.empty(n_samples, gm.n_dim())
+
+    # Generate samples for each component
+    for i in range(n_components):
+        # Get the indices of samples belonging to the current component
+        mask = component_indices == i
+
+        # Sample from the Gaussian distribution of the current component
+        n_component_samples = mask.sum().item()
+        if n_component_samples > 0:
+            component_samples = MultivariateNormal(gm.mu[i], gm.sigma[i]).sample((n_component_samples,)).reshape(samples[mask, :].shape)
+            samples[mask, :] = component_samples
+
+    return samples
 
 def extract_marginal(dist, var_list):
     """
@@ -839,76 +928,3 @@ def from_gm_to_string(gm):
     gm_str = 'gm({}, {}, {})'.format(pi_list, mean_list, cov_list)
     return gm_str
 
-def compute_matrix_mean(current_dist):
-    pi = current_dist.gm.pi
-    s = len(current_dist.gm.pi)
-    pmu = pi.view(-1,1)*current_dist.gm.mu
-    sums = pmu.unsqueeze(1) + pmu
-    pis = (pi + pi.unsqueeze(1)).reshape(s,s,1)
-    return sums/pis
-
-def delete_indices(tensor, idx_list):
-    """ Deletes elements from a tensor at the specified indices. """
-    mask = torch.ones(tensor.size(0), dtype=torch.bool)
-    mask[idx_list] = False  # Set the indices in idx_list to False
-    return tensor[mask]
-
-
-def merge_comp(current_dist, i, j, tot_mean):
-    pii, pij = current_dist.gm.pi[i], current_dist.gm.pi[j]
-    compi, compj = current_dist.gm.comp(i), current_dist.gm.comp(j)
-    # deletes component to be merged from the current dist
-    idx_list = [i,j]
-    current_dist.gm.pi = delete_indices(current_dist.gm.pi, idx_list)
-    current_dist.gm.mu = delete_indices(current_dist.gm.mu, idx_list)
-    current_dist.gm.sigma = delete_indices(current_dist.gm.sigma, idx_list)
-    # computes statistics of the merged component
-    tot_p = pii + pij
-    v = torch.stack([compi.mu[0], compj.mu[0]]) - tot_mean
-    pi_pair = torch.vstack([pii/tot_p, pij/tot_p])
-    sigma_pair = torch.stack([compi.sigma[0], compj.sigma[0]])
-    tot_cov = (pi_pair.view(-1, 1, 1) * sigma_pair).sum(dim=0) + torch.mm(v.t(), pi_pair*v)
-    # updates distribution
-    current_dist.gm.pi = torch.cat((current_dist.gm.pi, tot_p.unsqueeze(0)))
-    current_dist.gm.mu = torch.cat((current_dist.gm.mu, tot_mean.unsqueeze(0)))
-    current_dist.gm.sigma = torch.cat((current_dist.gm.sigma, tot_cov.unsqueeze(0)))
-    return current_dist
-        
-def classic_prune(current_dist, Kmax):
-    """ Merges components with optimal cost 
-        cost(i, j) = pi_i * || mu_i - weighted_sum_ij ||^2 + pi_j * || mu_j - weighted_sum_ij ||^2
-        until the number of components is less than Kmax. """
-    
-    if current_dist.gm.n_comp() > Kmax:
-        n = current_dist.gm.n_comp()
-
-        # Computes the cost matrix
-        matrix_mu = compute_matrix_mean(current_dist)     # elem (i,j) is the weighted sum of mu_i and mu_j
-        dist_matrix = torch.sum(torch.pow((current_dist.gm.mu - matrix_mu), 2), axis=2).T   # elem (i,j) is the distance between mu_i and the weighted sum of mu_i and mu_j
-        weight_dist_matrix = current_dist.gm.pi.view(-1,1)*dist_matrix   # row i is pi_i * || mu_i - weighted_sum_ij ||^2
-        cost_matrix = weight_dist_matrix + weight_dist_matrix.T          # elem (i,j) is the cost of merging i and j
-       
-        while n > Kmax:
-            # Computes indices of components with minimal cost
-            i_indices, j_indices = torch.triu_indices(cost_matrix.size(0), cost_matrix.size(1), offset=1)
-            upper_triangular_values = cost_matrix[i_indices, j_indices]
-            min_index = torch.argmin(upper_triangular_values)
-            i, j = i_indices[min_index].item(), j_indices[min_index].item()  
-            # Merges components
-            current_dist = merge_comp(current_dist, i, j, matrix_mu[i,j])
-            # Updates n and matrix_mu
-            n = current_dist.gm.n_comp()
-            matrix_mu = compute_matrix_mean(current_dist)
-            # Deletes the row and column of the merged components from the cost matrix
-            mask = torch.ones(cost_matrix.size(0), dtype=torch.bool)
-            mask[[i,j]] = False  # Set the indices to remove as False
-            cost_matrix = cost_matrix[mask][:, mask]
-            # If number of components still too high adds a new row and column to the cost matrix, corresponding to the new component
-            if n > Kmax:
-                # computes the costs for the newly added component
-                new_cost = torch.sum(torch.pow((current_dist.gm.mu[-1].unsqueeze(0) - matrix_mu[:, -1]), 2), axis = 1).unsqueeze(0)
-                new_column = new_cost[:, :-1].T  
-                new_row = new_cost  
-                cost_matrix = torch.cat((cost_matrix, new_column), dim=1)
-                cost_matrix = torch.cat((cost_matrix, new_row), dim=0)
-    return current_dist

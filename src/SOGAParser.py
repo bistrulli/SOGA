@@ -2270,6 +2270,7 @@ class SOGAParser ( Parser ):
             pi = [round(1.0/N,4)]*N
             mu = [round(a+i*(b-a)/N+((b-a)/(2*N)),4) for i in range(N)]
             sigma = list([round((b-a)/(np.sqrt(12)*N),4)]*N)
+            #sigma = list([round((b-a)/(np.sqrt(12)*N),4)]*N)
             return 'gm('+str(pi)+','+str(mu)+','+str(sigma)+')'
   
 

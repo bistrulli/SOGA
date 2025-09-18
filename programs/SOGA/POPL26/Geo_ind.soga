@@ -1,5 +1,8 @@
-x = uniform([-90, 90], 2);
-y = uniform([-180, 180], 2);
+/*x = uniform([-90, 90], 2);
+y = uniform([-180, 180], 2);*/
+
+x = gauss(0., 10.);
+y = gauss(0., 20.);
 
 r = gm([_p1, _p2], [_mu1, _mu2], [_sigma1, _sigma2]);
 

@@ -128,6 +128,17 @@ def eq_func(self, dist):
     eq_const = self.const
     
     # here there was a part to deal with deltas, but we removed it because in torch everything is differentiable
+    # add again the part for deltas
+    obs_idx = int(list(torch.where(eq_coeff!=0))[0][0])
+    if torch.all(dist.gm.sigma[:, obs_idx, obs_idx] < 1e-5):
+        mask = dist.gm.mu[:, obs_idx] == eq_const
+        new_pi = dist.gm.pi[mask]
+        norm_fact = torch.sum(new_pi) 
+        norm_new_pi = new_pi/norm_fact
+        new_mu = dist.gm.mu[mask]
+        new_sigma = dist.gm.sigma[mask]
+        return norm_fact, Dist(dist.var_list, GaussianMix(norm_new_pi, new_mu, new_sigma))
+    
     # I suppressed the parts in which we truncate only some variables
     # observed and non-observed variables
     obs_idx = int(list(torch.where(eq_coeff!=0))[0][0])

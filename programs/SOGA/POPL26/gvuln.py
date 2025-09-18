@@ -6,6 +6,8 @@ from sogaPreprocessor import *
 from producecfg import *
 from libSOGA import *
 
+from time import time
+
 from torch.distributions import Normal, Laplace, Gamma, MultivariateNormal
 
 #################################################################
@@ -125,7 +127,7 @@ def fit_laplace(mu, b):
     Finds the parameters of a two-component Gaussian mixture that approximates a Laplace distribution
     using moment matching constraints.
     """
-
+    
     # Target distribution 
     target_dist = Laplace(mu, b)
 
@@ -153,11 +155,8 @@ def fit_laplace(mu, b):
         q = target_dist.log_prob(x)
         # Computes KL
         kl = torch.sum(torch.kl_div(p, q, log_target=True))
-        # Add normalization penalty for parameters
-        mu_norm = (mu1**2 + mu2**2) 
-        sigma_norm = (sigma1**2 + sigma2**2) 
         # Combined loss with normalization
-        total_loss = kl #+ 0.001 * mu_norm + 0.001 * sigma_norm
+        total_loss = kl
         # Backpropagation
         total_loss.backward()
         optimizer.step()
@@ -213,7 +212,7 @@ def compute_conditioned_stats(dist, value_to_cond, idx_to_cond):
 
 def gamma_gauss(w, cond_dist, eps):
     """
-    V_{g_N} = \mathbb{E}_{p(o)} [ \sup_w gamma_gauss(w)] 
+    V_{g_N} = \\mathbb{E}_{p(o)} [ \\sup_w gamma_gauss(w)] 
     NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
     """
     value = 0.0
@@ -223,7 +222,7 @@ def gamma_gauss(w, cond_dist, eps):
 
 def gamma_delta(w, cond_dist):
     """
-    V_{g_Delta} = \mathbb{E}_{p(o)} [ \sup_w gamma_delta(w)] 
+    V_{g_Delta} = \\mathbb{E}_{p(o)} [ \\sup_w gamma_delta(w)] 
     NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
     """
     value = 0.0
@@ -231,16 +230,21 @@ def gamma_delta(w, cond_dist):
         value += cond_dist.gm.pi[i]*(1/torch.sqrt(2*torch.pi*cond_dist.gm.sigma[i]))*torch.exp(-0.5*(w - cond_dist.gm.mu[i])**2/cond_dist.gm.sigma[i])
     return value.reshape([])
 
-def sample_gvuln(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, num_steps=100, lr=0.05):
+def sample_gvuln(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, min_samples=10, num_steps=100, lr=0.05):
     """
     Approximates the g-vulnerability of a mixture of bivariate Gaussian distributions by sampling.
     secret_var: name of the secrete variable
     output_var: name of the output variable
     gain_type: 'gauss' for g_N or 'delta' for g_Delta
+    tol = 1e-3 sampling stops when abs(old_estimate - new_estimate) < tol
+    min_samples = minimum number of samples before stopping criterion is checked
+    num_steps = number of gradient ascent steps to find the maximum of gamma
+    lr = learning rate for gradient ascent
     """
 
     output_idx = dist.var_list.index(output_var)
-    samples = sample_univariate_gm(dist, output_idx, n_samples)  # Sample output coordinate
+    out_marg = extract_marginal(dist, [output_var])
+    samples = sample_univariate_gm(out_marg, n_samples)  # Sample output coordinate
 
     total = 0.0
 
@@ -258,14 +262,18 @@ def sample_gvuln(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, n
         elif gain_type == 'gauss':
             f = lambda w : gamma_gauss(w, marg_cond_dist, 1.)
 
-        max_value, _ = find_global_maximum(f, marg_cond_dist.gm.mu.flatten(), num_steps=num_steps, lr=lr)
+        # this is added to avoid optimizations too long
+        rank = torch.argsort(marg_cond_dist.gm.pi, dim=0, descending=True)
+        starts = marg_cond_dist.gm.mu[rank].squeeze(1)[:10].flatten()
+        max_value, _ = find_global_maximum(f, starts, num_steps=num_steps, lr=lr)
 
         curr_total = total + max_value
         
         old_estimate = total / i if i > 0 else 0.0
         new_estimate = curr_total / (i + 1)
 
-        if abs(new_estimate - old_estimate) < tol:
+
+        if abs(new_estimate - old_estimate) < tol and i >= min_samples:
             return new_estimate
         else:
             total = curr_total
@@ -273,7 +281,7 @@ def sample_gvuln(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, n
     print("Convergence not reached for MCMC.")
     return new_estimate
 
-def find_global_maximum(f, starts, num_steps=500, lr=0.05):
+def find_global_maximum(f, starts, num_steps=500, lr=0.05, tol=1e-4):
     """
     Finds the maximum value of f by running gradient ascent from multiple random starting points.
     Args:
@@ -281,6 +289,7 @@ def find_global_maximum(f, starts, num_steps=500, lr=0.05):
         starts: tensor of starting points
         num_steps: gradient ascent steps per start
         lr: learning rate
+        tol: optimization stops when the change in the function is below tol
     Returns:
         max_value: the maximum value found
         max_point: the point where the maximum was found
@@ -290,19 +299,25 @@ def find_global_maximum(f, starts, num_steps=500, lr=0.05):
         # Random starting point
         w = start.clone().detach().requires_grad_(True)
         optimizer = torch.optim.SGD([w], lr=lr)
+        prev_value = None
         for i in range(num_steps):
             optimizer.zero_grad()
             gamma_value = -f(w)  # Reverting to minimize -f for maximization
             # Gradient ascent: maximize f
             gamma_value.backward()
             #if i%10 == 0:
-                #print('Gamma value: ', gamma_value)
+            #    print('Gamma value: ', gamma_value)
             optimizer.step()
+            curr_value = f(w.detach()).item()
+            if prev_value is not None and abs(curr_value - prev_value) < 1e-6:
+                print('Stopped before')
+                break
         # Store local maximum
-        local_max = f(w.detach())
-        all_local_maxima.append((local_max.item(), w.detach().clone()))
+        local_max = curr_value
+        all_local_maxima.append((local_max, w.detach().clone()))
     # Find the global maximum among local maxima
     max_value, max_point = max(all_local_maxima, key=lambda x: x[0])
+    #print('Returning max value:', max_value)
     return max_value, max_point
 
 ## Geometric Mechanism
@@ -376,7 +391,7 @@ def fit_gamma(mean, scale):
 
     # Grid for evaluation
     lb = torch.tensor(0.01)
-    ub = torch.max(torch.tensor([4*scale**2, 1]))
+    ub = torch.max(torch.tensor([2*scale**2, 1]))
     x = torch.linspace(lb, ub, 200)
 
     # Initial parameters for the mixture - only optimize pi, sigma1 
@@ -396,9 +411,9 @@ def fit_gamma(mean, scale):
         #print('pi1:', pi1.item(), ', mu1:', mu1.item(), ', sigma1:', sigma1.item(), ', mu2:', mu2.item(), ', sigma2:', sigma2.item())
         return pi1*Normal(mu1, sigma1).log_prob(x).exp() + pi2*Normal(mu2, sigma2).log_prob(x).exp(), pi2, mu1, mu2, sigma2
 
-    optimizer = torch.optim.Adam([pi1, sigma1], lr=0.01)
+    optimizer = torch.optim.Adam([pi1, sigma1], lr=0.05)
 
-    for step in range(100):
+    for step in range(1500):
         optimizer.zero_grad()
         # Clamp pi to [0,1] and sigma1 to positive values for stability
         pi_clamped = torch.clamp(pi1, 0.01, 0.99)
@@ -431,18 +446,6 @@ def fit_gamma(mean, scale):
 
 ## Sample multivariate
 
-def sample_gm_multivariate(dist, idxs, n_samples):
-    """
-    Samples coordinates idxs from dist
-    """
-    # Choose components for each sample
-    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
-    samples = torch.empty((n_samples, len(idxs)))
-    for i in range(n_samples):
-        comp = component_choices[i]
-        samples[i] = MultivariateNormal(dist.gm.mu[comp][idxs], dist.gm.sigma[comp][:, idxs][idxs, :]).sample()
-    return samples
-
 def compute_conditioned_stats_multivariate(dist, value_to_cond, idxs_to_cond):
     """"
     Given a dist computes the conditional means and variances, when conditioning with 
@@ -464,7 +467,7 @@ def compute_conditioned_stats_multivariate(dist, value_to_cond, idxs_to_cond):
 
 def gamma_delta_multivariate(w, cond_dist):
     """
-    V_{g_Delta} = \mathbb{E}_{p(o)} [ \sup_w gamma_delta(w)] 
+    V_{g_Delta} = \\mathbb{E}_{p(o)} [ \\sup_w gamma_delta(w)] 
     NOTE: cond_dist is a univariate mixture conditioned to a value of the output.
     """
     value = 0.0
@@ -474,7 +477,7 @@ def gamma_delta_multivariate(w, cond_dist):
 
 def gamma_gauss_multivariate(w, cond_dist, eps):
     """
-    V_{g_N} = \mathbb{E}_{p(o)} [ \sup_w gamma_gauss(w)] 
+    V_{g_N} = \\mathbb{E}_{p(o)} [ \\sup_w gamma_gauss(w)] 
     NOTE: cond_dist is a multivariate mixture conditioned to a value of the output.
     """
     value = 0.0
@@ -485,46 +488,68 @@ def gamma_gauss_multivariate(w, cond_dist, eps):
         value += cond_dist.gm.pi[i]*torch.sqrt(torch.linalg.det(sigma_eps)/torch.linalg.det(sigma_sum))*torch.exp(-0.5*(w - cond_dist.gm.mu[i].detach()) @ inv_sigma_sum @ (w - cond_dist.gm.mu[i].detach()).reshape(-1, 1)) 
     return value.reshape([])
 
-def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, num_steps=100, lr=0.05):
+def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type, tol=1e-3, min_samples=5, num_steps=100, lr=0.05):
     """
     Approximates the g-vulnerability of a mixture of bivariate Gaussian distributions by sampling.
     secret_var: name of the secret variable
     output_var: name of the output variable
     gain_type: 'gauss' for g_N or 'delta' for g_Delta
+    tol = 1e-3 sampling stops when abs(old_estimate - new_estimate) < tol
+    min_samples = minimum number of samples before stopping criterion is checked
+    num_steps = number of gradient ascent steps to find the maximum of gamma
+    lr = learning rate for gradient ascent
     """
 
     output_idxs = []
     for output in output_var:
         output_idxs.append(dist.var_list.index(output))
 
-    samples = sample_gm_multivariate(dist, output_idxs, n_samples)  # Sample output coordinate
+    marg_dist = extract_marginal(dist, output_var)
+    samples = sample_from_gm(marg_dist.gm, n_samples)  # Sample output coordinate
 
     total = 0.0
+
+    cond_time = 0.
+    max_time = 0.
 
     for i in range(len(samples)):
 
         o = samples[i]
-
+        
+        start = time()
         cond_dist = compute_conditioned_stats_multivariate(dist, o, output_idxs)
+        end = time()
+        cond_time += end - start 
 
         if gain_type == 'delta':
             f = lambda w : gamma_delta_multivariate(w, cond_dist)
         elif gain_type == 'gauss':
             f = lambda w : gamma_gauss_multivariate(w, cond_dist, 1.)
 
-        max_value, _ = find_global_maximum(f, cond_dist.gm.mu, num_steps=num_steps, lr=lr)
+        # select only K starting points with higher initial gamma
+        initial_f = torch.stack([f(cond_dist.gm.mu[i]) for i in range(cond_dist.gm.mu.shape[0])])
+        rank = torch.argsort(initial_f, dim=0, descending=True)
+        starts = cond_dist.gm.mu[rank].squeeze(1)[:5]
+        start = time()
+        max_value, _ = find_global_maximum(f, starts, num_steps=num_steps, lr=lr)
+        end = time()
+        max_time += end - start
         #if i%10 == 0:
         #    print(f"Sample {i}, max_value: {max_value}")
 
         curr_total = total + max_value
         
-        old_estimate = total / i if i > 0 else 0.0
+        old_estimate = total / i if i > 0 else -10.
         new_estimate = curr_total / (i + 1)
 
-        if abs(new_estimate - old_estimate) < tol:
+        if i >= min_samples and abs(new_estimate - old_estimate) < tol:
+            print('Returning after {} samples'.format(i))
+            print('Total time for conditioning: {:.2f}s'.format(cond_time))
+            print('Total time for maximizing: {:.2f}s'.format(max_time))
             return new_estimate
         else:
             total = curr_total
+    
 
     print("Convergence not reached for MCMC.")
     return new_estimate
@@ -685,7 +710,7 @@ def mi_lb(dist, idx_o):
     idx_s = [i for i in range(dist.gm.n_dim()) if i not in idx_o]
     s_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_s])
     s_marg = aggregate_mixture(s_marg)
-    return entropy_lb(s_marg) - cond_entropy_ub(dist, idx_o)
+    return max(entropy_lb(s_marg) - cond_entropy_ub(dist, idx_o), 0.)
 
 def mi_ub(dist, idx_o):
     """
@@ -722,12 +747,12 @@ def kl_div_gaussian(mu1, sigma1, mu2, sigma2):
     inv_sigma2 = torch.linalg.inv(sigma2)
     term1 = torch.log(torch.det(sigma2) / torch.det(sigma1))
     term2 = torch.trace(inv_sigma2 @ sigma1)
-    term3 = (mu1 - mu2).reshape(1, d) @ inv_sigma2 @ (mu1 - mu2).reshape(d, 1)
+    term3 = (mu2 - mu1).reshape(1, d) @ inv_sigma2 @ (mu2 - mu1).reshape(d, 1)
     return 0.5 * (term1 + term2 - d + term3).item()
 
 def L_gaussian(mu1, sigma1, mu2, sigma2):
     """ 
-    Computes the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Normal densities with means mu_i and
+    Computes the term \\int p_1(x) log(p_2(x)) dx where p_i(x) are Normal densities with means mu_i and
     covariances sigma_i.
     """
     return - entropy_gaussian(mu1, sigma1) - kl_div_gaussian(mu1, sigma1, mu2, sigma2)
@@ -736,7 +761,7 @@ def kl_div_lb(dist1, dist2):
     """
     Computes the lower bound on the KL divergence between two Gaussian Mixture distributions.
     """
-    return - L_ub(dist1, dist2) - entropy_ub(dist1)
+    return max(- L_ub(dist1, dist2) - entropy_ub(dist1), 0.)
 
 def kl_div_ub(dist1, dist2):
     """
@@ -746,7 +771,7 @@ def kl_div_ub(dist1, dist2):
 
 def L_ub(dist1, dist2):
     """
-    Computes the upper bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
+    Computes the upper bound on the term \\int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
     """
     Na = dist1.gm.n_comp()
     Nb = dist2.gm.n_comp()
@@ -762,7 +787,7 @@ def L_ub(dist1, dist2):
 
 def L_lb(dist1, dist2):
     """
-    Computes the lower bound on the term \int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
+    Computes the lower bound on the term \\int p_1(x) log(p_2(x)) dx where p_i(x) are Gaussian Mixture densities.
     """
     Na = dist1.gm.n_comp()
     Nb = dist2.gm.n_comp()
@@ -823,18 +848,28 @@ def sample_kl(dist1, dist2, n_samples):
 # UTILS
 #################################################################
 
-def sample_univariate_gm(dist, idx, n_samples):
+def sample_univariate_gm(dist, n_samples):
     """
     Samples coordinate idx from dist
     Returns:
     - samples: tensor of shape (n_samples, ) containing the samples from the specified coordinate
     """
-    # Choose components for each sample
-    component_choices = torch.multinomial(dist.gm.pi.flatten(), n_samples, replacement=True)
-    samples = torch.empty(n_samples)
-    for i in range(n_samples):
-        comp = component_choices[i]
-        samples[i] = torch.normal(dist.gm.mu[comp, idx], dist.gm.sigma[comp, idx, idx])
+    gm = dist.gm
+    # Ensure the number of components matches the mixture weights
+    n_components = gm.n_comp()
+    # Sample component indices based on mixture weights
+    component_indices = (torch.multinomial(gm.pi.flatten(), n_samples, replacement=True))
+    # Initialize an empty tensor for samples
+    samples = torch.empty(n_samples, gm.n_dim())
+    # Generate samples for each component
+    for i in range(n_components):
+        # Get the indices of samples belonging to the current component
+        mask = component_indices == i
+        # Sample from the Gaussian distribution of the current component
+        n_component_samples = mask.sum().item()
+        if n_component_samples > 0:
+            component_samples = Normal(gm.mu[i], torch.sqrt(gm.sigma[i])).sample((n_component_samples,)).reshape(samples[mask, :].shape)
+            samples[mask, :] = component_samples
     return samples
 
 def sample_from_gm(gm, n_samples):

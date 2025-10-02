@@ -543,9 +543,9 @@ def sample_gvuln_multivariate(dist, n_samples, secret_var, output_var, gain_type
         new_estimate = curr_total / (i + 1)
 
         if i >= min_samples and abs(new_estimate - old_estimate) < tol:
-            print('Returning after {} samples'.format(i))
-            print('Total time for conditioning: {:.2f}s'.format(cond_time))
-            print('Total time for maximizing: {:.2f}s'.format(max_time))
+            #print('Returning after {} samples'.format(i))
+            #print('Total time for conditioning: {:.2f}s'.format(cond_time))
+            #print('Total time for maximizing: {:.2f}s'.format(max_time))
             return new_estimate
         else:
             total = curr_total
@@ -735,7 +735,7 @@ def sample_mi(dist, idx_o, n_samples):
     idx_s = [i for i in range(dist.gm.n_dim()) if i not in idx_o]
     s_marg = extract_marginal(dist, [dist.var_list[i] for i in idx_s])
     s_marg = aggregate_mixture(s_marg)
-    return sample_entropy(s_marg, n_samples) - sample_cond_entropy(dist, idx_o, n_samples)
+    return max(sample_entropy(s_marg, n_samples) - sample_cond_entropy(dist, idx_o, n_samples), 0.)
 
 # KL Divergence
 

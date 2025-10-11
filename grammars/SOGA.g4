@@ -6,7 +6,7 @@ data : 'data' symvars '=' list;
 
 array: 'array[' NUM ']' IDV;
 
-instr : assignment | conditional | prune | observe | loop;
+instr : assignment | conditional | prune | observe | loop | while;
 
 assignment: symvars '=' (const | add | mul | exp | sin | cos) | 'skip';
 
@@ -33,6 +33,8 @@ prune : 'prune(' NUM ')';
 observe: 'observe(' bexpr ')';
 
 loop : 'for' IDV 'in range(' (NUM | idd) ')' '{' block '}' 'end for';
+
+while : 'while' bexpr '{' block '}' 'end while';
 
 vars: symvars | gm | uniform;
 idd: IDV '[' (NUM | IDV) ']';

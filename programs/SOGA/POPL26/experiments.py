@@ -164,13 +164,11 @@ geom_program = '''array[10] dataset;
                 }} end for;
 
                 geom1 = {};
-                geom2 = {}; 
+                geom2 = {};
                 noise = geom1 - geom2;
 
                 count = count + noise;
                 '''
-
-
 
 def run_geomDP_SOGA(eps_list):
 
@@ -223,7 +221,6 @@ def run_geomDP_SOGA(eps_list):
     
     return gv_geom, entropy_geom, cond_entropy_geom, mi_geom, kl_geom
 
-
 def print_geomDP(gv_geom, entropy_geom, cond_entropy_geom, mi_geom, kl_geom):
     
     print('GEOMETRIC MECHANISM \n')
@@ -246,7 +243,6 @@ def print_geomDP(gv_geom, entropy_geom, cond_entropy_geom, mi_geom, kl_geom):
         print('\t Eps = {:.1f}, exact = {:.6f}'.format(float(key), kl_geom[key]))
 
 # LAPLACIAN MECHANISM (DIRECT)
-
 
 def run_laplace_direct_DP_SOGA(eps_list):
 
@@ -363,14 +359,26 @@ laplacian_noise_program = '''
     expw1 = 0 - w1;
     expw1 = _par*expw1;
     expw1 = exp(expw1);
-    observe(u1 - expw1 <= 0);
+    while u1 - expw1 > 0 {{
+        w1 = uniform([0, {}], 5);
+        u1 = uniform([0, 1], 2);
+        expw1 = 0 - w1;
+        expw1 = _par*expw1;
+        expw1 = exp(expw1);
+    }} end while;
     /* Second exponential (approximated via i.i.d. loop semantics) */
     w2 = uniform([0, {}], 5);
     u2 = uniform([0, 1], 2);
     expw2 = 0 - w2;
     expw2 = _par*expw2;
     expw2 = exp(expw2);
-    observe(u2 - expw2 <= 0);
+    while u2 - expw2 > 0 {{
+        w2 = uniform([0, {}], 5);
+        u2 = uniform([0, 1], 2);
+        expw2 = 0 - w2;
+        expw2 = _par*expw2;
+        expw2 = exp(expw2);
+    }} end while;
     /* Transforms into Laplace */
     r = w1 - w2;
     '''
@@ -424,7 +432,7 @@ def run_laplace_iid_DP_SOGA(eps_list, M_list):
         #print('b:', b)
 
         # Approximating the Laplace
-        current_noise = laplacian_noise_program.format(M_list[i], M_list[i])
+        current_noise = laplacian_noise_program.format(M_list[i], M_list[i], M_list[i], M_list[i])
         compiledFile=compile2SOGA_text(current_noise)
         cfg = produce_cfg_text(compiledFile)
         params_dict = {'par': torch.tensor(1/b.detach().numpy(), requires_grad=False)}
@@ -495,14 +503,14 @@ def run_laplace_iid_DP_SOGA(eps_list, M_list):
     gvd = [gvd_lap_loop_lb, gvd_lap_loop, gvd_lap_loop_ub]
     gvg = [gvg_lap_loop_lb, gvg_lap_loop, gvg_lap_loop_ub]
     cond_entropy = [cond_entropy_lap_loop_lb, cond_entropy_lap_loop, cond_entropy_lap_loop_ub]
-    mi = [mi_lap_loop_lb, mi_lap_loop, mi_lap_loop]
+    mi = [mi_lap_loop_lb, mi_lap_loop, mi_lap_loop_ub]
     kl = [kl_lap_loop_lb, kl_lap_loop, kl_lap_loop_ub]
 
     return gvd, gvg, cond_entropy, mi, kl
 
 def print_laplaceDP(gvd, gvg, cond_entropy, mi, kl):
     
-    print('LAPLACIAN MECHANISM (DIRECT ENCODING) \n')
+    print('LAPLACIAN MECHANISM \n')
     print('G-Vulnerability (Delta Gain)')
     for key in gvd[0].keys():
         print('\t Eps = {:.1f}, lb={:.6f},exact={:.6f}, ub={:.6f}'.format(float(key), gvd[0][key], gvd[1][key], gvd[2][key]))
@@ -750,17 +758,27 @@ def run_geo_direct_SOGA(eps_list):
 
 noise_program = '''
     /* First exponential (approximated via i.i.d. loop semantics) */
-    w1 = uniform([0,10], 5);
+    w1 = uniform([0, 10], 5);
     u1 = uniform([0, 1], 2);
     expw1 = 0 - w1;
     expw1 = exp(expw1);
-    observe(u1 - expw1 <= 0);   
+    while u1 - expw1 > 0 {
+        w1 = uniform([0, 10], 5);
+        u1 = uniform([0, 1], 2);
+        expw1 = 0 - w1;
+        expw1 = exp(expw1);
+    } end while;  
     /* Second exponential (approximated via i.i.d. loop semantics) */
-    w2 = uniform([0,10], 5);
+    w2 = uniform([0, 10], 5);
     u2 = uniform([0, 1], 2);
     expw2 = 0 - w2;
     expw2 = exp(expw2);
-    observe(u2 - expw2 <= 0);
+    while u2 - expw2 > 0 {
+        w2 = uniform([0, 10], 5);
+        u2 = uniform([0, 1], 2);
+        expw2 = 0 - w2;
+        expw2 = exp(expw2);
+    } end while;
     /* Transforms into Gamma(2,_rate) */  
     r = w1 + w2;
     r = _rate*r;

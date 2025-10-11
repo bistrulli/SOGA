@@ -1,58 +1,84 @@
-# Contains the function start_soga, which is used to invoke SOGA on a CFG object and the recursive function SOGA, which, depending on the type of the visited node, calls the functions needed to update the current distribution. 
-
-#Such functions are contained in the auxiliary libraries:
-# - libSOGAtruncate, containing functions for computing the resulting distribution when a truncation occurs (in conditional or observe instructions);
-# - libSOGAupdate, containing functions for computing the resulting distribution after applying an assignment instruction;
-# - libSOGAmerge, containing functions for computing the resulting distribution when a merge instruction is encountered;
-
-# Additional functions for general purpose are defined in the library libSOGAshared, which is imported by all previous libraries.
-
-# TO DO:
-# - improve dependencies on libraries (all auxiliary libraries import libSOGAshared, maybe there is a more efficient way to do this?)
-# - libSOGAmerge: add other pruning  
-
 from libSOGAtruncate import *
 from libSOGAupdate import *
 from libSOGAmerge import *
-from libSOGAiid import *
+from libSOGAshared import *
 
-#def copy_dist(dist):
-#    new_dist = Dist(dist.var_list, GaussianMix([], [], []))
-#    new_dist.gm.pi = [torch.clone(p) for p in dist.gm.pi]
-#    new_dist.gm.mu = [torch.clone(m) for m in dist.gm.mu]
-#    new_dist.gm.sigma = [torch.clone(s) for s in dist.gm.sigma]
-#    return new_dist
+TOL_IID = 1e-5 # tolerance for checking i.i.d.-ness of loops
 
+def check_iid(dist, trunc, true_child, data, params_dict):
+    """
+    Check i.i.d.-ness of non-nested while loop with respect to distribution dist.
+    The loop has guard trunc and the cfg of its body is rooted in true_child.
+    """
+    init_dist = dist
+    # initializes the subroot
+    true_child.dist = init_dist
+    true_child.trunc = trunc
+    # select the indices for which i.i.d.-ness must be checked
+    # first selects the variables in the truncation condition
+    trunc_rule = trunc_parse(dist.var_list, trunc, data, params_dict)
+    trunc_coeffs = trunc_rule.coeff
+    trunc_vars = select_indices(trunc_coeffs, init_dist.gm.sigma)
+    # computes the final distribution after the body of the loop, 
+    # and collects the variables appearing there
+    body_vars = []
+    final_dist, body_vars = start_sub_SOGA(true_child, init_dist, data, params_dict, body_vars)
+    # puts together trunc_vars and body_vars
+    all_vars = list(set(trunc_vars + body_vars))
+    # checks whether the final distribution is identical to the initial one
+    flag = check_equal_dist(init_dist, final_dist, all_vars)
+    return flag 
 
-def start_SOGA(cfg, params_dict={}, pruning=None, Kmax=None, parallel=None,useR=False):
-    """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
-        If pruning='classic' implements pruning at the merge nodes with maximum number of component Kmax.
-        Returns an object Dist (defined in libSOGAshared) with the final computed distribution."""
-    if(useR):
-        initR()
+def check_equal_dist(dist1, dist2, indices):
+    """
+    Check whether two distributions are identical.
+    """
+    # extracts marginals to be checked
+    marg_vars = [dist1.var_list[idx] for idx in indices]
+    marg1 = extract_marginal(dist1, marg_vars)
+    marg2 = extract_marginal(dist2, marg_vars)
+    marg1 = aggregate_mixture(marg1)
+    marg2 = aggregate_mixture(marg2)
+    pi1, idx1 = marg1.gm.pi.flatten().sort()
+    pi2, idx2 = marg2.gm.pi.flatten().sort()
+    mu1 = marg1.gm.mu[idx1]
+    mu2 = marg2.gm.mu[idx2]
+    sigma1 = marg1.gm.sigma[idx1]
+    sigma2 = marg2.gm.sigma[idx2]
+    if len(pi1) != len(pi2):
+        print('Different number of components:', len(pi1), len(pi2))
+        return False
+    else:
+        # adapting the tolerance to the dimension of the problem 
+        tol = (marg1.gm.n_dim()**2)*TOL_IID
+        #print('Using tolerance:', tol)
+        #print('check on pi:', torch.all(torch.abs(pi1-pi2) < TOL_IID), torch.sum(torch.abs(pi1-pi2)))
+        #print('check on mu:', torch.all( torch.abs(mu1-mu2) < TOL_IID ), torch.sum(torch.abs(mu1-mu2)))
+        #print('check on sigma:', torch.all( torch.abs(sigma1-sigma2) < TOL_IID ), torch.sum(torch.abs(sigma1-sigma2)))
+        return torch.all(torch.abs(pi1-pi2) < tol) and torch.all( torch.abs(mu1-mu2) < tol) and torch.all( torch.abs(sigma1-sigma2) < tol)
 
-    # initializes current_dist
-    var_list = cfg.ID_list
-    data = cfg.data
-    n_dim = len(var_list)
-    gm = GaussianMix(torch.tensor([[1.]]), torch.zeros((1,n_dim)), EPS*torch.eye(n_dim).reshape(1,n_dim, n_dim))
-    init_dist = Dist(var_list, gm)
-    cfg.root.set_dist(init_dist)
-    
+def start_sub_SOGA(node, dist, data, params_dict, body_vars):
+    """
+    Starts a sub-SOGA execution from node with distribution current_dist.
+    Returns the distribution at the end of the first occurence of a while node
+    """
+    node.dist = dist
+
     # initializes visit queue
-    exec_queue = [cfg.root]
+    exec_queue = [node]
     
     # executes SOGA on nodes on exec_queue
     while(len(exec_queue)>0):
-        SOGA(exec_queue.pop(0), data, parallel, exec_queue, params_dict)
-    
+        sub_SOGA(exec_queue.pop(0), exec_queue, data, params_dict, body_vars)
     # returns output distribution
-    p, current_dist = merge(cfg.node_list['exit'].list_dist)
-    cfg.node_list['exit'].list_dist = []
-    return current_dist
-
-
-def SOGA(node, data, parallel, exec_queue, params_dict):
+    while_node = node.parent[0]
+    if while_node.type != 'while':
+        raise RuntimeError
+    p = while_node.p
+    final_dist = while_node.dist
+    return final_dist, body_vars
+    
+def sub_SOGA(node, exec_queue, data, params_dict, body_vars):
 
     #print('Entering', node)
     #print(node.dist)
@@ -63,23 +89,24 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
         current_p = node.p
         current_trunc = node.trunc
         
-        
     # starts execution
     if node.type == 'entry':
-        update_child(node.children[0], node.dist, torch.tensor(1.), None, exec_queue)
-            
+        update_child(node.children[0], node.dist, torch.tensor(1.), None, exec_queue)   
     
     # if tests saves LBC and calls on children
     if node.type == 'test':
         current_trunc = node.LBC
+        # collects the variables appeating in the condition
+        trunc_rule = trunc_parse(current_dist.var_list, current_trunc, data, params_dict)
+        indices = torch.where(trunc_rule.coeff != 0)[0]
+        body_vars.append(idx.item() for idx in indices)
+        #keeps executing the loop
         if '==' in current_trunc or '!=' in current_trunc:
             print('Degeneracy in if condition detected. Please smooth the program.')
             raise RuntimeError
-        
         for child in node.children:
             update_child(child, node.dist, current_p, current_trunc, exec_queue)
             
-
     # if loop saves checks the condition and decides which child node must be accessed
     if node.type == 'loop':
         # the first time is accessed set the value of the counter to 0 and converts node.const into a number
@@ -108,27 +135,9 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             for child in node.children:
                 if child.cond == False:
                     update_child(child, node.dist, current_p, current_trunc, exec_queue)
-        
+     
     if node.type == 'while':
-        trunc = node.bexpr
-        # selects the true child, which is the root of the body of the loop
-        for child in node.children:
-            if child.cond == True:
-                true_child = child
-        flag = check_iid(current_dist, trunc, true_child, data, params_dict)   # see libSOGAiid
-        if flag:
-            current_trunc = negate(trunc)
-            p, current_dist = truncate(current_dist, current_trunc, data, params_dict) 
-            current_dist = aggregate_mixture(current_dist)  # to avoid proliferation of components
-            current_trunc = None
-            current_p = current_p*p
-            # going to false childe
-            for child in node.children:
-                if child.cond == False:
-                    update_child(child, current_dist, current_p, current_trunc, exec_queue)
-        else:
-            print('Non-iid loop found in the program. Please check your code to ensure i.i.d.-ness')
-            raise RuntimeError
+        return
 
     # if state checks wheter cond!=None. If yes, truncates to current_trunc, eventually negating it. In any case applies the rule in expr. Appends the distribution in the next merge node or calls recursively on children. If child is loop node increments its idx.
     if node.type == 'state':
@@ -142,6 +151,11 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
             current_trunc = None
             current_p = p*current_p
         if current_p > TOL_PROB:
+            # stores the variable appearing in the update in body_vars
+            if node.expr != 'skip':
+                expr_rule = asgmt_parse(current_dist.var_list, node.expr, data, params_dict)
+                body_vars.append(expr_rule.target)
+            # applies the update rule
             current_dist = update_rule(current_dist, node.expr, data, params_dict)         ### see libSOGAupdate
 
         # updating child
@@ -154,6 +168,11 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
     # if observe truncates to LBC and calls on children
     if node.type == 'observe':
         current_trunc = node.LBC
+        # collects the variables appeating in the condition
+        trunc_rule = trunc_parse(current_dist.var_list, current_trunc, data, params_dict)
+        indices = torch.where(trunc_rule.coeff != 0)[0]
+        for index in indices:
+            body_vars.append(index.item())
         #if parallel is not None and parallel >1:
         #    p, current_dist = parallel_truncate(current_dist, current_trunc, data,parallel)
         #else:
@@ -162,7 +181,6 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
         current_trunc = None
         child = node.children[0]
         update_child(child, current_dist, current_p, current_trunc, exec_queue)
-
 
     # if merge checks whether all paths have been explored.
     # Either returns or merge distributions and calls on children
@@ -178,16 +196,3 @@ def SOGA(node, data, parallel, exec_queue, params_dict):
                 
     if node.type == 'exit':
         return
-    
-    #if node.type == 'prune':
-    #    current_dist = prune(current_dist,'classic',node.Kmax)        ### options: 'classic', 'ranking' (see libSOGAmerge)
-    #    node.list_dist = []
-    #    for child in node.children:
-    #        if child.type == 'merge' or child.type == 'exit':
-    #            child.list_dist.append((current_p, current_dist))
-    #        else:
-    #            child.set_dist(copy(current_dist))
-    #            child.set_p(current_p)
-    #            child.set_trunc(current_trunc)
-    #        exec_queue.append(child)
-

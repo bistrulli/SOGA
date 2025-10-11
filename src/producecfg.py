@@ -162,6 +162,18 @@ class LoopNode(CFGnode):
     def __repr__(self):
         return str(self)
 
+class WhileNode(CFGnode):
+    def __init__(self, node_name):
+        super().__init__(node_name, 'while')
+        self.bexpr = None
+        
+    def __str__(self):
+        return 'WhileNode<{}>'.format(self.name)
+    
+    def __repr__(self):
+        return str(self)
+
+
 class ExitNode(CFGnode):
     
     def __init__(self, node_name):
@@ -184,6 +196,7 @@ class CFG(SOGAListener):
         self.n_merge = 0
         self.n_observe = 0
         self.n_loop = 0
+        self.n_while = 0
         self.n_prune = 0
         # root of the CFG
         self.root = EntryNode('entry')
@@ -310,6 +323,29 @@ class CFG(SOGAListener):
             self.create_skip()
 
     def exitLoop(self, ctx):
+        if self._current_node.type != 'state':
+            self.create_skip()
+        self._current_node.children.append(self._subroot[-1])
+        self._subroot[-1].parent.append(self._current_node)
+        self._current_node = self._subroot.pop()
+        self._flag = False
+        self.create_skip()
+
+    def enterWhile(self, ctx):
+        node = WhileNode('while{}'.format(self.n_while))
+        self.n_while += 1
+        node.parent.append(self._current_node)
+        self._current_node.children.append(node)
+        self._current_node = node
+        self._subroot.append(self._current_node)
+        self.node_list[node.name] = node
+        node.bexpr = ctx.bexpr().getText()
+        self._flag = True
+        # first node after loop must be a state node with cond=True
+        if ctx.block().instr(0).assignment() is None:
+            self.create_skip()
+        
+    def exitWhile(self, ctx):
         if self._current_node.type != 'state':
             self.create_skip()
         self._current_node.children.append(self._subroot[-1])

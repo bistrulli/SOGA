@@ -117,7 +117,7 @@ def asgmt_parse(var_list, expr, data, params_dict):
     asgmt_rule = AsgmtRule(var_list, data, params_dict)
     walker = ParseTreeWalker()
     walker.walk(asgmt_rule, tree) 
-    return asgmt_rule.func
+    return asgmt_rule
         
         
 def update_rule(dist, expr, data, params_dict):
@@ -125,7 +125,8 @@ def update_rule(dist, expr, data, params_dict):
     if expr == 'skip':
         return dist
     else:
-        rule_func = asgmt_parse(dist.var_list, expr, data, params_dict)  
+        rule = asgmt_parse(dist.var_list, expr, data, params_dict)  
+        rule_func = rule.func
         return rule_func(dist)
     
 def add_func(self, dist):

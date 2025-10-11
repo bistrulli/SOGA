@@ -609,20 +609,20 @@ def compute_muj(a, mu, sigma, idx):
 #    return new_mu, new_sigma
 #    
 
-#def select_indices(alpha, sigma):
-#    """ 
-#    Selects all indices i such that alpha[i] != 0 or j such that exists i such that sigma[i,j] != 0 and alpha[i] != 0 
-#    """
-#    queue = list(torch.where(alpha != 0)[0].numpy())
-#    coeff_set = []
-#    while len(queue) > 0:
-#        idx = queue.pop()
-#        coeff_set.append(idx)
-#        new_set = torch.where(sigma[:,idx] != 0)[1].numpy()
-#        for new_idx in set(new_set):
-#            if new_idx not in coeff_set:
-#                queue.append(new_idx)
-#    return list(set(coeff_set))
+def select_indices(alpha, sigma):
+    """ 
+    Selects all indices i such that alpha[i] != 0 or j such that exists i such that sigma[i,j] != 0 and alpha[i] != 0 
+    """
+    queue = list(torch.where(alpha != 0)[0].numpy())
+    coeff_set = []
+    while len(queue) > 0:
+        idx = queue.pop()
+        coeff_set.append(idx)
+        new_set = torch.where(sigma[:,idx] != 0)[1].numpy()
+        for new_idx in set(new_set):
+            if new_idx not in coeff_set:
+                queue.append(new_idx)
+    return list(set(coeff_set))
 
 
 #def reduce_indices(vec, indices):

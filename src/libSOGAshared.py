@@ -319,3 +319,69 @@ def make_sym(sigma, eig_tol=1e-3):
     for i, j in indices:
         print(f"Substituting {sigma[i, j].item()} with {symmetric_sigma[i, j].item()}")
     return symmetric_sigma
+
+### Updating child in cfg eploration
+
+def update_child(child, dist, p, trunc, exec_queue):
+    if child.type == 'merge' or child.type == 'exit':
+        child.list_dist.append((p, dist))
+    else:
+        child.set_dist(dist)                    # previously copy_dist(node.dist)
+        child.set_p(p)
+        child.set_trunc(trunc)
+    if child not in exec_queue:
+        exec_queue.append(child)
+
+### Extracting marginal distributions
+
+def extract_marginal(dist, var_list):
+    """
+    Extract the marginal of the variables specified in var_list from the distribution dist
+    """
+
+    indices = []
+    for var in var_list:
+        indices.append(dist.var_list.index(var))
+    
+    marg_pi = dist.gm.pi
+    marg_mu = dist.gm.mu[:, indices]
+    marg_sigma = dist.gm.sigma[:, :, indices][:, indices, :]
+    return Dist(var_list, GaussianMix(marg_pi, marg_mu, marg_sigma))
+
+### Aggregating mixture components
+
+def aggregate_mixture(dist):
+    """
+    Aggregates together components with same mean and variance
+    """
+    # represents a components as a tensor in which mu and sigma are stacked
+    mu_sigma_list = [torch.vstack([dist.gm.mu[i], dist.gm.sigma[i]]) for i in range(dist.gm.mu.shape[0])]
+    # sets the tolerance for identifying two components
+    tol = 1e-6
+    # groups together components such that torch.all(comp1 - comp2 < tol)
+    groups = []
+    used = set()
+    for i, tensor in enumerate(mu_sigma_list):
+        if i in used:
+            continue
+        group = [i]
+        for j in range(i+1, len(mu_sigma_list)):
+            if j in used:
+                continue
+            if torch.all(torch.abs(tensor - mu_sigma_list[j]) < tol):
+                group.append(j)
+                used.add(j)
+        used.add(i)
+        groups.append(group)
+    # creates the new mixture
+    new_pis = []
+    new_mus = []
+    new_sigmas = []    
+    for group in groups:
+        new_pis.append(torch.sum(dist.gm.pi[group]))
+        new_mus.append(dist.gm.mu[group[0], :])
+        new_sigmas.append(dist.gm.sigma[group[0], :, :])
+    new_pis = torch.tensor(new_pis).reshape(-1,1)
+    new_mus = torch.stack(new_mus, dim=0)
+    new_sigmas = torch.stack(new_sigmas, dim=0)
+    return Dist(dist.var_list, GaussianMix(new_pis, new_mus, new_sigmas))

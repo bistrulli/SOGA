@@ -898,43 +898,6 @@ def sample_from_gm(gm, n_samples):
 
     return samples
 
-def extract_marginal(dist, var_list):
-    """
-    Extract the marginal of the variables specified in var_list from the distribution dist
-    """
-
-    indices = []
-    for var in var_list:
-        indices.append(dist.var_list.index(var))
-    
-    marg_pi = dist.gm.pi
-    marg_mu = dist.gm.mu[:, indices]
-    marg_sigma = dist.gm.sigma[:, :, indices][:, indices, :]
-    return Dist(var_list, GaussianMix(marg_pi, marg_mu, marg_sigma))
-
-
-def aggregate_mixture(dist):
-    """
-    Aggregates together components with same mean and variance
-    """
-    mu_sigma_list = [torch.vstack([dist.gm.mu[i], dist.gm.sigma[i]]) for i in range(dist.gm.mu.shape[0])]
-    unique_tensors = []
-    for tensor in mu_sigma_list:
-        if not any(torch.equal(tensor, unique) for unique in unique_tensors):
-            unique_tensors.append(tensor)
-
-    new_pis = torch.zeros((len(unique_tensors), 1))
-    new_mus = torch.zeros((len(unique_tensors), dist.gm.mu.shape[1]))
-    new_sigmas = torch.zeros((len(unique_tensors), dist.gm.sigma.shape[1], dist.gm.sigma.shape[2]))
-
-    for i, tensor in enumerate(unique_tensors):
-        # this condition expresses that mean and variance are the same
-        condition = torch.all(dist.gm.mu == tensor[0], dim=1) * torch.all(dist.gm.sigma == tensor[1:], dim=(1,2))
-        new_pis[i] = torch.sum(dist.gm.pi[condition])
-        new_mus[i] = tensor[0]
-        new_sigmas[i] = tensor[1:]
-
-    return Dist(dist.var_list, GaussianMix(new_pis, new_mus, new_sigmas))
 
 def ranking_prune(current_dist, Kmax):
     """ Keeps only the Kmax component with higher prob"""

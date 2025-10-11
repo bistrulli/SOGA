@@ -215,6 +215,15 @@ class SOGAListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SOGAParser#while.
+    def enterWhile(self, ctx:SOGAParser.WhileContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#while.
+    def exitWhile(self, ctx:SOGAParser.WhileContext):
+        pass
+
+
     # Enter a parse tree produced by SOGAParser#vars.
     def enterVars(self, ctx:SOGAParser.VarsContext):
         pass

@@ -87,7 +87,7 @@ def const_func(self, comp):
     i = self.target
     new_mu = copy(comp.gm.mu[0])
     new_sigma = copy(comp.gm.sigma[0])
-    new_mu[i] = c
+    new_mu[i] = self.add_const
     new_sigma[i,:] = np.zeros(len(new_mu))
     new_sigma[:,i] = np.zeros(len(new_mu))
     return GaussianMix(comp.gm.pi, [new_mu], [new_sigma])

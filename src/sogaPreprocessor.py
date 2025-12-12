@@ -221,9 +221,9 @@ if __name__ == '__main__':
 
 	def getText(a,b,N):
 		""" converts string "uniform([a,b], K)" in "gm(pi, mu, sigma)" where gm is a Gaussian Mix with K component approximating the uniform"""
-		# a = float(self.list_().NUM()[0].getText())
-		# b = float(self.list_().NUM()[1].getText())
-		# N = int(self.NUM().getText())
+		a = float(self.list_().NUM()[0].getText())
+		b = float(self.list_().NUM()[1].getText())
+		N = int(self.NUM().getText())
 		pi = [round(1.0/N,4)]*N
 		mu = [round(a+i*(b-a)/N+((b-a)/(2*N)),4) for i in range(N)]
 		sigma = list([round((b-a)/(np.sqrt(12)*N),4)]*N)

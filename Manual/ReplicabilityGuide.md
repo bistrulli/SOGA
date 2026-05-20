@@ -62,4 +62,9 @@ Such functions are contained in the auxiliary modules:
 
 Additional functions for general purpose are defined in the module `libSOGAshared.py`, which is imported by all previous libraries.
 
+`libSOGAtruncate.py` exposes two interchangeable code paths for the inequality truncate, selected at runtime by the module-level `USE_SPARSE_TRUNCATE` flag (set from `start_SOGA(sparse_truncate=...)`, in turn fed by the `--sparse-truncate` CLI flag):
+
+- `_ineq_func_classic` is the default path. It builds a d x d rotation A via `find_basis` (SVD), computes `A * Sigma * A.T`, inverts A, then back-projects, for an overall O(d^3) cost per Gaussian-mixture component.
+- `_ineq_func_sparse` performs the same truncation through a rank-1 conditional Gaussian update on the original (mu, Sigma), exploiting the fact that the rotation A is structurally block-sparse (identity on the d-k coordinates where the LBC coefficient vector alpha is zero). Asymptotic cost drops to O(d^2) per component. The two paths are mathematically equivalent: every sample in the unit and integration test suite matches up to machine precision.
+
 Parsing of the scripts, expressions and truncations is performed using ANTLR. Definition of the respective grammars can be found in the files `grammars/SOGA.g4`, `grammars/ASGMT.g4` and `grammars/TRUNC.g4`.

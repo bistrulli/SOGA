@@ -22,7 +22,7 @@ This command will automatically download and install all the required packages. 
 The SOGA's command-line interface provides the following options:
 
 ```bash
-usage: python3 src/SOGA.py [-h] -f MODELFILE [-o OUTPUTFILE] [-t TIMEOUT] [-c] [-p PARALLEL] [-v [VARS ...]]
+usage: python3 src/SOGA.py [-h] -f MODELFILE [-o OUTPUTFILE] [-t TIMEOUT] [-c] [-p PARALLEL] [-v [VARS ...]] [--sparse-truncate]
 ```
 
 Here's a breakdown of each option:
@@ -34,6 +34,7 @@ Here's a breakdown of each option:
 - -c, --covariance: Outputs the covariance.
 - -p PARALLEL, --parallel PARALLEL: Specifies the number of parallel processes to use for the analysis (default: 1).
 - -v [VARS ...], --vars [VARS ...]: Lists the output variables.
+- --sparse-truncate: Enables the sparse-aware truncate path in `libSOGAtruncate` (rank-1 conditional Gaussian update). It is mathematically equivalent to the default truncate (output coincides at machine precision) and avoids the O(d^3) SVD/inverse step, becoming progressively faster as the joint dimension grows. Disabled by default; see [ReusabilityGuide](Manual/ReusabilityGuide.md) for guidance on when to enable it.
 
 ## Example
 Suppose you want to analyze the probabilistic program `Bernoulli.soga` contained in the folder `programs/Example/` using SOGA. Here's how you would use the SOGA CLI to perform the analysis:

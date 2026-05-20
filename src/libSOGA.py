@@ -16,13 +16,20 @@ from libSOGAupdate import *
 from libSOGAmerge import *
 import timing
 
-def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False):
+def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False,sparse_truncate=False):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
         If pruning='classic' implements pruning at the merge nodes with maximum number of component Kmax.
+        If sparse_truncate=True, uses the rank-1 conditional Gaussian update path in libSOGAtruncate
+        (mathematically equivalent to the classic SVD-rotation path, faster for high d).
         Returns an object Dist (defined in libSOGAshared) with the final computed distribution."""
     if(useR):
         initR()
-    
+
+    # Configure the truncate dispatcher BEFORE any SOGA dispatching. The flag is module-level
+    # in libSOGAtruncate; setting it here also covers spawn-based multiprocessing workers,
+    # which re-import the module and would otherwise see the default (False).
+    set_sparse_truncate(sparse_truncate)
+
     # initializes current_dist
     var_list = cfg.ID_list
     data = cfg.data

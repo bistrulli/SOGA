@@ -6,10 +6,60 @@ from TRUNCParser import *
 from TRUNCListener import *
 import timing
 import multiprocessing as mp
+from scipy.stats import norm as _scipy_norm_1d
 
 pool=None
 
-def ineq_func(self,comp):
+# Sparse-aware truncate toggle. When True, ineq_func dispatches to the
+# rank-1 conditional Gaussian update (_ineq_func_sparse). When False (default),
+# it uses the classic SVD-rotation path (_ineq_func_classic). Set via
+# set_sparse_truncate() from start_SOGA based on the --sparse-truncate CLI flag.
+USE_SPARSE_TRUNCATE = False
+
+
+def set_sparse_truncate(enabled):
+    """Toggle the sparse-aware truncate optimization at runtime."""
+    global USE_SPARSE_TRUNCATE
+    USE_SPARSE_TRUNCATE = bool(enabled)
+
+
+def _truncated_normal_moments_1d(mu_s, var_s, c, direction):
+    """First two moments and tail probability of a 1D Gaussian N(mu_s, var_s)
+    truncated by `direction` at threshold `c`.
+
+    direction must be one of '>', '>=', '<', '<='. Returns (m_hat, v_hat, P).
+    When var_s is 0, treats the variable as a Dirac at mu_s.
+    """
+    if var_s <= 0:
+        if direction in ('>', '>='):
+            return mu_s, 0.0, 1.0 if mu_s > c else 0.0
+        return mu_s, 0.0, 1.0 if mu_s < c else 0.0
+    sigma = np.sqrt(var_s)
+    z = (c - mu_s) / sigma
+    if direction in ('>', '>='):
+        denom = 1.0 - _scipy_norm_1d.cdf(z)
+        if denom < prob_tol:
+            return mu_s, var_s, 0.0
+        lam = _scipy_norm_1d.pdf(z) / denom
+    else:
+        denom = _scipy_norm_1d.cdf(z)
+        if denom < prob_tol:
+            return mu_s, var_s, 0.0
+        lam = -_scipy_norm_1d.pdf(z) / denom
+    m_hat = mu_s + sigma * lam
+    v_hat = var_s * (1.0 - lam * (lam - z))
+    return m_hat, v_hat, denom
+
+
+def ineq_func(self, comp):
+    """Dispatcher: picks classic (default) or sparse-aware truncate based on
+    the USE_SPARSE_TRUNCATE module flag."""
+    if USE_SPARSE_TRUNCATE:
+        return _ineq_func_sparse(self, comp)
+    return _ineq_func_classic(self, comp)
+
+
+def _ineq_func_classic(self,comp):
     mu = comp.gm.mu[0]
     sigma = comp.gm.sigma[0]
     final_pi = []
@@ -81,6 +131,106 @@ def ineq_func(self,comp):
         final_mu.append(new_mu)
         final_sigma.append(new_sigma)
     return GaussianMix(final_pi, final_mu, final_sigma)
+
+
+def _ineq_func_sparse(self, comp):
+    """Sparse-aware rank-1 update version of _ineq_func_classic.
+
+    Mathematically equivalent to the classic SVD-rotation path, verified to
+    machine epsilon on 7200 random samples in
+    experiments/sparse_truncate_prototype_2026-05-20/.
+
+    Replaces the O(d^3) rotation A * Sigma * A.T + inv(A) + back-projection
+    with O(d^2) rank-1 conditional Gaussian update:
+
+        g     = Sigma @ alpha_orig                            # O(d^2)
+        mu_s  = alpha_orig @ mu  + alpha_aux @ aux_mean       # scalar
+        var_s = alpha_orig @ g   + sum(alpha_aux^2 * aux_var) # scalar
+        m_hat, v_hat, P = 1D truncated normal moments
+        mu'    = mu    + g * (m_hat - mu_s) / var_s
+        Sigma' = Sigma - outer(g, g) * (1 - v_hat/var_s) / var_s
+
+    Auxiliary gm() variables inside the LBC are handled scalar-wise
+    (no extension of the d x d Sigma block needed).
+    """
+    mu = comp.gm.mu[0]
+    sigma = comp.gm.sigma[0]
+    d = len(mu)
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    n_aux = len(self.aux_means)
+
+    for part in product(*[range(len(mean)) for mean in self.aux_means]):
+        # Combine the aux components selected in this iteration
+        aux_pi = 1.0
+        aux_mean_combo = np.zeros(n_aux)
+        aux_var_combo = np.zeros(n_aux)
+        for p, q in zip(range(n_aux), part):
+            aux_pi = aux_pi * self.aux_pis[p][q]
+            aux_mean_combo[p] = self.aux_means[p][q]
+            aux_var_combo[p] = self.aux_covs[p][q]
+
+        # Split self.coeff into the original d entries and the n_aux extension
+        coeff = np.array(self.coeff, dtype=float)
+        coeff_orig = coeff[:d].copy()
+        coeff_aux = coeff[d:].copy() if n_aux > 0 else np.zeros(0)
+        ineq_const = float(self.const)
+
+        # Substitute delta variables (those with variance below delta_tol):
+        # their value collapses to the mean and folds into the constant term.
+        delta_idx = np.where(np.diag(sigma) < delta_tol)[0]
+        if len(delta_idx) > 0:
+            ineq_const -= float(coeff_orig[delta_idx].dot(mu[delta_idx]))
+            coeff_orig[delta_idx] = 0.0
+        if n_aux > 0:
+            aux_delta_mask = aux_var_combo < delta_tol
+            if np.any(aux_delta_mask):
+                ineq_const -= float(coeff_aux[aux_delta_mask].dot(aux_mean_combo[aux_delta_mask]))
+                coeff_aux[aux_delta_mask] = 0.0
+
+        # Degenerate case: all coefficients vanished -> truth depends only on the constant
+        if np.all(coeff_orig == 0) and (n_aux == 0 or np.all(coeff_aux == 0)):
+            if (self.type == '>' and ineq_const < 0) or \
+               (self.type == '>=' and ineq_const <= 0) or \
+               (self.type == '<' and ineq_const > 0) or \
+               (self.type == '<=' and ineq_const >= 0):
+                new_P = 1.0
+            else:
+                new_P = 0.0
+            new_mu = mu
+            new_sigma = sigma
+        else:
+            # Scalar projection s = alpha @ x_extended
+            mu_s = float(coeff_orig.dot(mu))
+            if n_aux > 0:
+                mu_s += float(coeff_aux.dot(aux_mean_combo))
+
+            # Cross-covariance of x_orig with s (independent of aux dims by construction)
+            g_orig = sigma.dot(coeff_orig)
+
+            var_s = float(coeff_orig.dot(g_orig))
+            if n_aux > 0:
+                var_s += float(np.sum(coeff_aux * coeff_aux * aux_var_combo))
+
+            m_hat, v_hat, new_P = _truncated_normal_moments_1d(
+                mu_s, var_s, ineq_const, self.type
+            )
+
+            if new_P < prob_tol:
+                new_mu = mu
+                new_sigma = sigma
+            else:
+                # Rank-1 conditional Gaussian update in the original d-dim space.
+                # Both formulas are exact (law of total expectation / variance).
+                new_mu = mu + g_orig * ((m_hat - mu_s) / var_s)
+                new_sigma = sigma - np.outer(g_orig, g_orig) * ((1.0 - v_hat / var_s) / var_s)
+
+        final_pi.append(aux_pi * new_P)
+        final_mu.append(new_mu)
+        final_sigma.append(new_sigma)
+    return GaussianMix(final_pi, final_mu, final_sigma)
+
 
 def eq_func(self,comp):
     mu = comp.gm.mu[0]

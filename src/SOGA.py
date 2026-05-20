@@ -30,9 +30,9 @@ class CancellationToken:
    def cancel(self):
 	   self.is_cancelled = True
 
-def runSoga(cfg,q,parallel=None):
+def runSoga(cfg,q,parallel=None,sparse_truncate=False):
 	output_dist = None
-	output_dist = start_SOGA(cfg,useR=False,parallel=parallel)
+	output_dist = start_SOGA(cfg,useR=False,parallel=parallel,sparse_truncate=sparse_truncate)
 	q.put(output_dist)
 
 
@@ -50,6 +50,10 @@ def getCliCmd():
 	#parser.add_argument("-r", "--rmoments", action="store_true", help="Option for computing moments with R package. A running R process is required (default: False)",
 		#default=False,required=False)
 	parser.add_argument("-p", "--parallel", type=int, help="Option for activationg parallelization (default: 1)",default=None,required=False)
+
+	# Sparse-aware truncate optimization (rank-1 update; mathematically equivalent to classic, O(d) faster)
+	parser.add_argument("--sparse-truncate", action="store_true", default=False,
+						help="Enable sparse-aware truncate (rank-1 conditional Gaussian update). Equivalent output, faster on high-d programs.")
 
 	# Add list of strings
 	parser.add_argument("-v","--vars", nargs="*", default=[],help="List of output variables",required=False)
@@ -138,7 +142,7 @@ def SOGA():
 
 	comp_start = time()
 	q = Queue()
-	sogaProcess = Process(target=runSoga, args=(cfg,q,args.parallel))
+	sogaProcess = Process(target=runSoga, args=(cfg,q,args.parallel,args.sparse_truncate))
 	# Start the thread
 	sogaProcess.start()
 	# Wait for the process to finish 

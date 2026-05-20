@@ -1,0 +1,20 @@
+/* V2_inline: aggressive rewrite. No mean[] array. d_total = 3 (only w[0..2]).
+   Each observe inlines the linear combination + gm noise term.
+   Semantically equivalent to V1 on the posterior of w. */
+
+data feat1 = [63, 16, 28, 55, 22, 20];
+data feat2 = [38, 23, 40, 27, 18, 40];
+data feat3 = [1, 1, 1, 1, 1, 1];
+
+array[3] w;
+
+for i in range(3) {
+    w[i] = gm([1.], [0.], [1.]);
+} end for;
+
+observe(feat1[0]*w[0] + feat2[0]*w[1] + feat3[0]*w[2] + gm([1.],[0.],[0.1]) > 0);
+observe(feat1[1]*w[0] + feat2[1]*w[1] + feat3[1]*w[2] + gm([1.],[0.],[0.1]) < 0);
+observe(feat1[2]*w[0] + feat2[2]*w[1] + feat3[2]*w[2] + gm([1.],[0.],[0.1]) > 0);
+observe(feat1[3]*w[0] + feat2[3]*w[1] + feat3[3]*w[2] + gm([1.],[0.],[0.1]) > 0);
+observe(feat1[4]*w[0] + feat2[4]*w[1] + feat3[4]*w[2] + gm([1.],[0.],[0.1]) < 0);
+observe(feat1[5]*w[0] + feat2[5]*w[1] + feat3[5]*w[2] + gm([1.],[0.],[0.1]) < 0);

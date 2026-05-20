@@ -1,0 +1,38 @@
+         204481 function calls (190435 primitive calls) in 0.059 seconds
+
+   Ordered by: cumulative time
+   List reduced from 939 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.059    0.059 /Users/emilio-imt/git/SOGA/experiments/feasibility_dead_var_pruning_2026-05-20/profile_run.py:31(run_soga)
+        1    0.000    0.000    0.030    0.030 /Users/emilio-imt/git/SOGA/src/producecfg.py:367(produce_cfg)
+        1    0.000    0.000    0.028    0.028 /Users/emilio-imt/git/SOGA/src/libSOGA.py:19(start_SOGA)
+       16    0.000    0.000    0.028    0.002 /Users/emilio-imt/git/SOGA/src/libSOGA.py:46(SOGA)
+        1    0.000    0.000    0.027    0.027 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:269(progr)
+     2226    0.001    0.000    0.021    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:109(sync)
+      706    0.000    0.000    0.020    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:120(fetch)
+      706    0.001    0.000    0.020    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Lexer.py:114(nextToken)
+        6    0.000    0.000    0.019    0.003 /Users/emilio-imt/git/SOGA/src/libSOGAtruncate.py:238(truncate)
+      983    0.001    0.000    0.018    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:83(consume)
+      800    0.001    0.000    0.017    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:94(match)
+      696    0.001    0.000    0.016    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Parser.py:345(consume)
+      240    0.000    0.000    0.016    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:294(adaptivePredict)
+      8/7    0.000    0.000    0.016    0.002 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:485(instr)
+      584    0.000    0.000    0.015    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Parser.py:120(match)
+        6    0.000    0.000    0.015    0.002 /Users/emilio-imt/git/SOGA/src/libSOGAtruncate.py:353(trunc_parse)
+      800    0.002    0.000    0.015    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:137(execATN)
+        6    0.000    0.000    0.012    0.002 /Users/emilio-imt/git/SOGA/src/TRUNCParser.py:149(trunc)
+      240    0.000    0.000    0.012    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:386(execATN)
+        6    0.000    0.000    0.010    0.002 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:1612(observe)
+        6    0.000    0.000    0.010    0.002 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:1310(bexpr)
+        6    0.000    0.000    0.010    0.002 /Users/emilio-imt/git/SOGA/src/TRUNCParser.py:218(ineq)
+      273    0.000    0.000    0.009    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:226(computeTargetState)
+        4    0.000    0.000    0.009    0.002 /Users/emilio-imt/git/SOGA/src/libSOGAupdate.py:186(update_rule)
+        6    0.000    0.000    0.009    0.002 /Users/emilio-imt/git/SOGA/src/TRUNCParser.py:449(lexpr)
+        3    0.000    0.000    0.009    0.003 /Users/emilio-imt/git/SOGA/src/libSOGAupdate.py:174(asgmt_parse)
+        3    0.000    0.000    0.008    0.003 /Users/emilio-imt/git/SOGA/src/ASGMTParser.py:132(assignment)
+        6    0.000    0.000    0.008    0.001 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:1417(lexpr)
+       24    0.000    0.000    0.008    0.000 /Users/emilio-imt/git/SOGA/src/TRUNCParser.py:526(monom)
+       24    0.000    0.000    0.007    0.000 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:1491(monom)
+
+

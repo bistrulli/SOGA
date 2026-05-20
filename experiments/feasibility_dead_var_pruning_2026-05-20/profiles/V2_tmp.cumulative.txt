@@ -1,0 +1,38 @@
+         356849 function calls (327591 primitive calls) in 0.098 seconds
+
+   Ordered by: cumulative time
+   List reduced from 944 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.098    0.098 /Users/emilio-imt/git/SOGA/experiments/feasibility_dead_var_pruning_2026-05-20/profile_run.py:31(run_soga)
+        1    0.000    0.000    0.060    0.060 /Users/emilio-imt/git/SOGA/src/producecfg.py:367(produce_cfg)
+        1    0.000    0.000    0.057    0.057 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:269(progr)
+      384    0.000    0.000    0.050    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:294(adaptivePredict)
+      384    0.001    0.000    0.045    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:386(execATN)
+    20/19    0.000    0.000    0.045    0.002 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:485(instr)
+       13    0.000    0.000    0.040    0.003 /Users/emilio-imt/git/SOGA/src/SOGAParser.py:573(assignment)
+        1    0.000    0.000    0.037    0.037 /Users/emilio-imt/git/SOGA/src/libSOGA.py:19(start_SOGA)
+       28    0.000    0.000    0.037    0.001 /Users/emilio-imt/git/SOGA/src/libSOGA.py:46(SOGA)
+       16    0.000    0.000    0.028    0.002 /Users/emilio-imt/git/SOGA/src/libSOGAupdate.py:186(update_rule)
+      285    0.002    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:663(computeReachSet)
+       15    0.000    0.000    0.027    0.002 /Users/emilio-imt/git/SOGA/src/libSOGAupdate.py:174(asgmt_parse)
+      697    0.000    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1091(closure)
+ 7499/697    0.004    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1097(closureCheckingStopState)
+ 6443/697    0.006    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1139(closure_)
+     3516    0.001    0.000    0.023    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:109(sync)
+       15    0.000    0.000    0.023    0.002 /Users/emilio-imt/git/SOGA/src/ASGMTParser.py:132(assignment)
+      802    0.001    0.000    0.022    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:120(fetch)
+      802    0.001    0.000    0.022    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Lexer.py:114(nextToken)
+     1541    0.001    0.000    0.020    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:83(consume)
+        6    0.000    0.000    0.020    0.003 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:560(execATNWithFullContext)
+       15    0.000    0.000    0.019    0.001 /Users/emilio-imt/git/SOGA/src/ASGMTParser.py:187(add)
+      937    0.001    0.000    0.018    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:94(match)
+      937    0.002    0.000    0.016    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:137(execATN)
+       33    0.000    0.000    0.015    0.000 /Users/emilio-imt/git/SOGA/src/ASGMTParser.py:258(add_term)
+      780    0.001    0.000    0.014    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Parser.py:345(consume)
+      668    0.000    0.000    0.014    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Parser.py:120(match)
+      105    0.000    0.000    0.013    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:502(computeTargetState)
+      281    0.000    0.000    0.010    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:226(computeTargetState)
+     2885    0.001    0.000    0.009    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ATNConfigSet.py:77(add)
+
+

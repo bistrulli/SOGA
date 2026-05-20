@@ -1,0 +1,38 @@
+         356849 function calls (327591 primitive calls) in 0.098 seconds
+
+   Ordered by: internal time
+   List reduced from 944 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+ 6443/697    0.006    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1139(closure_)
+23856/13385    0.004    0.000    0.007    0.000 {built-in method builtins.hash}
+ 7499/697    0.004    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1097(closureCheckingStopState)
+    40080    0.003    0.000    0.003    0.000 {built-in method builtins.isinstance}
+     7376    0.002    0.000    0.008    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1368(getEpsilonTarget)
+      937    0.002    0.000    0.016    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:137(execATN)
+    13511    0.002    0.000    0.004    0.000 {method 'get' of 'dict' objects}
+     4786    0.002    0.000    0.002    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:1359(<lambda>)
+    10173    0.002    0.000    0.002    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ATNConfig.py:29(__init__)
+   947/42    0.002    0.000    0.005    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/LL1Analyzer.py:110(_LOOK)
+      285    0.002    0.000    0.027    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ParserATNSimulator.py:663(computeReachSet)
+     2885    0.001    0.000    0.005    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ATNConfigSet.py:102(getOrAdd)
+     1296    0.001    0.000    0.002    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/IntervalSet.py:89(__contains__)
+15277/14332    0.001    0.000    0.002    0.000 {built-in method builtins.len}
+     2885    0.001    0.000    0.009    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ATNConfigSet.py:77(add)
+ 1660/290    0.001    0.000    0.005    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:320(closure)
+      802    0.001    0.000    0.022    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Lexer.py:114(nextToken)
+     4579    0.001    0.000    0.007    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/CommonTokenStream.py:61(LT)
+     6690    0.001    0.000    0.002    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/SemanticContext.py:109(__hash__)
+  1291/22    0.001    0.000    0.007    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/tree/Tree.py:143(walk)
+     1541    0.001    0.000    0.020    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:83(consume)
+     1660    0.001    0.000    0.001    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/ATNConfig.py:119(__init__)
+      937    0.001    0.000    0.018    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:94(match)
+      615    0.001    0.000    0.008    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/error/ErrorStrategy.py:204(sync)
+     1795    0.001    0.000    0.001    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:552(consume)
+     3516    0.001    0.000    0.023    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/BufferedTokenStream.py:109(sync)
+      780    0.001    0.000    0.014    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/Parser.py:345(consume)
+     1660    0.001    0.000    0.002    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/LexerATNSimulator.py:364(getEpsilonTarget)
+     2340    0.001    0.000    0.001    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/tree/Tree.py:88(__setattr__)
+      241    0.001    0.000    0.001    0.000 /Users/emilio-imt/git/SOGA/.venv/lib/python3.12/site-packages/antlr4/atn/PredictionMode.py:456(getConflictingAltSubsets)
+
+

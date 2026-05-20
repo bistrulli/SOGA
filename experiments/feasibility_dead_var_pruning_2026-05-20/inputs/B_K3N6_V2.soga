@@ -1,0 +1,34 @@
+data feat1 = [2, 1, 5, 4, 4, 3];
+data feat2 = [2, 9, 2, 10, 7, 1];
+data feat3 = [1, 2, 4, 4, 9, 10];
+
+array[3] w;
+
+for i in range(3) {
+    w[i] = gm([1.], [0.], [1.]);
+} end for;
+
+tmp = feat1[0]*w[0] + feat2[0]*w[1] + feat3[0]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[1]*w[0] + feat2[1]*w[1] + feat3[1]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[2]*w[0] + feat2[2]*w[1] + feat3[2]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[3]*w[0] + feat2[3]*w[1] + feat3[3]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[4]*w[0] + feat2[4]*w[1] + feat3[4]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[5]*w[0] + feat2[5]*w[1] + feat3[5]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+

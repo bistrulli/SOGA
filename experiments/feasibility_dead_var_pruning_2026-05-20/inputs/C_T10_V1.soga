@@ -1,0 +1,23 @@
+array[11] state;
+
+state[0] = gm([1.], [0.], [1.]);
+state[1] = state[0] + gm([1.], [0.], [1.]);
+observe(state[1] > -100);
+state[2] = state[1] + gm([1.], [0.], [1.]);
+observe(state[2] > -100);
+state[3] = state[2] + gm([1.], [0.], [1.]);
+observe(state[3] > -100);
+state[4] = state[3] + gm([1.], [0.], [1.]);
+observe(state[4] > -100);
+state[5] = state[4] + gm([1.], [0.], [1.]);
+observe(state[5] > -100);
+state[6] = state[5] + gm([1.], [0.], [1.]);
+observe(state[6] > -100);
+state[7] = state[6] + gm([1.], [0.], [1.]);
+observe(state[7] > -100);
+state[8] = state[7] + gm([1.], [0.], [1.]);
+observe(state[8] > -100);
+state[9] = state[8] + gm([1.], [0.], [1.]);
+observe(state[9] > -100);
+state[10] = state[9] + gm([1.], [0.], [1.]);
+observe(state[10] > -100);

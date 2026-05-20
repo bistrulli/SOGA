@@ -1,0 +1,22 @@
+data feat1 = [2, 1, 5, 4, 4, 3];
+data feat2 = [2, 9, 2, 10, 7, 1];
+data feat3 = [1, 2, 4, 4, 9, 10];
+
+array[3] w;
+array[6] mu;
+
+for i in range(3) {
+    w[i] = gm([1.], [0.], [1.]);
+} end for;
+
+for i in range(6) {
+    mu[i] = feat1[i]*w[0] + feat2[i]*w[1] + feat3[i]*w[2];
+    mu[i] = gm([1.], [0.], [0.1]) + mu[i];
+} end for;
+
+observe(mu[0] > 0);
+observe(mu[1] > 0);
+observe(mu[2] > 0);
+observe(mu[3] > 0);
+observe(mu[4] < 0);
+observe(mu[5] < 0);

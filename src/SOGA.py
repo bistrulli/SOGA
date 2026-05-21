@@ -30,9 +30,9 @@ class CancellationToken:
    def cancel(self):
 	   self.is_cancelled = True
 
-def runSoga(cfg,q,parallel=None,sparse_truncate=False):
+def runSoga(cfg,q,parallel=None,sparse_truncate=False,vectorize_truncate=False):
 	output_dist = None
-	output_dist = start_SOGA(cfg,useR=False,parallel=parallel,sparse_truncate=sparse_truncate)
+	output_dist = start_SOGA(cfg,useR=False,parallel=parallel,sparse_truncate=sparse_truncate,vectorize_truncate=vectorize_truncate)
 	q.put(output_dist)
 
 
@@ -54,6 +54,10 @@ def getCliCmd():
 	# Sparse-aware truncate optimization (rank-1 update; mathematically equivalent to classic, O(d) faster)
 	parser.add_argument("--sparse-truncate", action="store_true", default=False,
 						help="Enable sparse-aware truncate (rank-1 conditional Gaussian update). Equivalent output, faster on high-d programs.")
+
+	# Vectorized batch truncate optimization (rank-1 update applied to all GM components in one numpy call)
+	parser.add_argument("--vectorize-truncate", action="store_true", default=False,
+						help="Enable vectorized batch truncate. Implies --sparse-truncate; faster on high-n_comp programs.")
 
 	# Add list of strings
 	parser.add_argument("-v","--vars", nargs="*", default=[],help="List of output variables",required=False)
@@ -142,7 +146,7 @@ def SOGA():
 
 	comp_start = time()
 	q = Queue()
-	sogaProcess = Process(target=runSoga, args=(cfg,q,args.parallel,args.sparse_truncate))
+	sogaProcess = Process(target=runSoga, args=(cfg,q,args.parallel,args.sparse_truncate,args.vectorize_truncate))
 	# Start the thread
 	sogaProcess.start()
 	# Wait for the process to finish 

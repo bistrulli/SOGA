@@ -16,11 +16,23 @@ pool=None
 # set_sparse_truncate() from start_SOGA based on the --sparse-truncate CLI flag.
 USE_SPARSE_TRUNCATE = False
 
+# Vectorize-truncate toggle. When True, truncate() bypasses the per-component
+# Python loop entirely and operates on stacked (n_comp, d, d) tensors. Implies
+# sparse-aware semantics (the math is the rank-1 update, just batched). Set
+# from --vectorize-truncate CLI flag via start_SOGA.
+USE_VECTORIZE_TRUNCATE = False
+
 
 def set_sparse_truncate(enabled):
     """Toggle the sparse-aware truncate optimization at runtime."""
     global USE_SPARSE_TRUNCATE
     USE_SPARSE_TRUNCATE = bool(enabled)
+
+
+def set_vectorize_truncate(enabled):
+    """Toggle the vectorized batch truncate optimization at runtime."""
+    global USE_VECTORIZE_TRUNCATE
+    USE_VECTORIZE_TRUNCATE = bool(enabled)
 
 
 def _truncated_normal_moments_1d(mu_s, var_s, c, direction):
@@ -51,9 +63,69 @@ def _truncated_normal_moments_1d(mu_s, var_s, c, direction):
     return m_hat, v_hat, denom
 
 
+def _truncated_normal_moments_1d_batched(MU_s, VAR_s, C, direction):
+    """Vectorized version of _truncated_normal_moments_1d. All inputs may be
+    scalars or arrays of compatible shape; outputs (M_HAT, V_HAT, P) match the
+    broadcasted shape.
+
+    Edge cases:
+    - VAR_s <= 0: treat as Dirac at MU_s; P = 1 if mu satisfies the inequality, else 0.
+    - tail-prob < prob_tol: P = 0, leave moments unchanged at (MU_s, VAR_s).
+    """
+    MU_s = np.asarray(MU_s, dtype=float)
+    VAR_s = np.asarray(VAR_s, dtype=float)
+    C = np.asarray(C, dtype=float)
+    shape = np.broadcast_shapes(MU_s.shape, VAR_s.shape, C.shape)
+    MU_s = np.broadcast_to(MU_s, shape).astype(float, copy=True)
+    VAR_s = np.broadcast_to(VAR_s, shape).astype(float, copy=True)
+    C = np.broadcast_to(C, shape).astype(float, copy=True)
+
+    valid_var = VAR_s > 0
+    SIGMA = np.sqrt(np.where(valid_var, VAR_s, 1.0))
+    Z = (C - MU_s) / SIGMA
+
+    if direction in ('>', '>='):
+        denom = 1.0 - _scipy_norm_1d.cdf(Z)
+    elif direction in ('<', '<='):
+        denom = _scipy_norm_1d.cdf(Z)
+    else:
+        raise ValueError(f"unknown direction: {direction}")
+
+    valid_denom = (denom >= prob_tol) & valid_var
+    safe_denom = np.where(valid_denom, denom, 1.0)
+
+    if direction in ('>', '>='):
+        LAM = _scipy_norm_1d.pdf(Z) / safe_denom
+    else:
+        LAM = -_scipy_norm_1d.pdf(Z) / safe_denom
+
+    M_HAT = MU_s + SIGMA * LAM
+    V_HAT = VAR_s * (1.0 - LAM * (LAM - Z))
+    P = denom
+
+    # Where VAR_s <= 0: deterministic check on mu vs c
+    if direction in ('>', '>='):
+        det_P = (MU_s > C).astype(float)
+    else:
+        det_P = (MU_s < C).astype(float)
+    not_valid_var = ~valid_var
+    M_HAT = np.where(not_valid_var, MU_s, M_HAT)
+    V_HAT = np.where(not_valid_var, 0.0, V_HAT)
+    P = np.where(not_valid_var, det_P, P)
+
+    # Where tail-prob < prob_tol (but var was valid): leave moments untouched, P = 0
+    bad_denom = ~valid_denom & valid_var
+    M_HAT = np.where(bad_denom, MU_s, M_HAT)
+    V_HAT = np.where(bad_denom, VAR_s, V_HAT)
+    P = np.where(bad_denom, 0.0, P)
+
+    return M_HAT, V_HAT, P
+
+
 def ineq_func(self, comp):
     """Dispatcher: picks classic (default) or sparse-aware truncate based on
-    the USE_SPARSE_TRUNCATE module flag."""
+    the USE_SPARSE_TRUNCATE module flag. (Single-component path; the
+    USE_VECTORIZE_TRUNCATE batch path is handled inside truncate() itself.)"""
     if USE_SPARSE_TRUNCATE:
         return _ineq_func_sparse(self, comp)
     return _ineq_func_classic(self, comp)
@@ -385,6 +457,227 @@ class TruncRule(TRUNCListener):
         self.func = partial(eq_func,self)
 
 
+def _ineq_truncate_vectorized_impl(dist, trunc_rule):
+    """Batched rank-1 inequality truncate over all GM components at once.
+
+    Returns (norm_factor, new_dist) directly — bypasses the outer truncate()
+    aggregation loop. Mathematically equivalent to running _ineq_func_sparse
+    on each component and then aggregating, but with the per-component loop
+    replaced by numpy batched ops.
+    """
+    n_comp = dist.gm.n_comp()
+    d = len(dist.gm.mu[0])
+    MU = np.array(dist.gm.mu, dtype=float)        # (n_comp, d)
+    SIGMA = np.array(dist.gm.sigma, dtype=float)  # (n_comp, d, d)
+    PI = np.array(dist.gm.pi, dtype=float)        # (n_comp,)
+
+    n_aux = len(trunc_rule.aux_means)
+    coeff_full = np.array(trunc_rule.coeff, dtype=float)
+    base_coeff_orig = coeff_full[:d]
+    coeff_aux_base = coeff_full[d:] if n_aux > 0 else np.zeros(0)
+    base_const = float(trunc_rule.const)
+    trunc_type = trunc_rule.type
+
+    # Per-component delta detection (constant across aux combinations)
+    delta_mask = np.diagonal(SIGMA, axis1=1, axis2=2) < delta_tol  # (n_comp, d)
+
+    # Per-component effective coefficient (zero out delta positions)
+    COEFF = np.broadcast_to(base_coeff_orig, (n_comp, d)).copy()
+    COEFF[delta_mask] = 0.0
+    # Delta contribution folded into the constant: -= sum(coeff * mu) over delta positions
+    delta_contrib = (delta_mask * base_coeff_orig * MU).sum(-1)  # (n_comp,)
+
+    # Constants that do not depend on aux combination
+    G = np.einsum('kij,kj->ki', SIGMA, COEFF)  # (n_comp, d) cross-cov
+    VAR_s_orig = (COEFF * G).sum(-1)            # (n_comp,)
+    MU_s_orig = (COEFF * MU).sum(-1)            # (n_comp,)
+    all_zero_orig = np.all(COEFF == 0, axis=-1)  # (n_comp,)
+
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+
+    aux_iter = product(*[range(len(m)) for m in trunc_rule.aux_means]) if n_aux > 0 else [()]
+    for part in aux_iter:
+        # Aux combination: accumulate scalar contributions, fold delta auxs into const
+        aux_pi = 1.0
+        aux_mu_contrib = 0.0
+        aux_var_contrib = 0.0
+        aux_const_shift = 0.0
+        for p, q in zip(range(n_aux), part):
+            pi_pq = trunc_rule.aux_pis[p][q]
+            mean_pq = trunc_rule.aux_means[p][q]
+            var_pq = trunc_rule.aux_covs[p][q]
+            aux_pi *= pi_pq
+            cp = float(coeff_aux_base[p])
+            if var_pq < delta_tol:
+                aux_const_shift += cp * mean_pq
+            else:
+                aux_mu_contrib += cp * mean_pq
+                aux_var_contrib += cp * cp * float(var_pq)
+
+        MU_s = MU_s_orig + aux_mu_contrib
+        VAR_s = VAR_s_orig + aux_var_contrib
+        INEQ_CONST = (base_const - aux_const_shift) - delta_contrib  # (n_comp,)
+
+        # Degenerate components: all coeff_orig zero AND no aux variance/mean contribution
+        aux_inactive = (aux_var_contrib == 0.0) and (aux_mu_contrib == 0.0)
+        degenerate = all_zero_orig & aux_inactive  # (n_comp,)
+
+        # 1D truncated moments
+        M_HAT, V_HAT, P = _truncated_normal_moments_1d_batched(MU_s, VAR_s, INEQ_CONST, trunc_type)
+
+        # Override P for degenerate components
+        if np.any(degenerate):
+            if trunc_type == '>':
+                det_P = (INEQ_CONST < 0).astype(float)
+            elif trunc_type == '>=':
+                det_P = (INEQ_CONST <= 0).astype(float)
+            elif trunc_type == '<':
+                det_P = (INEQ_CONST > 0).astype(float)
+            else:  # '<='
+                det_P = (INEQ_CONST >= 0).astype(float)
+            P = np.where(degenerate, det_P, P)
+
+        # Where to apply rank-1 update vs keep original
+        good = (P >= prob_tol) & (VAR_s > 0) & (~degenerate)
+
+        safe_var = np.where(VAR_s > 0, VAR_s, 1.0)
+        factor_mu_arr = np.where(good, (M_HAT - MU_s) / safe_var, 0.0)
+        factor_cov_arr = np.where(good, (1.0 - V_HAT / safe_var) / safe_var, 0.0)
+
+        NEW_MU = MU + G * factor_mu_arr[:, None]
+        NEW_SIGMA = SIGMA - np.einsum('ki,kj->kij', G, G) * factor_cov_arr[:, None, None]
+
+        # Restore original mu/sigma where update was skipped (factor was zero so this
+        # is mostly a no-op already, but be explicit to match the per-component path)
+        skip = ~good
+        if np.any(skip):
+            NEW_MU = np.where(skip[:, None], MU, NEW_MU)
+            NEW_SIGMA = np.where(skip[:, None, None], SIGMA, NEW_SIGMA)
+
+        WEIGHTS = PI * aux_pi * P  # (n_comp,)
+        keep = WEIGHTS > prob_tol
+        for k in np.where(keep)[0]:
+            final_pi.append(float(WEIGHTS[k]))
+            final_mu.append(NEW_MU[k])
+            final_sigma.append(NEW_SIGMA[k])
+
+    norm_factor = float(sum(final_pi))
+    if norm_factor > prob_tol:
+        normalized = [p / norm_factor for p in final_pi]
+        new_dist = Dist(dist.var_list, GaussianMix(normalized, final_mu, final_sigma))
+    else:
+        # All mass below tolerance: return a degenerate sentinel (mirror outer truncate())
+        new_dist = Dist(dist.var_list,
+                        GaussianMix([0.0], [np.array([0.0] * d)], [np.zeros((d, d))]))
+    return norm_factor, new_dist
+
+
+def _eq_truncate_vectorized_impl(dist, trunc_rule):
+    """Batched equality conditioning over all GM components at once.
+
+    The eq grammar enforces a single non-zero coefficient (LBC is `var == const`),
+    so we condition every component on x_i = const/coeff_i via Schur complement,
+    then collapse x_i to a delta. Handles both '==' and '!=' types.
+    Returns (norm_factor, new_dist).
+    """
+    n_comp = dist.gm.n_comp()
+    d = len(dist.gm.mu[0])
+    MU = np.array(dist.gm.mu, dtype=float)
+    SIGMA = np.array(dist.gm.sigma, dtype=float)
+    PI = np.array(dist.gm.pi, dtype=float)
+
+    coeff = np.array(trunc_rule.coeff[:d], dtype=float)
+    eq_const = float(trunc_rule.const)
+    nonzero = np.where(coeff != 0)[0]
+    if len(nonzero) == 0:
+        # No active variable: deterministic on constant alone
+        if trunc_rule.type == '==':
+            P_scalar = 1.0 if eq_const == 0 else 0.0
+        else:
+            P_scalar = 0.0 if eq_const == 0 else 1.0
+        if P_scalar < prob_tol:
+            return 0.0, Dist(dist.var_list,
+                             GaussianMix([0.0], [np.array([0.0] * d)], [np.zeros((d, d))]))
+        return 1.0, dist
+    i = int(nonzero[0])
+    coeff_i = float(coeff[i])
+    target_val = eq_const / coeff_i  # value of x_i if equality holds
+
+    is_delta = SIGMA[:, i, i] < delta_tol  # (n_comp,) per-component delta check on x_i
+
+    # Delta components: P depends on whether mu[i] == target_val
+    delta_residual = MU[:, i] - target_val
+    if trunc_rule.type == '==':
+        P_delta = (np.abs(delta_residual) < 1e-10).astype(float)
+    else:  # '!='
+        P_delta = (np.abs(delta_residual) >= 1e-10).astype(float)
+
+    # Non-delta components: Schur-complement conditional Gaussian update
+    sigma_col_i = SIGMA[:, :, i]  # (n_comp, d) — column i across all components
+    sigma_ii = SIGMA[:, i, i]     # (n_comp,)
+    safe_sigma_ii = np.where(sigma_ii > 0, sigma_ii, 1.0)
+    factor_mu_nd = (target_val - MU[:, i]) / safe_sigma_ii  # (n_comp,)
+
+    NEW_MU_nd = MU + sigma_col_i * factor_mu_nd[:, None]
+    NEW_SIGMA_nd = SIGMA - np.einsum('ki,kj->kij', sigma_col_i, sigma_col_i) / safe_sigma_ii[:, None, None]
+    # Collapse x_i to its delta value
+    NEW_MU_nd[:, i] = target_val
+    NEW_SIGMA_nd[:, i, :] = 0.0
+    NEW_SIGMA_nd[:, :, i] = 0.0
+
+    # If the conditioned cov (excluding i) is all-zero, original Gaussian had x_i
+    # fully determined by the other components — singular case → P = 0
+    mask_keep = np.ones(d, dtype=bool)
+    mask_keep[i] = False
+    sub_sigma = NEW_SIGMA_nd[:, mask_keep, :][:, :, mask_keep]  # (n_comp, d-1, d-1)
+    cond_singular = np.all(np.abs(sub_sigma) < 1e-15, axis=(-2, -1))  # (n_comp,)
+    P_nd = np.where(cond_singular, 0.0, 1.0)
+
+    # Combine delta vs non-delta cases
+    P = np.where(is_delta, P_delta, P_nd)
+    NEW_MU = np.where(is_delta[:, None], MU, NEW_MU_nd)
+    NEW_SIGMA = np.where(is_delta[:, None, None], SIGMA, NEW_SIGMA_nd)
+
+    WEIGHTS = PI * P
+
+    # Hard-observe filtering for '==': if any delta component matches the equality,
+    # ONLY those contribute (mirror outer truncate() logic).
+    if trunc_rule.type == '==':
+        hard_set = is_delta & (P_delta > prob_tol)
+        if np.any(hard_set):
+            keep_mask = hard_set & (WEIGHTS > prob_tol)
+        else:
+            keep_mask = WEIGHTS > prob_tol
+    else:
+        keep_mask = WEIGHTS > prob_tol
+
+    final_pi = []
+    final_mu = []
+    final_sigma = []
+    for k in np.where(keep_mask)[0]:
+        final_pi.append(float(WEIGHTS[k]))
+        final_mu.append(NEW_MU[k])
+        final_sigma.append(NEW_SIGMA[k])
+
+    norm_factor = float(sum(final_pi))
+    if norm_factor > prob_tol:
+        normalized = [p / norm_factor for p in final_pi]
+        new_dist = Dist(dist.var_list, GaussianMix(normalized, final_mu, final_sigma))
+    else:
+        new_dist = Dist(dist.var_list,
+                        GaussianMix([0.0], [np.array([0.0] * d)], [np.zeros((d, d))]))
+    return norm_factor, new_dist
+
+
+def _truncate_vectorized(dist, trunc_rule):
+    """Entry point for the vectorized truncate path. Dispatches to ineq or eq."""
+    if trunc_rule.type in ('==', '!='):
+        return _eq_truncate_vectorized_impl(dist, trunc_rule)
+    return _ineq_truncate_vectorized_impl(dist, trunc_rule)
+
+
 def truncate(dist, trunc, data):
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
     if trunc == 'true':
@@ -393,6 +686,8 @@ def truncate(dist, trunc, data):
         return 0., dist
     else:
         trunc_rule = trunc_parse(dist.var_list, trunc, data)
+        if USE_VECTORIZE_TRUNCATE:
+            return _truncate_vectorized(dist, trunc_rule)
         trunc_func = trunc_rule.func
         trunc_type = trunc_rule.type
         trunc_idx = np.where(np.array(trunc_rule.coeff) != 0)[0][0]

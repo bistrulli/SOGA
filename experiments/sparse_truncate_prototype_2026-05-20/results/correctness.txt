@@ -1,0 +1,49 @@
+=== CORRECTNESS VERIFICATION ===
+N=200 samples per (d, k, direction)
+
+d=   5  k= 1  dir=>  max|Δμ|=7.99e-15  max|ΔΣ|=4.80e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 1  dir=<  max|Δμ|=5.33e-15  max|ΔΣ|=3.20e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 2  dir=>  max|Δμ|=9.77e-15  max|ΔΣ|=4.09e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 2  dir=<  max|Δμ|=7.11e-15  max|ΔΣ|=2.93e-14  max|ΔP|=1.11e-16  [PASS]
+d=   5  k= 3  dir=>  max|Δμ|=4.44e-15  max|ΔΣ|=2.60e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 3  dir=<  max|Δμ|=5.33e-15  max|ΔΣ|=2.78e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 5  dir=>  max|Δμ|=8.88e-15  max|ΔΣ|=5.51e-14  max|ΔP|=2.22e-16  [PASS]
+d=   5  k= 5  dir=<  max|Δμ|=4.44e-15  max|ΔΣ|=2.38e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 1  dir=>  max|Δμ|=8.88e-15  max|ΔΣ|=6.75e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 1  dir=<  max|Δμ|=4.44e-15  max|ΔΣ|=3.20e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 2  dir=>  max|Δμ|=9.77e-15  max|ΔΣ|=7.19e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 2  dir=<  max|Δμ|=5.33e-15  max|ΔΣ|=3.42e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 3  dir=>  max|Δμ|=1.07e-14  max|ΔΣ|=4.97e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 3  dir=<  max|Δμ|=8.88e-15  max|ΔΣ|=4.62e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 5  dir=>  max|Δμ|=1.07e-14  max|ΔΣ|=6.31e-14  max|ΔP|=2.22e-16  [PASS]
+d=  10  k= 5  dir=<  max|Δμ|=6.22e-15  max|ΔΣ|=6.39e-14  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 1  dir=>  max|Δμ|=7.11e-15  max|ΔΣ|=1.10e-13  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 1  dir=<  max|Δμ|=7.11e-15  max|ΔΣ|=8.88e-14  max|ΔP|=1.11e-16  [PASS]
+d=  30  k= 2  dir=>  max|Δμ|=1.33e-14  max|ΔΣ|=1.56e-13  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 2  dir=<  max|Δμ|=7.11e-15  max|ΔΣ|=1.10e-13  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 3  dir=>  max|Δμ|=8.88e-15  max|ΔΣ|=8.44e-14  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 3  dir=<  max|Δμ|=8.88e-15  max|ΔΣ|=1.81e-13  max|ΔP|=1.67e-16  [PASS]
+d=  30  k= 5  dir=>  max|Δμ|=1.24e-14  max|ΔΣ|=1.98e-13  max|ΔP|=2.22e-16  [PASS]
+d=  30  k= 5  dir=<  max|Δμ|=7.11e-15  max|ΔΣ|=5.68e-14  max|ΔP|=1.11e-16  [PASS]
+d= 100  k= 1  dir=>  max|Δμ|=4.26e-14  max|ΔΣ|=9.81e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 1  dir=<  max|Δμ|=1.07e-14  max|ΔΣ|=2.42e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 2  dir=>  max|Δμ|=2.13e-14  max|ΔΣ|=4.48e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 2  dir=<  max|Δμ|=1.42e-14  max|ΔΣ|=2.95e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 3  dir=>  max|Δμ|=2.31e-14  max|ΔΣ|=4.19e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 3  dir=<  max|Δμ|=1.78e-14  max|ΔΣ|=2.84e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 5  dir=>  max|Δμ|=2.31e-14  max|ΔΣ|=5.33e-13  max|ΔP|=2.22e-16  [PASS]
+d= 100  k= 5  dir=<  max|Δμ|=1.78e-14  max|ΔΣ|=2.49e-13  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 1  dir=>  max|Δμ|=4.26e-14  max|ΔΣ|=1.31e-12  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 1  dir=<  max|Δμ|=3.20e-14  max|ΔΣ|=1.25e-12  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 2  dir=>  max|Δμ|=3.55e-14  max|ΔΣ|=1.09e-12  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 2  dir=<  max|Δμ|=2.84e-14  max|ΔΣ|=9.81e-13  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 3  dir=>  max|Δμ|=4.97e-14  max|ΔΣ|=1.36e-12  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 3  dir=<  max|Δμ|=3.20e-14  max|ΔΣ|=1.26e-12  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 5  dir=>  max|Δμ|=3.20e-14  max|ΔΣ|=7.39e-13  max|ΔP|=2.22e-16  [PASS]
+d= 300  k= 5  dir=<  max|Δμ|=2.84e-14  max|ΔΣ|=9.38e-13  max|ΔP|=2.22e-16  [PASS]
+
+=== OVERALL ===
+max |Δμ| overall: 4.97e-14
+max |ΔΣ| overall: 1.36e-12
+max |ΔP| overall: 2.22e-16
+VERDICT: ALL PASS

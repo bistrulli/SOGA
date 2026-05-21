@@ -82,9 +82,11 @@ You can find a commented SOGA model in the folder `programs/Example/Bernoulli.so
 
 ## Performance considerations
 
+SOGA's `truncate` step is the most expensive numerical operation: it runs every time an `observe(...)` or a conditional branch is encountered, once per Gaussian-mixture component. Two opt-in CLI flags provide progressively more aggressive replacements for the default truncate path.
+
 ### `--sparse-truncate` (experimental)
 
-SOGA's `truncate` step is the most expensive numerical operation: it runs every time an `observe(...)` or a conditional branch is encountered, once per Gaussian-mixture component. The default implementation in `libSOGAtruncate.py` allocates a d x d rotation matrix and inverts it, which costs O(d^3) per component (d is the total number of program variables tracked in the joint distribution).
+The default implementation in `libSOGAtruncate.py` allocates a d x d rotation matrix and inverts it, which costs O(d^3) per component (d is the total number of program variables tracked in the joint distribution).
 
 The `--sparse-truncate` CLI flag activates an alternative implementation that produces the same result (verified to machine precision) by means of a rank-1 conditional Gaussian update, with O(d^2) cost per component.
 
@@ -99,14 +101,47 @@ The `--sparse-truncate` CLI flag activates an alternative implementation that pr
 
 **Correctness.** The two paths are equivalent up to floating-point rounding (`max |delta E[var]| < 1e-15` on the canonical benchmarks). The flag is therefore safe to enable, but the default is `--sparse-truncate` off while we collect soak data.
 
+### `--vectorize-truncate` (experimental)
+
+`--sparse-truncate` reduces the cost per component but leaves intact the Python `for k in range(n_comp)` loop over components. For mixtures with many components (Bernoulli, ClinicalTrial, ClickGraphPrune), that loop becomes the new bottleneck because each Python iteration carries ~50-200 us of function-call overhead.
+
+`--vectorize-truncate` removes the loop. It stacks all components into 3D tensors `(n_comp, d, d)` and applies the rank-1 conditional Gaussian update across the entire mixture in a single numpy call. Numpy BLAS handles SIMD and multi-core under the hood, so the speedup is largest on high-`n_comp` programs.
+
+**Implies `--sparse-truncate`.** The math is identical to the sparse path, just batched.
+
+**A/B benchmark figures (canonical SOGA suite, 21 programs, geometric mean):**
+
+- `--sparse-truncate` over default: **1.51x**
+- `--vectorize-truncate` over default: **3.17x**
+- `--vectorize-truncate` over `--sparse-truncate`: **2.10x** (median 1.40x, max 12.66x)
+
+**Programs where `--vectorize-truncate` is dramatically faster than `--sparse-truncate`:**
+
+| Program | n_comp | sparse (ms) | vectorize (ms) | speedup |
+|---|---|---|---|---|
+| `ClinicalTrial.soga` | 5795 | 1547 | 122 | **12.66x** |
+| `Bernoulli.soga` | 1954 | 524 | 47 | **11.10x** |
+| `RandomWalkUnif10.soga` | 271764 | 52636 | 7274 | **7.24x** |
+| `RandomWalkGauss10.soga` | 1024 | 192 | 46 | **4.19x** |
+| `SurveyUnbias.soga` | 128 | 41 | 11 | **3.89x** |
+| `CoinBias.soga` | 64 | 21 | 8 | **2.70x** |
+
+`RandomWalkUnif10.soga` is the most striking case: the default truncate path times out, the sparse path completes in 52 s, and the vectorized path completes in 7 s. Equivalence holds: `max |delta E[var]|` across the three paths is 2.78e-07.
+
+**When it does not help.**
+- Mixtures with `n_comp < 10`: the Python loop overhead it eliminates is small, and the tensor setup adds a fixed cost. `--vectorize-truncate` can be marginally slower than `--sparse-truncate` here (worst measured: 0.95x on BayesPointMachine).
+
 **Example.**
 
 ```bash
 # default (classic)
-python3 src/SOGA.py -f programs/SOGA/BayesPointMachine.soga
+python3 src/SOGA.py -f programs/SOGA/Bernoulli.soga
 
-# enable the sparse-aware path
-python3 src/SOGA.py -f programs/SOGA/BayesPointMachine.soga --sparse-truncate
+# rank-1 per-component
+python3 src/SOGA.py -f programs/SOGA/Bernoulli.soga --sparse-truncate
+
+# batched rank-1 across all components (fastest on this benchmark)
+python3 src/SOGA.py -f programs/SOGA/Bernoulli.soga --vectorize-truncate
 ```
 
-A/B benchmark figures across canonical and synthetic stress programs (random walks of length T and Bayes-point-machine-like models with N observations) are reproducible via the script `experiments/sparse_truncate_prototype_2026-05-20/bench_ab.py`.
+A/B/C benchmark figures across the entire canonical suite are reproducible via the scripts in `experiments/sparse_truncate_prototype_2026-05-20/` (`bench_all_canonical.py` for the 2-way comparison, `bench_all_3way.py` for the 3-way).

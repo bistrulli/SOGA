@@ -42,11 +42,31 @@ def debug(func):
         return value
     return wrapper_debug 
 
-### TOLERANCE PARAMETERS 
+### TOLERANCE PARAMETERS
 
 delta_tol = 1e-10 # if the 1-norm of a covariance matrix is <= delta_tol the corresponding Gaussian component is treated as a delta
 prob_tol = 1e-10 # probability below prob_tol are treated as zero
 eig_tol = 1e-4
+
+### CUSTOM EXCEPTIONS
+
+class NumericalError(Exception):
+    """Raised when a numerical operation fails after exhausting retries.
+
+    Attributes:
+        message: human-readable description
+        kwargs: context metadata (e.g. min_eig, n_retries)
+    """
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message)
+        self.context = kwargs
+
+    def __str__(self):
+        base = super().__str__()
+        if self.context:
+            ctx_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            return f"{base} ({ctx_str})"
+        return base
 
 ### CLASSES FOR DISTRIBUTIONS AND GAUSSIAN MIXTURES
 
@@ -135,31 +155,48 @@ class Dist():
 ### FUNCTIONS FOR NUMERICAL STABILITY OF COVARIANCE MATRICES
 
 def make_psd(sigma):
+    """Make sigma positive semi-definite with a conditional clip strategy.
+
+    Strategy: clip only negative eigenvalues to a small positive jitter derived
+    from the matrix trace (not an unconditional global shift, which would perturb
+    already-PSD inputs). Retries up to N=3 times with halved jitter if residual
+    negative eigenvalues remain after recomposition round-off.
+
+    Raises NumericalError if PSD cannot be achieved after N=3 retries.
     """
-    Triggered when sigma is not positive semidefinite. Sets to 1e-10 negative eigenvalues of sigma. If the eigenvalues or the total error in the substitution are above a certain threshold prints an error message.
-    """
+    _MAX_RETRIES = 3
     new_sigma = make_sym(sigma)
-    eig, M = np.linalg.eigh(new_sigma)
-    add = 0
-    delta_eig = 1e-8
-    c_it = 0
-    while not np.all(eig > 1e-15):
-    #while True:
-        c_it+=1
-        add = add + delta_eig
-        for i, e in enumerate(eig):
-            if e <= 1e-15:
-                #if abs(e) > eig_tol:
-                    #print('Warning: substituting eigenvelue {} can lead to a large error'.format(e))
-                eig[i] = add
-        new_sigma = M.dot(np.diag(eig)).dot(M.transpose())
-        #new_sigma = make_sym(new_sigma)
-        eig, M = np.linalg.eigh(new_sigma)
-    
-    rel_err = np.sum(abs(new_sigma-sigma))
+    d = new_sigma.shape[0]
+    eig, Q = np.linalg.eigh(new_sigma)
+
+    if np.all(eig > 1e-15):
+        # Already PSD — return immediately without perturbation
+        return new_sigma
+
+    # Compute adaptive jitter from trace
+    trace_val = float(np.trace(new_sigma))
+    base_jitter = max(1e-8, 1e-10 * trace_val / d)
+
+    jitter = base_jitter
+    for retry in range(_MAX_RETRIES + 1):
+        # Clip only negative eigenvalues; leave positive ones untouched
+        eig_clipped = np.where(eig <= 1e-15, jitter, eig)
+        new_sigma = Q.dot(np.diag(eig_clipped)).dot(Q.T)
+        eig, Q = np.linalg.eigh(new_sigma)
+        if np.all(eig > 1e-15):
+            break
+        jitter = jitter / 2.0
+    else:
+        min_eig_val = float(np.min(eig))
+        raise NumericalError(
+            "make_psd failed after N=3 clips",
+            min_eig=min_eig_val,
+            n_retries=_MAX_RETRIES,
+        )
+
+    rel_err = float(np.sum(np.abs(new_sigma - sigma)))
     if rel_err > eig_tol:
-        print('Warning: eigenvalue substitution led to an error of: {}'.format(rel_err))
-    #mvnorm.cdf([0]*len(new_sigma), mean=[0]*len(new_sigma), cov=new_sigma, allow_singular=False)
+        print(f"Warning: make_psd eigenvalue clip led to an error of: {rel_err:.4g}")
     return new_sigma
 
 def make_sym(sigma):

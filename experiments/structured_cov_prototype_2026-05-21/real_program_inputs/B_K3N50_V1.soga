@@ -1,0 +1,66 @@
+data feat1 = [2, 1, 5, 4, 4, 3, 2, 9, 2, 10, 7, 1, 1, 2, 4, 4, 9, 10, 1, 9, 4, 9, 7, 4, 8, 10, 5, 1, 3, 7, 6, 5, 3, 4, 6, 2, 2, 7, 2, 6, 6, 10, 5, 1, 8, 9, 2, 7, 2, 9];
+data feat2 = [5, 10, 6, 10, 4, 2, 1, 4, 5, 2, 4, 2, 7, 5, 8, 6, 3, 6, 6, 4, 5, 2, 10, 3, 9, 4, 3, 8, 7, 5, 9, 4, 6, 1, 4, 1, 6, 7, 5, 2, 4, 10, 6, 4, 8, 7, 8, 3, 5, 3];
+data feat3 = [4, 9, 9, 5, 10, 7, 10, 7, 6, 4, 3, 9, 8, 2, 1, 2, 3, 3, 7, 10, 2, 7, 7, 10, 8, 9, 5, 9, 1, 2, 9, 5, 6, 2, 5, 7, 3, 8, 1, 5, 9, 3, 9, 2, 5, 9, 10, 4, 3, 6];
+
+array[3] w;
+array[50] mu;
+
+for i in range(3) {
+    w[i] = gm([1.], [0.], [1.]);
+} end for;
+
+for i in range(50) {
+    mu[i] = feat1[i]*w[0] + feat2[i]*w[1] + feat3[i]*w[2];
+    mu[i] = gm([1.], [0.], [0.1]) + mu[i];
+} end for;
+
+observe(mu[0] < 0);
+observe(mu[1] < 0);
+observe(mu[2] < 0);
+observe(mu[3] < 0);
+observe(mu[4] < 0);
+observe(mu[5] < 0);
+observe(mu[6] > 0);
+observe(mu[7] < 0);
+observe(mu[8] < 0);
+observe(mu[9] < 0);
+observe(mu[10] < 0);
+observe(mu[11] < 0);
+observe(mu[12] < 0);
+observe(mu[13] < 0);
+observe(mu[14] < 0);
+observe(mu[15] < 0);
+observe(mu[16] < 0);
+observe(mu[17] < 0);
+observe(mu[18] < 0);
+observe(mu[19] < 0);
+observe(mu[20] < 0);
+observe(mu[21] < 0);
+observe(mu[22] < 0);
+observe(mu[23] < 0);
+observe(mu[24] < 0);
+observe(mu[25] < 0);
+observe(mu[26] < 0);
+observe(mu[27] < 0);
+observe(mu[28] < 0);
+observe(mu[29] < 0);
+observe(mu[30] < 0);
+observe(mu[31] < 0);
+observe(mu[32] < 0);
+observe(mu[33] < 0);
+observe(mu[34] < 0);
+observe(mu[35] > 0);
+observe(mu[36] < 0);
+observe(mu[37] < 0);
+observe(mu[38] < 0);
+observe(mu[39] < 0);
+observe(mu[40] < 0);
+observe(mu[41] < 0);
+observe(mu[42] < 0);
+observe(mu[43] < 0);
+observe(mu[44] < 0);
+observe(mu[45] < 0);
+observe(mu[46] < 0);
+observe(mu[47] < 0);
+observe(mu[48] < 0);
+observe(mu[49] < 0);

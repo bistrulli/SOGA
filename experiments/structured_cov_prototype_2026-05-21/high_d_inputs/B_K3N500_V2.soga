@@ -1,0 +1,2010 @@
+data feat1 = [2, 1, 5, 4, 4, 3, 2, 9, 2, 10, 7, 1, 1, 2, 4, 4, 9, 10, 1, 9, 4, 9, 7, 4, 8, 10, 5, 1, 3, 7, 6, 5, 3, 4, 6, 2, 2, 7, 2, 6, 6, 10, 5, 1, 8, 9, 2, 7, 2, 9, 5, 10, 6, 10, 4, 2, 1, 4, 5, 2, 4, 2, 7, 5, 8, 6, 3, 6, 6, 4, 5, 2, 10, 3, 9, 4, 3, 8, 7, 5, 9, 4, 6, 1, 4, 1, 6, 7, 5, 2, 4, 10, 6, 4, 8, 7, 8, 3, 5, 3, 4, 9, 9, 5, 10, 7, 10, 7, 6, 4, 3, 9, 8, 2, 1, 2, 3, 3, 7, 10, 2, 7, 7, 10, 8, 9, 5, 9, 1, 2, 9, 5, 6, 2, 5, 7, 3, 8, 1, 5, 9, 3, 9, 2, 5, 9, 10, 4, 3, 6, 3, 9, 9, 1, 10, 6, 8, 1, 2, 6, 5, 4, 1, 4, 10, 2, 2, 8, 2, 9, 3, 3, 8, 9, 3, 5, 9, 10, 7, 4, 9, 4, 5, 7, 6, 8, 9, 8, 2, 4, 4, 2, 6, 1, 10, 9, 4, 10, 4, 1, 2, 1, 4, 2, 1, 6, 2, 9, 4, 5, 8, 4, 9, 3, 10, 10, 8, 4, 8, 7, 4, 2, 2, 7, 6, 7, 7, 8, 1, 2, 1, 7, 6, 2, 4, 4, 4, 9, 8, 3, 7, 3, 5, 8, 4, 2, 8, 9, 2, 1, 9, 1, 2, 4, 3, 7, 8, 8, 4, 7, 1, 3, 7, 1, 7, 5, 8, 5, 7, 9, 8, 3, 4, 5, 4, 1, 10, 9, 1, 6, 1, 1, 10, 8, 9, 9, 3, 1, 9, 2, 3, 2, 10, 2, 4, 7, 2, 10, 4, 10, 10, 1, 10, 2, 7, 10, 10, 9, 6, 5, 4, 6, 4, 5, 7, 3, 5, 8, 6, 2, 1, 8, 10, 10, 2, 2, 9, 4, 9, 5, 3, 6, 2, 4, 6, 5, 3, 8, 9, 5, 10, 9, 1, 9, 5, 2, 3, 5, 2, 2, 9, 3, 5, 5, 10, 4, 6, 4, 5, 9, 8, 5, 1, 2, 7, 5, 1, 1, 6, 3, 5, 3, 8, 9, 7, 9, 1, 2, 2, 3, 9, 1, 6, 10, 9, 3, 7, 3, 1, 5, 6, 1, 6, 4, 4, 2, 6, 9, 7, 10, 3, 4, 3, 3, 7, 1, 3, 6, 7, 4, 5, 3, 2, 7, 1, 8, 4, 4, 8, 6, 5, 4, 4, 1, 4, 7, 6, 5, 2, 5, 6, 9, 7, 9, 6, 1, 2, 5, 3, 10, 5, 1, 2, 10, 7, 6, 6, 7, 10, 9, 2, 7, 10, 4, 5, 1, 7, 1, 9, 9, 4, 6, 7, 2, 6, 10, 6, 2, 5, 9, 5, 7, 6, 7, 5, 9, 3, 4, 7, 7, 3, 10, 10, 5, 7, 9, 1, 5, 5, 4, 7, 10, 10, 6, 8, 8, 8, 4, 9, 8];
+data feat2 = [3, 2, 5, 9, 10, 6, 2, 4, 5, 4, 4, 3, 1, 1, 4, 8, 10, 2, 8, 7, 10, 4, 7, 8, 7, 4, 3, 1, 2, 7, 4, 3, 9, 8, 1, 9, 4, 2, 8, 3, 8, 9, 9, 10, 6, 8, 10, 9, 7, 9, 8, 3, 8, 8, 5, 4, 5, 9, 8, 4, 5, 8, 2, 5, 4, 5, 6, 6, 9, 2, 3, 3, 4, 7, 3, 4, 2, 7, 7, 6, 9, 8, 7, 1, 4, 7, 7, 10, 1, 10, 7, 8, 1, 6, 5, 7, 7, 9, 9, 10, 4, 8, 4, 5, 7, 8, 1, 7, 6, 7, 3, 8, 3, 10, 9, 1, 7, 10, 10, 1, 2, 7, 3, 8, 3, 1, 5, 7, 6, 4, 8, 6, 6, 7, 5, 7, 5, 2, 8, 1, 9, 1, 6, 4, 2, 1, 1, 4, 4, 1, 10, 3, 4, 3, 8, 2, 10, 4, 8, 5, 6, 3, 10, 10, 2, 3, 5, 2, 10, 1, 5, 10, 7, 7, 4, 2, 10, 4, 2, 5, 10, 2, 10, 1, 6, 9, 7, 6, 2, 9, 6, 1, 7, 8, 2, 7, 6, 8, 3, 7, 3, 9, 5, 10, 9, 8, 8, 7, 10, 5, 6, 4, 2, 5, 8, 4, 8, 10, 10, 7, 6, 1, 8, 6, 3, 8, 4, 6, 5, 6, 5, 10, 5, 9, 1, 9, 4, 2, 4, 7, 8, 9, 4, 8, 8, 8, 1, 2, 5, 4, 7, 4, 5, 10, 6, 8, 9, 9, 6, 7, 9, 6, 6, 8, 5, 5, 5, 4, 2, 4, 6, 2, 9, 3, 4, 4, 8, 5, 10, 9, 10, 5, 2, 4, 5, 4, 6, 3, 5, 1, 9, 3, 5, 1, 1, 9, 5, 3, 8, 2, 1, 10, 5, 8, 8, 8, 6, 3, 1, 5, 8, 2, 2, 7, 8, 2, 10, 1, 3, 3, 10, 5, 2, 4, 2, 9, 7, 10, 10, 10, 4, 9, 7, 8, 8, 5, 10, 7, 5, 10, 10, 1, 10, 2, 4, 4, 5, 2, 3, 4, 3, 9, 2, 3, 1, 7, 8, 10, 8, 5, 1, 4, 5, 5, 8, 2, 4, 5, 10, 4, 7, 2, 9, 4, 3, 5, 3, 2, 1, 3, 5, 10, 10, 5, 8, 2, 8, 5, 7, 5, 9, 9, 8, 8, 2, 10, 1, 7, 6, 10, 5, 1, 2, 4, 10, 10, 1, 5, 10, 1, 3, 8, 9, 8, 5, 3, 10, 7, 8, 2, 8, 6, 7, 6, 6, 2, 3, 6, 7, 8, 5, 7, 9, 1, 8, 2, 6, 5, 6, 2, 7, 9, 1, 9, 8, 7, 1, 4, 9, 6, 10, 8, 8, 1, 4, 5, 9, 3, 5, 8, 8, 2, 1, 10, 4, 3, 5, 9, 1, 9, 7, 2, 4, 2, 8, 2, 3, 8, 5, 9, 5, 7, 8, 8, 4, 8, 9, 3, 7, 4, 10, 9, 3, 2, 5, 7, 6, 9, 5, 1];
+data feat3 = [5, 5, 10, 10, 8, 3, 8, 9, 8, 6, 6, 9, 9, 7, 8, 6, 4, 4, 10, 7, 4, 7, 1, 6, 8, 7, 7, 3, 8, 1, 3, 9, 10, 6, 2, 8, 2, 9, 8, 1, 3, 7, 3, 2, 8, 5, 6, 10, 7, 2, 6, 9, 7, 6, 8, 9, 1, 10, 2, 4, 5, 4, 2, 7, 2, 2, 8, 3, 5, 1, 1, 6, 1, 5, 6, 6, 7, 3, 4, 9, 7, 10, 3, 3, 3, 2, 10, 7, 10, 4, 8, 10, 3, 4, 8, 5, 8, 5, 1, 8, 5, 9, 3, 2, 8, 6, 10, 5, 7, 5, 8, 5, 4, 7, 8, 2, 4, 7, 10, 6, 10, 5, 5, 1, 7, 5, 1, 10, 1, 10, 8, 5, 4, 10, 6, 4, 4, 10, 5, 3, 2, 1, 5, 8, 1, 10, 6, 3, 2, 5, 6, 7, 3, 4, 3, 9, 6, 9, 9, 5, 3, 5, 8, 5, 6, 2, 8, 2, 3, 4, 7, 9, 6, 2, 7, 1, 5, 9, 2, 8, 6, 5, 10, 7, 6, 2, 4, 8, 1, 10, 9, 6, 10, 4, 2, 8, 5, 7, 2, 3, 1, 1, 5, 8, 2, 2, 4, 9, 3, 7, 8, 6, 9, 7, 10, 3, 7, 2, 8, 10, 7, 5, 1, 6, 4, 8, 8, 4, 6, 2, 6, 9, 6, 1, 7, 5, 4, 2, 8, 2, 4, 10, 1, 1, 6, 4, 3, 10, 4, 2, 9, 4, 10, 4, 4, 6, 3, 10, 1, 5, 3, 3, 9, 5, 3, 2, 1, 3, 1, 6, 4, 10, 6, 1, 3, 5, 1, 3, 7, 9, 2, 2, 8, 8, 6, 9, 10, 2, 8, 9, 4, 10, 1, 9, 5, 8, 1, 1, 8, 7, 7, 2, 8, 8, 2, 2, 6, 10, 3, 2, 3, 5, 10, 10, 9, 6, 7, 10, 9, 5, 8, 9, 10, 7, 2, 2, 9, 4, 7, 8, 4, 7, 6, 8, 7, 7, 2, 6, 7, 6, 5, 6, 3, 8, 2, 2, 2, 2, 7, 2, 6, 3, 9, 1, 10, 9, 9, 6, 2, 7, 6, 7, 1, 5, 10, 5, 6, 2, 10, 9, 4, 3, 8, 4, 2, 6, 9, 6, 2, 5, 10, 4, 7, 9, 10, 10, 9, 1, 10, 5, 1, 3, 5, 5, 6, 6, 1, 3, 3, 10, 7, 2, 3, 1, 2, 9, 4, 7, 7, 8, 6, 3, 6, 5, 6, 10, 10, 2, 1, 3, 3, 10, 1, 2, 5, 8, 7, 8, 10, 8, 7, 5, 4, 9, 2, 6, 7, 2, 5, 10, 8, 9, 5, 1, 4, 7, 10, 1, 1, 4, 5, 4, 3, 5, 5, 6, 2, 1, 8, 7, 3, 3, 7, 9, 4, 9, 9, 6, 2, 7, 1, 7, 1, 8, 2, 6, 10, 7, 10, 7, 7, 5, 2, 7, 1, 6, 3, 10, 8, 6, 2, 7, 2, 4, 7, 10, 7, 9, 2, 7];
+
+array[3] w;
+
+for i in range(3) {
+    w[i] = gm([1.], [0.], [1.]);
+} end for;
+
+tmp = feat1[0]*w[0] + feat2[0]*w[1] + feat3[0]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[1]*w[0] + feat2[1]*w[1] + feat3[1]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[2]*w[0] + feat2[2]*w[1] + feat3[2]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[3]*w[0] + feat2[3]*w[1] + feat3[3]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[4]*w[0] + feat2[4]*w[1] + feat3[4]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[5]*w[0] + feat2[5]*w[1] + feat3[5]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[6]*w[0] + feat2[6]*w[1] + feat3[6]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[7]*w[0] + feat2[7]*w[1] + feat3[7]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[8]*w[0] + feat2[8]*w[1] + feat3[8]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[9]*w[0] + feat2[9]*w[1] + feat3[9]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[10]*w[0] + feat2[10]*w[1] + feat3[10]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[11]*w[0] + feat2[11]*w[1] + feat3[11]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[12]*w[0] + feat2[12]*w[1] + feat3[12]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[13]*w[0] + feat2[13]*w[1] + feat3[13]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[14]*w[0] + feat2[14]*w[1] + feat3[14]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[15]*w[0] + feat2[15]*w[1] + feat3[15]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[16]*w[0] + feat2[16]*w[1] + feat3[16]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[17]*w[0] + feat2[17]*w[1] + feat3[17]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[18]*w[0] + feat2[18]*w[1] + feat3[18]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[19]*w[0] + feat2[19]*w[1] + feat3[19]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[20]*w[0] + feat2[20]*w[1] + feat3[20]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[21]*w[0] + feat2[21]*w[1] + feat3[21]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[22]*w[0] + feat2[22]*w[1] + feat3[22]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[23]*w[0] + feat2[23]*w[1] + feat3[23]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[24]*w[0] + feat2[24]*w[1] + feat3[24]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[25]*w[0] + feat2[25]*w[1] + feat3[25]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[26]*w[0] + feat2[26]*w[1] + feat3[26]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[27]*w[0] + feat2[27]*w[1] + feat3[27]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[28]*w[0] + feat2[28]*w[1] + feat3[28]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[29]*w[0] + feat2[29]*w[1] + feat3[29]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[30]*w[0] + feat2[30]*w[1] + feat3[30]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[31]*w[0] + feat2[31]*w[1] + feat3[31]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[32]*w[0] + feat2[32]*w[1] + feat3[32]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[33]*w[0] + feat2[33]*w[1] + feat3[33]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[34]*w[0] + feat2[34]*w[1] + feat3[34]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[35]*w[0] + feat2[35]*w[1] + feat3[35]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[36]*w[0] + feat2[36]*w[1] + feat3[36]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[37]*w[0] + feat2[37]*w[1] + feat3[37]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[38]*w[0] + feat2[38]*w[1] + feat3[38]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[39]*w[0] + feat2[39]*w[1] + feat3[39]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[40]*w[0] + feat2[40]*w[1] + feat3[40]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[41]*w[0] + feat2[41]*w[1] + feat3[41]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[42]*w[0] + feat2[42]*w[1] + feat3[42]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[43]*w[0] + feat2[43]*w[1] + feat3[43]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[44]*w[0] + feat2[44]*w[1] + feat3[44]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[45]*w[0] + feat2[45]*w[1] + feat3[45]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[46]*w[0] + feat2[46]*w[1] + feat3[46]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[47]*w[0] + feat2[47]*w[1] + feat3[47]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[48]*w[0] + feat2[48]*w[1] + feat3[48]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[49]*w[0] + feat2[49]*w[1] + feat3[49]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[50]*w[0] + feat2[50]*w[1] + feat3[50]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[51]*w[0] + feat2[51]*w[1] + feat3[51]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[52]*w[0] + feat2[52]*w[1] + feat3[52]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[53]*w[0] + feat2[53]*w[1] + feat3[53]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[54]*w[0] + feat2[54]*w[1] + feat3[54]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[55]*w[0] + feat2[55]*w[1] + feat3[55]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[56]*w[0] + feat2[56]*w[1] + feat3[56]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[57]*w[0] + feat2[57]*w[1] + feat3[57]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[58]*w[0] + feat2[58]*w[1] + feat3[58]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[59]*w[0] + feat2[59]*w[1] + feat3[59]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[60]*w[0] + feat2[60]*w[1] + feat3[60]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[61]*w[0] + feat2[61]*w[1] + feat3[61]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[62]*w[0] + feat2[62]*w[1] + feat3[62]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[63]*w[0] + feat2[63]*w[1] + feat3[63]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[64]*w[0] + feat2[64]*w[1] + feat3[64]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[65]*w[0] + feat2[65]*w[1] + feat3[65]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[66]*w[0] + feat2[66]*w[1] + feat3[66]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[67]*w[0] + feat2[67]*w[1] + feat3[67]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[68]*w[0] + feat2[68]*w[1] + feat3[68]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[69]*w[0] + feat2[69]*w[1] + feat3[69]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[70]*w[0] + feat2[70]*w[1] + feat3[70]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[71]*w[0] + feat2[71]*w[1] + feat3[71]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[72]*w[0] + feat2[72]*w[1] + feat3[72]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[73]*w[0] + feat2[73]*w[1] + feat3[73]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[74]*w[0] + feat2[74]*w[1] + feat3[74]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[75]*w[0] + feat2[75]*w[1] + feat3[75]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[76]*w[0] + feat2[76]*w[1] + feat3[76]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[77]*w[0] + feat2[77]*w[1] + feat3[77]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[78]*w[0] + feat2[78]*w[1] + feat3[78]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[79]*w[0] + feat2[79]*w[1] + feat3[79]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[80]*w[0] + feat2[80]*w[1] + feat3[80]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[81]*w[0] + feat2[81]*w[1] + feat3[81]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[82]*w[0] + feat2[82]*w[1] + feat3[82]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[83]*w[0] + feat2[83]*w[1] + feat3[83]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[84]*w[0] + feat2[84]*w[1] + feat3[84]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[85]*w[0] + feat2[85]*w[1] + feat3[85]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[86]*w[0] + feat2[86]*w[1] + feat3[86]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[87]*w[0] + feat2[87]*w[1] + feat3[87]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[88]*w[0] + feat2[88]*w[1] + feat3[88]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[89]*w[0] + feat2[89]*w[1] + feat3[89]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[90]*w[0] + feat2[90]*w[1] + feat3[90]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[91]*w[0] + feat2[91]*w[1] + feat3[91]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[92]*w[0] + feat2[92]*w[1] + feat3[92]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[93]*w[0] + feat2[93]*w[1] + feat3[93]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[94]*w[0] + feat2[94]*w[1] + feat3[94]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[95]*w[0] + feat2[95]*w[1] + feat3[95]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[96]*w[0] + feat2[96]*w[1] + feat3[96]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[97]*w[0] + feat2[97]*w[1] + feat3[97]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[98]*w[0] + feat2[98]*w[1] + feat3[98]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[99]*w[0] + feat2[99]*w[1] + feat3[99]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[100]*w[0] + feat2[100]*w[1] + feat3[100]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[101]*w[0] + feat2[101]*w[1] + feat3[101]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[102]*w[0] + feat2[102]*w[1] + feat3[102]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[103]*w[0] + feat2[103]*w[1] + feat3[103]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[104]*w[0] + feat2[104]*w[1] + feat3[104]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[105]*w[0] + feat2[105]*w[1] + feat3[105]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[106]*w[0] + feat2[106]*w[1] + feat3[106]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[107]*w[0] + feat2[107]*w[1] + feat3[107]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[108]*w[0] + feat2[108]*w[1] + feat3[108]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[109]*w[0] + feat2[109]*w[1] + feat3[109]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[110]*w[0] + feat2[110]*w[1] + feat3[110]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[111]*w[0] + feat2[111]*w[1] + feat3[111]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[112]*w[0] + feat2[112]*w[1] + feat3[112]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[113]*w[0] + feat2[113]*w[1] + feat3[113]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[114]*w[0] + feat2[114]*w[1] + feat3[114]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[115]*w[0] + feat2[115]*w[1] + feat3[115]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[116]*w[0] + feat2[116]*w[1] + feat3[116]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[117]*w[0] + feat2[117]*w[1] + feat3[117]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[118]*w[0] + feat2[118]*w[1] + feat3[118]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[119]*w[0] + feat2[119]*w[1] + feat3[119]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[120]*w[0] + feat2[120]*w[1] + feat3[120]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[121]*w[0] + feat2[121]*w[1] + feat3[121]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[122]*w[0] + feat2[122]*w[1] + feat3[122]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[123]*w[0] + feat2[123]*w[1] + feat3[123]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[124]*w[0] + feat2[124]*w[1] + feat3[124]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[125]*w[0] + feat2[125]*w[1] + feat3[125]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[126]*w[0] + feat2[126]*w[1] + feat3[126]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[127]*w[0] + feat2[127]*w[1] + feat3[127]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[128]*w[0] + feat2[128]*w[1] + feat3[128]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[129]*w[0] + feat2[129]*w[1] + feat3[129]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[130]*w[0] + feat2[130]*w[1] + feat3[130]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[131]*w[0] + feat2[131]*w[1] + feat3[131]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[132]*w[0] + feat2[132]*w[1] + feat3[132]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[133]*w[0] + feat2[133]*w[1] + feat3[133]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[134]*w[0] + feat2[134]*w[1] + feat3[134]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[135]*w[0] + feat2[135]*w[1] + feat3[135]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[136]*w[0] + feat2[136]*w[1] + feat3[136]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[137]*w[0] + feat2[137]*w[1] + feat3[137]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[138]*w[0] + feat2[138]*w[1] + feat3[138]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[139]*w[0] + feat2[139]*w[1] + feat3[139]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[140]*w[0] + feat2[140]*w[1] + feat3[140]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[141]*w[0] + feat2[141]*w[1] + feat3[141]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[142]*w[0] + feat2[142]*w[1] + feat3[142]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[143]*w[0] + feat2[143]*w[1] + feat3[143]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[144]*w[0] + feat2[144]*w[1] + feat3[144]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[145]*w[0] + feat2[145]*w[1] + feat3[145]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[146]*w[0] + feat2[146]*w[1] + feat3[146]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[147]*w[0] + feat2[147]*w[1] + feat3[147]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[148]*w[0] + feat2[148]*w[1] + feat3[148]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[149]*w[0] + feat2[149]*w[1] + feat3[149]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[150]*w[0] + feat2[150]*w[1] + feat3[150]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[151]*w[0] + feat2[151]*w[1] + feat3[151]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[152]*w[0] + feat2[152]*w[1] + feat3[152]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[153]*w[0] + feat2[153]*w[1] + feat3[153]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[154]*w[0] + feat2[154]*w[1] + feat3[154]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[155]*w[0] + feat2[155]*w[1] + feat3[155]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[156]*w[0] + feat2[156]*w[1] + feat3[156]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[157]*w[0] + feat2[157]*w[1] + feat3[157]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[158]*w[0] + feat2[158]*w[1] + feat3[158]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[159]*w[0] + feat2[159]*w[1] + feat3[159]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[160]*w[0] + feat2[160]*w[1] + feat3[160]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[161]*w[0] + feat2[161]*w[1] + feat3[161]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[162]*w[0] + feat2[162]*w[1] + feat3[162]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[163]*w[0] + feat2[163]*w[1] + feat3[163]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[164]*w[0] + feat2[164]*w[1] + feat3[164]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[165]*w[0] + feat2[165]*w[1] + feat3[165]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[166]*w[0] + feat2[166]*w[1] + feat3[166]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[167]*w[0] + feat2[167]*w[1] + feat3[167]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[168]*w[0] + feat2[168]*w[1] + feat3[168]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[169]*w[0] + feat2[169]*w[1] + feat3[169]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[170]*w[0] + feat2[170]*w[1] + feat3[170]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[171]*w[0] + feat2[171]*w[1] + feat3[171]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[172]*w[0] + feat2[172]*w[1] + feat3[172]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[173]*w[0] + feat2[173]*w[1] + feat3[173]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[174]*w[0] + feat2[174]*w[1] + feat3[174]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[175]*w[0] + feat2[175]*w[1] + feat3[175]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[176]*w[0] + feat2[176]*w[1] + feat3[176]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[177]*w[0] + feat2[177]*w[1] + feat3[177]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[178]*w[0] + feat2[178]*w[1] + feat3[178]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[179]*w[0] + feat2[179]*w[1] + feat3[179]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[180]*w[0] + feat2[180]*w[1] + feat3[180]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[181]*w[0] + feat2[181]*w[1] + feat3[181]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[182]*w[0] + feat2[182]*w[1] + feat3[182]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[183]*w[0] + feat2[183]*w[1] + feat3[183]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[184]*w[0] + feat2[184]*w[1] + feat3[184]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[185]*w[0] + feat2[185]*w[1] + feat3[185]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[186]*w[0] + feat2[186]*w[1] + feat3[186]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[187]*w[0] + feat2[187]*w[1] + feat3[187]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[188]*w[0] + feat2[188]*w[1] + feat3[188]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[189]*w[0] + feat2[189]*w[1] + feat3[189]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[190]*w[0] + feat2[190]*w[1] + feat3[190]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[191]*w[0] + feat2[191]*w[1] + feat3[191]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[192]*w[0] + feat2[192]*w[1] + feat3[192]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[193]*w[0] + feat2[193]*w[1] + feat3[193]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[194]*w[0] + feat2[194]*w[1] + feat3[194]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[195]*w[0] + feat2[195]*w[1] + feat3[195]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[196]*w[0] + feat2[196]*w[1] + feat3[196]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[197]*w[0] + feat2[197]*w[1] + feat3[197]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[198]*w[0] + feat2[198]*w[1] + feat3[198]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[199]*w[0] + feat2[199]*w[1] + feat3[199]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[200]*w[0] + feat2[200]*w[1] + feat3[200]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[201]*w[0] + feat2[201]*w[1] + feat3[201]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[202]*w[0] + feat2[202]*w[1] + feat3[202]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[203]*w[0] + feat2[203]*w[1] + feat3[203]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[204]*w[0] + feat2[204]*w[1] + feat3[204]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[205]*w[0] + feat2[205]*w[1] + feat3[205]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[206]*w[0] + feat2[206]*w[1] + feat3[206]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[207]*w[0] + feat2[207]*w[1] + feat3[207]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[208]*w[0] + feat2[208]*w[1] + feat3[208]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[209]*w[0] + feat2[209]*w[1] + feat3[209]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[210]*w[0] + feat2[210]*w[1] + feat3[210]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[211]*w[0] + feat2[211]*w[1] + feat3[211]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[212]*w[0] + feat2[212]*w[1] + feat3[212]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[213]*w[0] + feat2[213]*w[1] + feat3[213]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[214]*w[0] + feat2[214]*w[1] + feat3[214]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[215]*w[0] + feat2[215]*w[1] + feat3[215]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[216]*w[0] + feat2[216]*w[1] + feat3[216]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[217]*w[0] + feat2[217]*w[1] + feat3[217]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[218]*w[0] + feat2[218]*w[1] + feat3[218]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[219]*w[0] + feat2[219]*w[1] + feat3[219]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[220]*w[0] + feat2[220]*w[1] + feat3[220]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[221]*w[0] + feat2[221]*w[1] + feat3[221]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[222]*w[0] + feat2[222]*w[1] + feat3[222]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[223]*w[0] + feat2[223]*w[1] + feat3[223]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[224]*w[0] + feat2[224]*w[1] + feat3[224]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[225]*w[0] + feat2[225]*w[1] + feat3[225]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[226]*w[0] + feat2[226]*w[1] + feat3[226]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[227]*w[0] + feat2[227]*w[1] + feat3[227]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[228]*w[0] + feat2[228]*w[1] + feat3[228]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[229]*w[0] + feat2[229]*w[1] + feat3[229]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[230]*w[0] + feat2[230]*w[1] + feat3[230]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[231]*w[0] + feat2[231]*w[1] + feat3[231]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[232]*w[0] + feat2[232]*w[1] + feat3[232]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[233]*w[0] + feat2[233]*w[1] + feat3[233]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[234]*w[0] + feat2[234]*w[1] + feat3[234]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[235]*w[0] + feat2[235]*w[1] + feat3[235]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[236]*w[0] + feat2[236]*w[1] + feat3[236]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[237]*w[0] + feat2[237]*w[1] + feat3[237]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[238]*w[0] + feat2[238]*w[1] + feat3[238]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[239]*w[0] + feat2[239]*w[1] + feat3[239]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[240]*w[0] + feat2[240]*w[1] + feat3[240]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[241]*w[0] + feat2[241]*w[1] + feat3[241]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[242]*w[0] + feat2[242]*w[1] + feat3[242]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[243]*w[0] + feat2[243]*w[1] + feat3[243]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[244]*w[0] + feat2[244]*w[1] + feat3[244]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[245]*w[0] + feat2[245]*w[1] + feat3[245]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[246]*w[0] + feat2[246]*w[1] + feat3[246]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[247]*w[0] + feat2[247]*w[1] + feat3[247]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[248]*w[0] + feat2[248]*w[1] + feat3[248]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[249]*w[0] + feat2[249]*w[1] + feat3[249]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[250]*w[0] + feat2[250]*w[1] + feat3[250]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[251]*w[0] + feat2[251]*w[1] + feat3[251]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[252]*w[0] + feat2[252]*w[1] + feat3[252]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[253]*w[0] + feat2[253]*w[1] + feat3[253]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[254]*w[0] + feat2[254]*w[1] + feat3[254]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[255]*w[0] + feat2[255]*w[1] + feat3[255]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[256]*w[0] + feat2[256]*w[1] + feat3[256]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[257]*w[0] + feat2[257]*w[1] + feat3[257]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[258]*w[0] + feat2[258]*w[1] + feat3[258]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[259]*w[0] + feat2[259]*w[1] + feat3[259]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[260]*w[0] + feat2[260]*w[1] + feat3[260]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[261]*w[0] + feat2[261]*w[1] + feat3[261]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[262]*w[0] + feat2[262]*w[1] + feat3[262]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[263]*w[0] + feat2[263]*w[1] + feat3[263]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[264]*w[0] + feat2[264]*w[1] + feat3[264]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[265]*w[0] + feat2[265]*w[1] + feat3[265]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[266]*w[0] + feat2[266]*w[1] + feat3[266]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[267]*w[0] + feat2[267]*w[1] + feat3[267]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[268]*w[0] + feat2[268]*w[1] + feat3[268]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[269]*w[0] + feat2[269]*w[1] + feat3[269]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[270]*w[0] + feat2[270]*w[1] + feat3[270]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[271]*w[0] + feat2[271]*w[1] + feat3[271]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[272]*w[0] + feat2[272]*w[1] + feat3[272]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[273]*w[0] + feat2[273]*w[1] + feat3[273]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[274]*w[0] + feat2[274]*w[1] + feat3[274]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[275]*w[0] + feat2[275]*w[1] + feat3[275]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[276]*w[0] + feat2[276]*w[1] + feat3[276]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[277]*w[0] + feat2[277]*w[1] + feat3[277]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[278]*w[0] + feat2[278]*w[1] + feat3[278]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[279]*w[0] + feat2[279]*w[1] + feat3[279]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[280]*w[0] + feat2[280]*w[1] + feat3[280]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[281]*w[0] + feat2[281]*w[1] + feat3[281]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[282]*w[0] + feat2[282]*w[1] + feat3[282]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[283]*w[0] + feat2[283]*w[1] + feat3[283]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[284]*w[0] + feat2[284]*w[1] + feat3[284]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[285]*w[0] + feat2[285]*w[1] + feat3[285]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[286]*w[0] + feat2[286]*w[1] + feat3[286]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[287]*w[0] + feat2[287]*w[1] + feat3[287]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[288]*w[0] + feat2[288]*w[1] + feat3[288]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[289]*w[0] + feat2[289]*w[1] + feat3[289]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[290]*w[0] + feat2[290]*w[1] + feat3[290]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[291]*w[0] + feat2[291]*w[1] + feat3[291]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[292]*w[0] + feat2[292]*w[1] + feat3[292]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[293]*w[0] + feat2[293]*w[1] + feat3[293]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[294]*w[0] + feat2[294]*w[1] + feat3[294]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[295]*w[0] + feat2[295]*w[1] + feat3[295]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[296]*w[0] + feat2[296]*w[1] + feat3[296]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[297]*w[0] + feat2[297]*w[1] + feat3[297]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[298]*w[0] + feat2[298]*w[1] + feat3[298]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[299]*w[0] + feat2[299]*w[1] + feat3[299]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[300]*w[0] + feat2[300]*w[1] + feat3[300]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[301]*w[0] + feat2[301]*w[1] + feat3[301]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[302]*w[0] + feat2[302]*w[1] + feat3[302]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[303]*w[0] + feat2[303]*w[1] + feat3[303]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[304]*w[0] + feat2[304]*w[1] + feat3[304]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[305]*w[0] + feat2[305]*w[1] + feat3[305]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[306]*w[0] + feat2[306]*w[1] + feat3[306]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[307]*w[0] + feat2[307]*w[1] + feat3[307]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[308]*w[0] + feat2[308]*w[1] + feat3[308]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[309]*w[0] + feat2[309]*w[1] + feat3[309]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[310]*w[0] + feat2[310]*w[1] + feat3[310]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[311]*w[0] + feat2[311]*w[1] + feat3[311]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[312]*w[0] + feat2[312]*w[1] + feat3[312]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[313]*w[0] + feat2[313]*w[1] + feat3[313]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[314]*w[0] + feat2[314]*w[1] + feat3[314]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[315]*w[0] + feat2[315]*w[1] + feat3[315]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[316]*w[0] + feat2[316]*w[1] + feat3[316]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[317]*w[0] + feat2[317]*w[1] + feat3[317]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[318]*w[0] + feat2[318]*w[1] + feat3[318]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[319]*w[0] + feat2[319]*w[1] + feat3[319]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[320]*w[0] + feat2[320]*w[1] + feat3[320]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[321]*w[0] + feat2[321]*w[1] + feat3[321]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[322]*w[0] + feat2[322]*w[1] + feat3[322]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[323]*w[0] + feat2[323]*w[1] + feat3[323]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[324]*w[0] + feat2[324]*w[1] + feat3[324]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[325]*w[0] + feat2[325]*w[1] + feat3[325]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[326]*w[0] + feat2[326]*w[1] + feat3[326]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[327]*w[0] + feat2[327]*w[1] + feat3[327]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[328]*w[0] + feat2[328]*w[1] + feat3[328]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[329]*w[0] + feat2[329]*w[1] + feat3[329]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[330]*w[0] + feat2[330]*w[1] + feat3[330]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[331]*w[0] + feat2[331]*w[1] + feat3[331]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[332]*w[0] + feat2[332]*w[1] + feat3[332]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[333]*w[0] + feat2[333]*w[1] + feat3[333]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[334]*w[0] + feat2[334]*w[1] + feat3[334]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[335]*w[0] + feat2[335]*w[1] + feat3[335]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[336]*w[0] + feat2[336]*w[1] + feat3[336]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[337]*w[0] + feat2[337]*w[1] + feat3[337]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[338]*w[0] + feat2[338]*w[1] + feat3[338]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[339]*w[0] + feat2[339]*w[1] + feat3[339]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[340]*w[0] + feat2[340]*w[1] + feat3[340]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[341]*w[0] + feat2[341]*w[1] + feat3[341]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[342]*w[0] + feat2[342]*w[1] + feat3[342]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[343]*w[0] + feat2[343]*w[1] + feat3[343]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[344]*w[0] + feat2[344]*w[1] + feat3[344]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[345]*w[0] + feat2[345]*w[1] + feat3[345]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[346]*w[0] + feat2[346]*w[1] + feat3[346]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[347]*w[0] + feat2[347]*w[1] + feat3[347]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[348]*w[0] + feat2[348]*w[1] + feat3[348]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[349]*w[0] + feat2[349]*w[1] + feat3[349]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[350]*w[0] + feat2[350]*w[1] + feat3[350]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[351]*w[0] + feat2[351]*w[1] + feat3[351]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[352]*w[0] + feat2[352]*w[1] + feat3[352]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[353]*w[0] + feat2[353]*w[1] + feat3[353]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[354]*w[0] + feat2[354]*w[1] + feat3[354]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[355]*w[0] + feat2[355]*w[1] + feat3[355]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[356]*w[0] + feat2[356]*w[1] + feat3[356]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[357]*w[0] + feat2[357]*w[1] + feat3[357]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[358]*w[0] + feat2[358]*w[1] + feat3[358]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[359]*w[0] + feat2[359]*w[1] + feat3[359]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[360]*w[0] + feat2[360]*w[1] + feat3[360]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[361]*w[0] + feat2[361]*w[1] + feat3[361]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[362]*w[0] + feat2[362]*w[1] + feat3[362]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[363]*w[0] + feat2[363]*w[1] + feat3[363]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[364]*w[0] + feat2[364]*w[1] + feat3[364]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[365]*w[0] + feat2[365]*w[1] + feat3[365]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[366]*w[0] + feat2[366]*w[1] + feat3[366]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[367]*w[0] + feat2[367]*w[1] + feat3[367]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[368]*w[0] + feat2[368]*w[1] + feat3[368]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[369]*w[0] + feat2[369]*w[1] + feat3[369]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[370]*w[0] + feat2[370]*w[1] + feat3[370]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[371]*w[0] + feat2[371]*w[1] + feat3[371]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[372]*w[0] + feat2[372]*w[1] + feat3[372]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[373]*w[0] + feat2[373]*w[1] + feat3[373]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[374]*w[0] + feat2[374]*w[1] + feat3[374]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[375]*w[0] + feat2[375]*w[1] + feat3[375]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[376]*w[0] + feat2[376]*w[1] + feat3[376]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[377]*w[0] + feat2[377]*w[1] + feat3[377]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[378]*w[0] + feat2[378]*w[1] + feat3[378]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[379]*w[0] + feat2[379]*w[1] + feat3[379]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[380]*w[0] + feat2[380]*w[1] + feat3[380]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[381]*w[0] + feat2[381]*w[1] + feat3[381]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[382]*w[0] + feat2[382]*w[1] + feat3[382]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[383]*w[0] + feat2[383]*w[1] + feat3[383]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[384]*w[0] + feat2[384]*w[1] + feat3[384]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[385]*w[0] + feat2[385]*w[1] + feat3[385]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[386]*w[0] + feat2[386]*w[1] + feat3[386]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[387]*w[0] + feat2[387]*w[1] + feat3[387]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[388]*w[0] + feat2[388]*w[1] + feat3[388]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[389]*w[0] + feat2[389]*w[1] + feat3[389]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[390]*w[0] + feat2[390]*w[1] + feat3[390]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[391]*w[0] + feat2[391]*w[1] + feat3[391]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[392]*w[0] + feat2[392]*w[1] + feat3[392]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[393]*w[0] + feat2[393]*w[1] + feat3[393]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[394]*w[0] + feat2[394]*w[1] + feat3[394]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[395]*w[0] + feat2[395]*w[1] + feat3[395]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[396]*w[0] + feat2[396]*w[1] + feat3[396]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[397]*w[0] + feat2[397]*w[1] + feat3[397]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[398]*w[0] + feat2[398]*w[1] + feat3[398]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[399]*w[0] + feat2[399]*w[1] + feat3[399]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[400]*w[0] + feat2[400]*w[1] + feat3[400]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[401]*w[0] + feat2[401]*w[1] + feat3[401]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[402]*w[0] + feat2[402]*w[1] + feat3[402]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[403]*w[0] + feat2[403]*w[1] + feat3[403]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[404]*w[0] + feat2[404]*w[1] + feat3[404]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[405]*w[0] + feat2[405]*w[1] + feat3[405]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[406]*w[0] + feat2[406]*w[1] + feat3[406]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[407]*w[0] + feat2[407]*w[1] + feat3[407]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[408]*w[0] + feat2[408]*w[1] + feat3[408]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[409]*w[0] + feat2[409]*w[1] + feat3[409]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[410]*w[0] + feat2[410]*w[1] + feat3[410]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[411]*w[0] + feat2[411]*w[1] + feat3[411]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[412]*w[0] + feat2[412]*w[1] + feat3[412]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[413]*w[0] + feat2[413]*w[1] + feat3[413]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[414]*w[0] + feat2[414]*w[1] + feat3[414]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[415]*w[0] + feat2[415]*w[1] + feat3[415]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[416]*w[0] + feat2[416]*w[1] + feat3[416]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[417]*w[0] + feat2[417]*w[1] + feat3[417]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[418]*w[0] + feat2[418]*w[1] + feat3[418]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[419]*w[0] + feat2[419]*w[1] + feat3[419]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[420]*w[0] + feat2[420]*w[1] + feat3[420]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[421]*w[0] + feat2[421]*w[1] + feat3[421]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[422]*w[0] + feat2[422]*w[1] + feat3[422]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[423]*w[0] + feat2[423]*w[1] + feat3[423]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[424]*w[0] + feat2[424]*w[1] + feat3[424]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[425]*w[0] + feat2[425]*w[1] + feat3[425]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[426]*w[0] + feat2[426]*w[1] + feat3[426]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[427]*w[0] + feat2[427]*w[1] + feat3[427]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[428]*w[0] + feat2[428]*w[1] + feat3[428]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[429]*w[0] + feat2[429]*w[1] + feat3[429]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[430]*w[0] + feat2[430]*w[1] + feat3[430]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[431]*w[0] + feat2[431]*w[1] + feat3[431]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[432]*w[0] + feat2[432]*w[1] + feat3[432]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[433]*w[0] + feat2[433]*w[1] + feat3[433]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[434]*w[0] + feat2[434]*w[1] + feat3[434]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[435]*w[0] + feat2[435]*w[1] + feat3[435]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[436]*w[0] + feat2[436]*w[1] + feat3[436]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[437]*w[0] + feat2[437]*w[1] + feat3[437]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[438]*w[0] + feat2[438]*w[1] + feat3[438]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[439]*w[0] + feat2[439]*w[1] + feat3[439]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[440]*w[0] + feat2[440]*w[1] + feat3[440]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[441]*w[0] + feat2[441]*w[1] + feat3[441]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[442]*w[0] + feat2[442]*w[1] + feat3[442]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[443]*w[0] + feat2[443]*w[1] + feat3[443]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[444]*w[0] + feat2[444]*w[1] + feat3[444]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[445]*w[0] + feat2[445]*w[1] + feat3[445]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[446]*w[0] + feat2[446]*w[1] + feat3[446]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[447]*w[0] + feat2[447]*w[1] + feat3[447]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[448]*w[0] + feat2[448]*w[1] + feat3[448]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[449]*w[0] + feat2[449]*w[1] + feat3[449]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[450]*w[0] + feat2[450]*w[1] + feat3[450]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[451]*w[0] + feat2[451]*w[1] + feat3[451]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[452]*w[0] + feat2[452]*w[1] + feat3[452]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[453]*w[0] + feat2[453]*w[1] + feat3[453]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[454]*w[0] + feat2[454]*w[1] + feat3[454]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[455]*w[0] + feat2[455]*w[1] + feat3[455]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[456]*w[0] + feat2[456]*w[1] + feat3[456]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[457]*w[0] + feat2[457]*w[1] + feat3[457]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[458]*w[0] + feat2[458]*w[1] + feat3[458]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[459]*w[0] + feat2[459]*w[1] + feat3[459]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[460]*w[0] + feat2[460]*w[1] + feat3[460]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[461]*w[0] + feat2[461]*w[1] + feat3[461]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[462]*w[0] + feat2[462]*w[1] + feat3[462]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[463]*w[0] + feat2[463]*w[1] + feat3[463]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[464]*w[0] + feat2[464]*w[1] + feat3[464]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[465]*w[0] + feat2[465]*w[1] + feat3[465]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[466]*w[0] + feat2[466]*w[1] + feat3[466]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[467]*w[0] + feat2[467]*w[1] + feat3[467]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[468]*w[0] + feat2[468]*w[1] + feat3[468]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[469]*w[0] + feat2[469]*w[1] + feat3[469]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[470]*w[0] + feat2[470]*w[1] + feat3[470]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[471]*w[0] + feat2[471]*w[1] + feat3[471]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[472]*w[0] + feat2[472]*w[1] + feat3[472]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[473]*w[0] + feat2[473]*w[1] + feat3[473]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[474]*w[0] + feat2[474]*w[1] + feat3[474]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[475]*w[0] + feat2[475]*w[1] + feat3[475]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[476]*w[0] + feat2[476]*w[1] + feat3[476]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[477]*w[0] + feat2[477]*w[1] + feat3[477]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[478]*w[0] + feat2[478]*w[1] + feat3[478]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[479]*w[0] + feat2[479]*w[1] + feat3[479]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[480]*w[0] + feat2[480]*w[1] + feat3[480]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[481]*w[0] + feat2[481]*w[1] + feat3[481]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[482]*w[0] + feat2[482]*w[1] + feat3[482]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[483]*w[0] + feat2[483]*w[1] + feat3[483]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[484]*w[0] + feat2[484]*w[1] + feat3[484]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[485]*w[0] + feat2[485]*w[1] + feat3[485]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[486]*w[0] + feat2[486]*w[1] + feat3[486]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[487]*w[0] + feat2[487]*w[1] + feat3[487]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[488]*w[0] + feat2[488]*w[1] + feat3[488]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[489]*w[0] + feat2[489]*w[1] + feat3[489]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[490]*w[0] + feat2[490]*w[1] + feat3[490]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[491]*w[0] + feat2[491]*w[1] + feat3[491]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[492]*w[0] + feat2[492]*w[1] + feat3[492]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[493]*w[0] + feat2[493]*w[1] + feat3[493]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[494]*w[0] + feat2[494]*w[1] + feat3[494]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[495]*w[0] + feat2[495]*w[1] + feat3[495]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[496]*w[0] + feat2[496]*w[1] + feat3[496]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[497]*w[0] + feat2[497]*w[1] + feat3[497]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp < 0);
+
+tmp = feat1[498]*w[0] + feat2[498]*w[1] + feat3[498]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+
+tmp = feat1[499]*w[0] + feat2[499]*w[1] + feat3[499]*w[2];
+tmp = gm([1.], [0.], [0.1]) + tmp;
+observe(tmp > 0);
+

@@ -70,4 +70,7 @@ You can find other examples of SOGA models in the folder `programs/SOGA/`. A det
 ## Replicability
 To reproduce the paper's results please follow the replicability instructions contained in the file [ReplicabilityGuide](Manual/ReplicabilityGuide.md)
 
+## Roadmap and design notes
+A living document tracking implemented optimizations, open improvements, rejected design directions (with reasoning), and the proposed product roadmap is maintained in [enhancement.md](enhancement.md). It includes the A/B/C benchmark results for `--sparse-truncate` and `--vectorize-truncate`, the dead-variable-pruning feasibility study, and notes from the architectural review.
+
 

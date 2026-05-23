@@ -31,6 +31,7 @@ from antlr4 import *
 from SOGALexer import *
 from SOGAParser import *
 from SOGAListener import *
+from libSOGAshared import VarEntry  # M2.1: type-tracking entry for matrix variables
 
 class CFGnode:
     
@@ -181,6 +182,9 @@ class CFG(SOGAListener):
         # dictionary keeping track of the nodes in CFG 
         self.node_list = {'entry':self.root}
         self.ID_list = []
+        # M2.1: type-tracking entries for matrix-typed variables (populated by enterMatrix_decl).
+        # Scalar variables are not tracked here; they remain indexed via ID_list / var_list.
+        self.var_entries = []
         # hidden variables used in the construction of the CFG
         self._current_node = self.root
         self._flag = None
@@ -196,6 +200,22 @@ class CFG(SOGAListener):
         var_name = ctx.IDV().getText()
         for i in range(n):
             self.ID_list.append(var_name+'['+str(i)+']')
+
+    def enterMatrix_decl(self, ctx):
+        """ M2.3: register a matrix variable. Grammar rule:
+            matrix_decl: MATRIX '[' NUM ']' '[' NUM ']' IDV
+
+        Appends a VarEntry(name, 'matrix', (m,n), flat_offset=-1) to var_entries.
+        Stores the shape in cfg.data[f'{name}_shape'] for downstream lookup.
+        Does NOT append to ID_list (matrix vars live in var_entries, not ID_list).
+        flat_offset stays -1 until M3 assigns positions in the joint vec layout.
+        """
+        nums = ctx.NUM()
+        m = int(nums[0].getText())
+        n = int(nums[1].getText())
+        var_name = ctx.IDV().getText()
+        self.var_entries.append(VarEntry(name=var_name, kind='matrix', shape=(m, n), flat_offset=-1))
+        self.data[f'{var_name}_shape'] = (m, n)
         
     def enterAssignment(self, ctx):
         """ When an Assignment instruction is entered a new StateNode is added to the CFG, storing a string with the assignment instruction. Dependence from a TestNode, encoded in the variable _flag, is checked to initialize the attribute cond."""

@@ -188,3 +188,19 @@ Temporary Items
 .apdisk
 src/privug_laplace_noise.ipynb
 src/privug_laplace_noise.ipynb
+
+# Claude Code orchestration layer (private to user)
+.claude/
+CLAUDE.md
+plan/
+results/
+docs/research-notes/
+.remember/
+GM_EXTENSION_README.md
+
+# Reference material (user-private working files)
+ref/
+
+# Build tools (downloaded jars, not committed)
+tools/*.jar
+

@@ -831,34 +831,7 @@ class ASGMTParser ( Parser ):
             else:
                 return visitor.visitChildren(self)
 
-        # --- BEGIN custom methods (preserved across ANTLR regenerations) ---
-        def is_var(self, data):
-            """ Returns 1 if term is a variable, 0 if it's a constant """
-            if not self.NUM() is None:
-                return False
-            elif not self.symvars() is None:
-                if not self.symvars().IDV() is None:
-                    return True
-                elif not self.symvars().idd() is None:
-                    if self.symvars().idd().is_data(data):
-                        return False
-                    else:
-                        return True
-            elif not self.gm() is None:
-                return True
 
-        def is_const(self, data):
-            return not self.is_var(data)
-
-        def getValue(self, data):
-            if self.is_const(data):
-                if not self.NUM() is None:
-                    return float(self.NUM().getText())
-                elif not self.symvars() is None:
-                    return self.symvars().idd().getValue(data)
-            else:
-                raise("Calling getValue for a variable")
-        # --- END custom methods ---
 
 
     def term(self):
@@ -953,17 +926,7 @@ class ASGMTParser ( Parser ):
             else:
                 return visitor.visitChildren(self)
 
-        # --- BEGIN custom methods (preserved across ANTLR regenerations) ---
-        def getVar(self, data):
-            if self.idd() is None:
-                return self.getText()
-            else:
-                if self.idd().IDV(1) is None:
-                    return self.getText()
-                else:
-                    data_idx = data[self.idd().IDV(1).getText()][0]
-                return self.idd().IDV(0).getText()+'['+str(data_idx)+']'
-        # --- END custom methods ---
+
 
 
     def symvars(self):
@@ -1029,21 +992,7 @@ class ASGMTParser ( Parser ):
             else:
                 return visitor.visitChildren(self)
 
-        # --- BEGIN custom methods (preserved across ANTLR regenerations) ---
-        def is_data(self, data):
-            if self.IDV(0).getText() in data.keys():
-                return True
-            else:
-                return False
 
-        def getValue(self, data):
-            data_name = self.IDV(0).getText()
-            if not self.NUM() is None:
-                data_idx = int(self.NUM().getText())
-            elif not self.IDV(1) is None:
-                data_idx = data[self.IDV(1).getText()][0]
-            return data[data_name][data_idx]
-        # --- END custom methods ---
 
 
     def idd(self):

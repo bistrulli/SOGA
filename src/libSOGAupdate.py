@@ -7,8 +7,9 @@
 
 from libSOGAshared import *
 from ASGMTListener import *
-from ASGMTParser import * 
+from ASGMTParser import *
 from ASGMTLexer import *
+import parser_extensions  # noqa: F401 — restores Context helper methods on import (CLAUDE.md §8: keeps autogen files pure)
 
 def mul_func(self, comp):
     i = self.target

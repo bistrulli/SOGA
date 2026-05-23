@@ -4,6 +4,7 @@ from libSOGAshared import *
 from TRUNCLexer import *
 from TRUNCParser import *
 from TRUNCListener import *
+import parser_extensions  # noqa: F401 — restores Context helper methods on import (CLAUDE.md §8: keeps autogen files pure)
 import timing
 import multiprocessing as mp
 from scipy.stats import norm as _scipy_norm_1d

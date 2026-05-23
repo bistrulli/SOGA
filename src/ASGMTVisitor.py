@@ -1,4 +1,4 @@
-# Generated from ASGMT.g4 by ANTLR 4.10.1
+# Generated from ASGMT.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .ASGMTParser import ASGMTParser
@@ -11,6 +11,36 @@ class ASGMTVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by ASGMTParser#assignment.
     def visitAssignment(self, ctx:ASGMTParser.AssignmentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#mat_expr.
+    def visitMat_expr(self, ctx:ASGMTParser.Mat_exprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#mat_atom.
+    def visitMat_atom(self, ctx:ASGMTParser.Mat_atomContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#transp.
+    def visitTransp(self, ctx:ASGMTParser.TranspContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#matrix_gm.
+    def visitMatrix_gm(self, ctx:ASGMTParser.Matrix_gmContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#mlist.
+    def visitMlist(self, ctx:ASGMTParser.MlistContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ASGMTParser#mat_idd.
+    def visitMat_idd(self, ctx:ASGMTParser.Mat_iddContext):
         return self.visitChildren(ctx)
 
 

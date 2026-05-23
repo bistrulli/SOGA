@@ -1,4 +1,4 @@
-# Generated from TRUNC.g4 by ANTLR 4.10.1
+# Generated from TRUNC.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .TRUNCParser import TRUNCParser
@@ -68,6 +68,33 @@ class TRUNCListener(ParseTreeListener):
 
     # Exit a parse tree produced by TRUNCParser#monom.
     def exitMonom(self, ctx:TRUNCParser.MonomContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#mat_idd.
+    def enterMat_idd(self, ctx:TRUNCParser.Mat_iddContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#mat_idd.
+    def exitMat_idd(self, ctx:TRUNCParser.Mat_iddContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#row_sum_expr.
+    def enterRow_sum_expr(self, ctx:TRUNCParser.Row_sum_exprContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#row_sum_expr.
+    def exitRow_sum_expr(self, ctx:TRUNCParser.Row_sum_exprContext):
+        pass
+
+
+    # Enter a parse tree produced by TRUNCParser#col_sum_expr.
+    def enterCol_sum_expr(self, ctx:TRUNCParser.Col_sum_exprContext):
+        pass
+
+    # Exit a parse tree produced by TRUNCParser#col_sum_expr.
+    def exitCol_sum_expr(self, ctx:TRUNCParser.Col_sum_exprContext):
         pass
 
 

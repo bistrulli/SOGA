@@ -1,4 +1,4 @@
-# Generated from SOGA.g4 by ANTLR 4.10.1
+# Generated from SOGA.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SOGAParser import SOGAParser
@@ -32,6 +32,33 @@ class SOGAListener(ParseTreeListener):
 
     # Exit a parse tree produced by SOGAParser#array.
     def exitArray(self, ctx:SOGAParser.ArrayContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#matrix_decl.
+    def enterMatrix_decl(self, ctx:SOGAParser.Matrix_declContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#matrix_decl.
+    def exitMatrix_decl(self, ctx:SOGAParser.Matrix_declContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#matrix_gm.
+    def enterMatrix_gm(self, ctx:SOGAParser.Matrix_gmContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#matrix_gm.
+    def exitMatrix_gm(self, ctx:SOGAParser.Matrix_gmContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#mlist.
+    def enterMlist(self, ctx:SOGAParser.MlistContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#mlist.
+    def exitMlist(self, ctx:SOGAParser.MlistContext):
         pass
 
 

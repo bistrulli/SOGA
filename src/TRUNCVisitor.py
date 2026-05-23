@@ -1,4 +1,4 @@
-# Generated from TRUNC.g4 by ANTLR 4.10.1
+# Generated from TRUNC.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .TRUNCParser import TRUNCParser
@@ -41,6 +41,21 @@ class TRUNCVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by TRUNCParser#monom.
     def visitMonom(self, ctx:TRUNCParser.MonomContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#mat_idd.
+    def visitMat_idd(self, ctx:TRUNCParser.Mat_iddContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#row_sum_expr.
+    def visitRow_sum_expr(self, ctx:TRUNCParser.Row_sum_exprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TRUNCParser#col_sum_expr.
+    def visitCol_sum_expr(self, ctx:TRUNCParser.Col_sum_exprContext):
         return self.visitChildren(ctx)
 
 

@@ -1,4 +1,4 @@
-# Generated from SOGA.g4 by ANTLR 4.10.1
+# Generated from SOGA.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SOGAParser import SOGAParser
@@ -21,6 +21,21 @@ class SOGAVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SOGAParser#array.
     def visitArray(self, ctx:SOGAParser.ArrayContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#matrix_decl.
+    def visitMatrix_decl(self, ctx:SOGAParser.Matrix_declContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#matrix_gm.
+    def visitMatrix_gm(self, ctx:SOGAParser.Matrix_gmContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#mlist.
+    def visitMlist(self, ctx:SOGAParser.MlistContext):
         return self.visitChildren(ctx)
 
 

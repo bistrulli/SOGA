@@ -1,4 +1,4 @@
-# Generated from ASGMT.g4 by ANTLR 4.10.1
+# Generated from ASGMT.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .ASGMTParser import ASGMTParser
@@ -14,6 +14,60 @@ class ASGMTListener(ParseTreeListener):
 
     # Exit a parse tree produced by ASGMTParser#assignment.
     def exitAssignment(self, ctx:ASGMTParser.AssignmentContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#mat_expr.
+    def enterMat_expr(self, ctx:ASGMTParser.Mat_exprContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#mat_expr.
+    def exitMat_expr(self, ctx:ASGMTParser.Mat_exprContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#mat_atom.
+    def enterMat_atom(self, ctx:ASGMTParser.Mat_atomContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#mat_atom.
+    def exitMat_atom(self, ctx:ASGMTParser.Mat_atomContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#transp.
+    def enterTransp(self, ctx:ASGMTParser.TranspContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#transp.
+    def exitTransp(self, ctx:ASGMTParser.TranspContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#matrix_gm.
+    def enterMatrix_gm(self, ctx:ASGMTParser.Matrix_gmContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#matrix_gm.
+    def exitMatrix_gm(self, ctx:ASGMTParser.Matrix_gmContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#mlist.
+    def enterMlist(self, ctx:ASGMTParser.MlistContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#mlist.
+    def exitMlist(self, ctx:ASGMTParser.MlistContext):
+        pass
+
+
+    # Enter a parse tree produced by ASGMTParser#mat_idd.
+    def enterMat_idd(self, ctx:ASGMTParser.Mat_iddContext):
+        pass
+
+    # Exit a parse tree produced by ASGMTParser#mat_idd.
+    def exitMat_idd(self, ctx:ASGMTParser.Mat_iddContext):
         pass
 
 

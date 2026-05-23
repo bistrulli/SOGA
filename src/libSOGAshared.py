@@ -21,6 +21,8 @@ from scipy.stats import truncnorm
 from scipy.stats import multivariate_normal as mvnorm
 from itertools import product, chain
 from functools import partial
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List, Any
 
 
 from time import time
@@ -140,15 +142,53 @@ class GaussianMix():
         return cov
 
 
+@dataclass
+class VarEntry:
+    """Type-tracking entry for a variable in a Dist.
+
+    Added in M2.1 to enable scalar vs matrix dispatch in libSOGAupdate /
+    libSOGAtruncate without parsing the LHS string at every assignment.
+    Populated by producecfg's enterMatrix listener (M2.3) for each matrix
+    declaration. Scalar variables are not yet tracked here in M2; they may
+    be added in a later milestone if needed for symmetry.
+
+    Fields
+    ------
+    name : str
+        Variable identifier as it appears in the .soga source.
+    kind : str
+        'scalar' (placeholder, not currently populated) or 'matrix'.
+    shape : tuple
+        () for scalar, (m, n) for matrix variables.
+    flat_offset : int
+        Position of the variable in the flat vec(...) representation used
+        by the joint covariance. -1 if not yet placed (M3 fills this in).
+    """
+    name: str
+    kind: str
+    shape: Tuple[int, ...]
+    flat_offset: int = -1
+
+
 class Dist():
-    """ A distribution is given by a ordered list of variable names, stored in var_list, and a Gaussian Mixture, stored in gm, describing the joint distribution over the variable vector"""
-    def __init__(self, var_list, gm):
+    """ A distribution is given by a ordered list of variable names, stored in var_list, and a Gaussian Mixture, stored in gm, describing the joint distribution over the variable vector.
+
+    M2.2 extension: optional var_entries (list of VarEntry, set by producecfg.enterMatrix
+    listener — see plan M2.3) and gm_block (GaussianMixBlock, created in M3.1; the
+    type is intentionally `Optional[Any]` here because libSOGAsharedMatrix does not
+    exist yet at M2 — added as forward-compatible field placeholder). Existing
+    positional signature `(var_list, gm)` is unchanged so all M0/M1 scalar code paths
+    continue to construct Dist via positional args without touching the new fields.
+    """
+    def __init__(self, var_list, gm, var_entries: Optional[List[VarEntry]] = None, gm_block: Optional[Any] = None):
         self.var_list = var_list
         self.gm = gm
-        
+        self.var_entries = var_entries if var_entries is not None else []
+        self.gm_block = gm_block
+
     def __str__(self):
         return 'Dist<{},{}>'.format(self.var_list, self.gm)
-    
+
     def __repr__(self):
         return str(self)
         

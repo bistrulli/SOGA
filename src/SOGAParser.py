@@ -7,6 +7,7 @@ if sys.version_info[1] > 5:
 	from typing import TextIO
 else:
 	from typing.io import TextIO
+import numpy as np  # required by custom UniformContext.getText (preserved across regen)
 
 def serializedATN():
     return [
@@ -2355,7 +2356,18 @@ class SOGAParser ( Parser ):
             else:
                 return visitor.visitChildren(self)
 
-
+        # --- BEGIN custom methods (preserved across ANTLR regenerations) ---
+        def getText(self):
+            """ converts string "uniform([a,b], K)" in "gm(pi, mu, sigma)" where gm is a Gaussian Mix with K component approximating the uniform"""
+            a = float(self.list_().NUM()[0].getText())
+            b = float(self.list_().NUM()[1].getText())
+            N = int(self.NUM().getText())
+            pi = [round(1.0/N,4)]*N
+            mu = [round(a+i*(b-a)/N+((b-a)/(2*N)),4) for i in range(N)]
+            sigma = list([round((b-a)/(np.sqrt(12)*N),4)]*N)
+            print('gm('+str(pi)+','+str(mu)+','+str(sigma)+')')
+            return 'gm('+str(pi)+','+str(mu)+','+str(sigma)+')'
+        # --- END custom methods ---
 
 
     def uniform(self):

@@ -7,16 +7,17 @@ grammar ASGMT;
 
 /* assignment: unified rule covering both scalar and matrix RHS.
    Preserves enterAssignment callback for existing listener in libSOGAupdate.py.
-   NOTE on parser permissiveness: a scalar-looking RHS like `x = y` parses as
-   mat_expr (because mat_atom -> IDV matches bare identifiers). This is INTENTIONAL.
-   Dispatch in libSOGAupdate.py is NOT done by ctx.add() / ctx.mat_expr() null-checks
-   (which would be unreliable due to this ambiguity). Instead, routing in update_rule
-   (see plan M2.4) inspects the LHS variable name and looks it up in
-   dist.var_entries — matrix variables route to update_rule_matrix, scalar variables
-   route to the existing scalar path. The full RHS text is recovered via
-   ctx.getText() and re-parsed on the dispatched side as needed. */
-assignment: symvars '=' mat_expr
-          | symvars '=' add
+   ALTERNATIVE ORDER MATTERS: scalar `add` MUST come first. With ANTLR4 adaptive
+   LL(*), when two alternatives match equally (e.g. `x = y` where `y` is bare IDV
+   that fits BOTH mat_expr (via mat_atom -> IDV) AND add (via add_term -> term ->
+   symvars -> IDV)), the parser picks the first-declared alternative. Putting
+   `add` first ensures all M1-era scalar programs (ClickGraphPrune, etc.) continue
+   to route through the scalar listener (enterAdd in libSOGAupdate.AsgmtRule).
+   Matrix-only constructs (X @ Y, transp(X), matrix_gm(...)) do not match `add`
+   and fall through to the matrix path automatically. M2 will add LHS-type
+   routing in update_rule for true matrix assignments. */
+assignment: symvars '=' add
+          | symvars '=' mat_expr
           ;
 
 /* mat_expr: matrix-level binary ops (@, +) and unary ops (transp).

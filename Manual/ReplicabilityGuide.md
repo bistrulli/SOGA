@@ -69,3 +69,31 @@ Additional functions for general purpose are defined in the module `libSOGAshare
 - `_ineq_truncate_vectorized_impl` applies the same rank-1 conditional Gaussian update to every component in one batched numpy call. The per-component Python `for` loop in `truncate()` is bypassed entirely; the dispatcher in `truncate()` calls `_truncate_vectorized(dist, trunc_rule)` and returns the aggregated `(norm_factor, new_dist)` directly. Numpy BLAS handles SIMD and multi-core under the hood. Per-component delta-variable masks and the outer loop over aux `gm()` combinations are preserved. The equality counterpart is `_eq_truncate_vectorized_impl`. All three paths are mathematically equivalent: the unit and integration test suite confirms `max |delta mu|, |delta Sigma|` at machine-epsilon level (scaled with sqrt(n_comp) for BLAS accumulation order).
 
 Parsing of the scripts, expressions and truncations is performed using ANTLR. Definition of the respective grammars can be found in the files `grammars/SOGA.g4`, `grammars/ASGMT.g4` and `grammars/TRUNC.g4`.
+
+## Grammar Regeneration (ANTLR 4.10)
+
+The Python parser/lexer files in `src/` are auto-generated from grammars in `grammars/`. **Never hand-edit** `src/*Lexer.py`, `src/*Parser.py`, `src/*Listener.py`, `src/*Visitor.py` — they will be overwritten.
+
+### Pinned version
+
+The ANTLR runtime is pinned to **4.10** in `requirements.txt`:
+```
+antlr4-python3-runtime==4.10
+```
+The generator jar must also be 4.10 (`antlr-4.10-complete.jar`). Using a different jar version will produce runtime incompatibilities.
+
+### Regeneration sequence
+
+```bash
+# Download the jar if not already present:
+# curl -O https://www.antlr.org/download/antlr-4.10-complete.jar
+
+ANTLR_JAR=/path/to/antlr-4.10-complete.jar
+
+# Regenerate all three grammars into src/
+java -jar $ANTLR_JAR -Dlanguage=Python3 -visitor -listener grammars/SOGA.g4  -o src/
+java -jar $ANTLR_JAR -Dlanguage=Python3 -visitor -listener grammars/ASGMT.g4 -o src/
+java -jar $ANTLR_JAR -Dlanguage=Python3 -visitor -listener grammars/TRUNC.g4 -o src/
+```
+
+After regeneration, the `grammars/` source files and `src/` generated files must stay in sync. Run `scripts/check_grammar_sync.sh` to verify (added in M1.5 of the matrix-GM integration branch).

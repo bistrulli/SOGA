@@ -1,0 +1,59 @@
+/* Lishan-class 4x4 2MM+FI: C = Akernel @ Xinput + Nfault
+ * Akernel: identity
+ * Xinput ~ MN(0, I4, 1*I4)
+ * Nfault ~ MN(0, 0.25*I4, I4)
+ * Analytical: E[C]=0, Var(C[0,0])=1.25
+ * Plan reference: M6 of plan/2026-05-22-matrix-gm-lishan.md
+ * Note: IDV tokens do not support underscores in v1 grammar.
+ */
+
+matrix[4][4] Xinput;
+matrix[4][4] Nfault;
+matrix[4][4] C;
+
+/* Xinput prior: zero mean, U=I4 (iso), V=1*I4 (iso) */
+Xinput = matrix_gm(
+  [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+],
+  [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+],
+  [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+]
+);
+
+/* Nfault: sigma_f^2=0.25 isotropic in row factor (Lishan FI model) */
+Nfault = matrix_gm(
+  [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+],
+  [
+    [0.25, 0, 0, 0],
+    [0, 0.25, 0, 0],
+    [0, 0, 0.25, 0],
+    [0, 0, 0, 0.25]
+],
+  [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+]
+);
+
+/* Akernel = I_4 (identity, Akernel@Xinput = Xinput) */
+C = Xinput + Nfault;

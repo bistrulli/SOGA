@@ -343,6 +343,30 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
 
     block = deepcopy(dist.gm_block)
 
+    # Ensure the LHS variable is registered in block.var_entries.
+    # This handles the case where C is declared (in dist.var_entries via CFG)
+    # but has not yet been written into block (e.g., C = X + N where C has no
+    # matrix_gm initialisation — C's first write is via an affine/add op).
+    lhs_ve = next((v for v in dist.var_entries if v.name == lhs), None)
+    if lhs_ve is not None and not any(v.name == lhs for v in block.var_entries):
+        block.var_entries.append(lhs_ve)
+        m_lhs, n_lhs = lhs_ve.shape
+        mn_lhs = m_lhs * n_lhs
+        for k in range(block.n_comp()):
+            # Initialise LHS with zero mean and zero covariance (to be overwritten)
+            block.mu_blocks[k][lhs] = np.zeros((m_lhs, n_lhs))
+            block.cov_blocks[k][frozenset({lhs})] = (
+                np.zeros((m_lhs, m_lhs)),
+                np.zeros((n_lhs, n_lhs)),
+            )
+            for sv in block.var_list:
+                block.cov_blocks[k][frozenset({sv, lhs})] = np.zeros(mn_lhs)
+            for other_ve in block.var_entries:
+                if other_ve.name != lhs:
+                    # cross-cov between matrix vars not supported in v1 — initialise zero
+                    # (will be set correctly by _copy_var_into_lhs or left at zero)
+                    pass
+
     if op == "MATMUL_RAW":
         left_tok, right_tok = parsed["left"], parsed["right"]
         left_is_mat = any(ve.name == left_tok for ve in dist.var_entries)

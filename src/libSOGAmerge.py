@@ -23,6 +23,9 @@ def merge(list_dist):
     Scalar-only merge is unchanged.
     """
     # M3.6 type-safety guard
+    # Single-element list_dist means no actual join is happening (just unwrap at exit).
+    # Only raise for multi-path merges where matrix-typed distributions would need to
+    # be mixed — that is not supported in v1.
     if len(list_dist) > 1:
         ref_ve = list_dist[0][1].var_entries
         for _, d in list_dist[1:]:
@@ -32,7 +35,7 @@ def merge(list_dist):
                     "supported in v1.  All branches must declare the same matrix "
                     "variables.  See plan/2026-05-22-matrix-gm-lishan.md §M3.6."
                 )
-        # In v1, merging of matrix-variable distributions is not supported
+        # In v1, multi-path merging of matrix-variable distributions is not supported
         if ref_ve:
             raise NotImplementedError(
                 "[M3.6] merge with matrix variables is not yet implemented in v1.  "
@@ -40,6 +43,11 @@ def merge(list_dist):
                 "to the matrix-mixture milestone (v2).  "
                 "See plan/2026-05-22-matrix-gm-lishan.md §M3.6."
             )
+
+    # Single-element pass-through: return dist directly preserving gm_block
+    if len(list_dist) == 1:
+        p, d = list_dist[0]
+        return p, d
 
     final_pi = []
     final_mu = []

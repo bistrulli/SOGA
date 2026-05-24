@@ -716,6 +716,11 @@ def _backprop_scalar_truncate_to_matrices(prior_dist, new_dist):
         return  # no matrix state to back-prop into
     if new_dist.gm.n_comp() != prior_dist.gm.n_comp():
         return  # 1:1 component mapping broken (split/drop) — skip in v1
+    # fix2: guard against block.n_comp() mismatch — can occur when scalar gm
+    # has more components than gm_block (e.g. preprocessor expanded scalar
+    # to K>1 GM while matrix block was initialized with K=1).
+    if block.n_comp() != new_dist.gm.n_comp():
+        return  # component count mismatch — skip back-prop silently
 
     n_comp = new_dist.gm.n_comp()
     var_list = prior_dist.var_list

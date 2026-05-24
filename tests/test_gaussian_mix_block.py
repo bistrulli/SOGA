@@ -303,17 +303,23 @@ class TestLawOfTotalVariance:
 # ---------------------------------------------------------------------------
 
 class TestMergeGuard:
-    """merge() raises NotImplementedError when any Dist has matrix var_entries."""
+    """merge() correctly handles matrix var_entries (fix2 lifted NotImplementedError)."""
 
-    def test_merge_with_matrix_vars_raises(self):
-        """merge raises NotImplementedError for matrix programs (M3.6)."""
+    def test_merge_with_matrix_vars_succeeds(self):
+        """fix2: merge with matrix var_entries now works (M3.6 NotImplementedError lifted)."""
         from libSOGAmerge import merge
-        ve = VarEntry("X", "matrix", (2, 2), -1)
+        from libSOGAsharedMatrix import GaussianMixBlock
+        ve = VarEntry("X", "matrix", (2, 2))
+        M = np.eye(2)
+        U = np.eye(2); V = np.eye(2)
+        block = GaussianMixBlock.from_matrix_gm([ve], [M], [U], [V], pi=[1.0], var_list=['x'])
         gm = GaussianMix([1.], [np.array([0.])], [np.zeros((1, 1))])
-        d = Dist(["x"], gm, var_entries=[ve])
+        d = Dist(["x"], gm, var_entries=[ve], gm_block=block)
         # merge with two identical distributions that have matrix var_entries
-        with pytest.raises(NotImplementedError, match="M3.6"):
-            merge([(1.0, d), (1.0, d)])
+        p, merged = merge([(0.5, d), (0.5, d)])
+        assert p > 0
+        assert merged.gm_block is not None
+        assert merged.gm_block.n_comp() == 2  # 1+1 concatenated
 
     def test_merge_scalar_only_passes(self):
         """merge scalar programs (no var_entries) works as before."""

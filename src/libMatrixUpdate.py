@@ -128,7 +128,15 @@ def _is_iso(M: np.ndarray, atol: float = 1e-10, rtol: float = 1e-8) -> bool:
 # ---------------------------------------------------------------------------
 
 def _apply_psd_to_block(block: GaussianMixBlock, k: int, var_name: str) -> None:
-    """Apply PSD enforcement to (U, V) Kronecker factors for var_name in component k."""
+    """Apply PSD enforcement to (U, V) Kronecker factors for var_name in component k.
+
+    fix4: skips PSD enforcement if the variable is in dense sentinel mode
+    (None, Sigma) — dense PSD is enforced separately in _matrix_element_write_component.
+    """
+    stored = block.cov_blocks[k].get(frozenset({var_name}))
+    if stored is not None and stored[0] is None:
+        # Dense sentinel: PSD already enforced by _matrix_element_write_component
+        return
     U, V = block.get_cov(k, var_name, var_name)
     U, V = _enforce_psd_kron_factors(U, V)
     block.cov_blocks[k][frozenset({var_name})] = (U, V)
@@ -588,6 +596,196 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
 # ---------------------------------------------------------------------------
 # M4.8: scalar = matrix[i, j] — extract scalar from matrix variable
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# fix4: Dense matrix element write X[i,j] = c/z/expr
+# ---------------------------------------------------------------------------
+
+def _densify_matrix_var(block: GaussianMixBlock, k: int, mat_name: str) -> np.ndarray:
+    """Materialise the dense (mn × mn) covariance for mat_name in component k.
+
+    fix4.2: Converts Kronecker-stored (U, V) → V⊗U dense matrix.
+    If already stored as dense sentinel (None, Sigma_dense), returns Sigma_dense.
+
+    Raises MemoryError if the resulting matrix exceeds MATRIX_ELEMENT_WRITE_BUDGET_MB.
+    """
+    stored = block.cov_blocks[k].get(frozenset({mat_name}))
+    if stored is None:
+        raise RuntimeError(f"[fix4.2] No covariance stored for '{mat_name}' in component {k}")
+    U_or_none, V_or_Sigma = stored
+    if U_or_none is None:
+        # Already dense: V_or_Sigma is the dense (mn × mn) matrix
+        return V_or_Sigma
+    U, V = U_or_none, V_or_Sigma
+    m_v, n_v = U.shape[0], V.shape[0]
+    mn = m_v * n_v
+    budget_mb = int(os.environ.get("MATRIX_ELEMENT_WRITE_BUDGET_MB", "1024"))
+    cost_mb = (mn ** 2) * 8 / (1024 ** 2)
+    if cost_mb > budget_mb:
+        raise MemoryError(
+            f"[fix4.2] Densifying '{mat_name}' ({m_v}x{n_v}) requires {cost_mb:.1f} MB "
+            f"(budget {budget_mb} MB).  Use --matrix-element-write-budget-mb to increase."
+        )
+    return np.kron(V, U)  # V⊗U column-major convention
+
+
+def _matrix_element_write_component(
+    block: GaussianMixBlock,
+    k: int,
+    mat_name: str,
+    m: int,
+    n: int,
+    i: int,
+    j: int,
+    c_or_mu: float,
+    var_z: float = 0.0,
+) -> None:
+    """Schur-complement element write for component k (in-place).
+
+    fix4.3: Implements Finding B1 (var_z=0, hard write) and B2 (var_z>0, soft
+    write) from research note 04.  Both cases:
+
+      idx       = j*m + i           (column-major: V⊗U convention)
+      sel_vec   = Sigma[:, idx]     (the idx-th column of the dense covariance)
+      gain      = sel_vec / (Sigma[idx, idx] + var_z)
+      vec_M_new = vec_M + gain * (c_or_mu - vec_M[idx])
+      Sigma_new = Sigma - outer(gain, sel_vec)
+
+    Destroys Kronecker separability — stores result as dense sentinel (None, Sigma_new).
+
+    IMPORTANT: after this call, further matrix ops on this variable that require
+    Kronecker structure (e.g. affine_left, transpose) will fail with NotImplementedError.
+    Only element extract and observe remain valid.  Documented in plan §fix4.5.
+    """
+    Sigma = _densify_matrix_var(block, k, mat_name)
+    M_k = block.mu_blocks[k][mat_name]          # (m, n)
+    vec_M = M_k.flatten('F')                    # column-major, length mn
+    idx = j * m + i                             # column-major index
+
+    sel_vec = Sigma[:, idx]                     # (mn,) selector column
+    denom = float(Sigma[idx, idx]) + var_z
+    if abs(denom) < 1e-14:
+        # Near-zero variance: treat as deterministic (no update needed)
+        vec_M_new = vec_M.copy()
+        vec_M_new[idx] = c_or_mu
+        block.mu_blocks[k][mat_name] = vec_M_new.reshape((m, n), order='F')
+        block.cov_blocks[k][frozenset({mat_name})] = (None, Sigma.copy())
+        return
+
+    gain = sel_vec / denom
+    delta = c_or_mu - float(vec_M[idx])
+    vec_M_new = vec_M + gain * delta
+    Sigma_new = Sigma - np.outer(gain, sel_vec)
+
+    # Enforce symmetry and clip eigenvalues
+    Sigma_new = 0.5 * (Sigma_new + Sigma_new.T)
+    w, Q = np.linalg.eigh(Sigma_new)
+    w = np.clip(w, 0.0, None)
+    Sigma_new = Q @ np.diag(w) @ Q.T
+
+    block.mu_blocks[k][mat_name] = vec_M_new.reshape((m, n), order='F')
+    # Store as dense sentinel: (None, Sigma_dense)
+    block.cov_blocks[k][frozenset({mat_name})] = (None, Sigma_new)
+
+
+class ElementWriteDenseWarning(UserWarning):
+    """Emitted when an element write densifies a matrix variable's covariance.
+
+    fix4.5: After this write, subsequent Kronecker-dependent ops on the variable
+    (affine_left, transpose) will raise NotImplementedError.  Only element
+    extract and observe remain valid.
+    """
+
+
+def matrix_element_write_dispatch(
+    dist: Dist,
+    mat_name: str,
+    i: int,
+    j: int,
+    rhs_expr: str,
+    data: dict,
+) -> Dist:
+    """Dispatch X[i,j] = rhs_expr for three RHS cases (fix4.4).
+
+    B1: rhs_expr is a numeric literal → hard write (var_z=0).
+    B2: rhs_expr is a scalar variable name → soft write (var_z=gm.var[z]).
+    B3: rhs_expr is a general scalar expression → evaluate via scalar update first,
+        then reduce to B2.
+
+    Always densifies the matrix var's covariance per research note 04 §B1+B2.
+    Emits ElementWriteDenseWarning so the user knows Kronecker is lost.
+    """
+    if dist.gm_block is None:
+        raise RuntimeError(
+            f"[fix4.4] X[{i},{j}] = ... called but dist.gm_block is None.  "
+            "Initialise with matrix_gm(...) first."
+        )
+    ve = next((v for v in dist.var_entries if v.name == mat_name), None)
+    if ve is None:
+        raise RuntimeError(f"[fix4.4] '{mat_name}' not in dist.var_entries")
+    m, n = ve.shape
+
+    warnings.warn(
+        f"ElementWriteDenseWarning: '{mat_name}[{i},{j}] = {rhs_expr}' densifies "
+        f"the covariance of '{mat_name}' from O(m²+n²)=O({m*m+n*n}) to "
+        f"O((mn)²)=O({(m*n)**2}).  Subsequent Kronecker-dependent ops will fail.",
+        ElementWriteDenseWarning,
+        stacklevel=3,
+    )
+
+    block = deepcopy(dist.gm_block)
+
+    # Try B1: numeric literal
+    try:
+        c_val = float(rhs_expr)
+        # B1: deterministic constant
+        for k in range(block.n_comp()):
+            _matrix_element_write_component(block, k, mat_name, m, n, i, j, c_val, 0.0)
+        return Dist(dist.var_list, dist.gm, var_entries=dist.var_entries, gm_block=block)
+    except ValueError:
+        pass
+
+    # Try B2: scalar variable name in var_list
+    if rhs_expr in dist.var_list:
+        z_idx = dist.var_list.index(rhs_expr)
+        for k in range(block.n_comp()):
+            mu_z = float(dist.gm.mu[k][z_idx])
+            var_z = float(dist.gm.sigma[k][z_idx, z_idx])
+            _matrix_element_write_component(block, k, mat_name, m, n, i, j, mu_z, var_z)
+        return Dist(dist.var_list, dist.gm, var_entries=dist.var_entries, gm_block=block)
+
+    # B3: general scalar expression — evaluate into a temporary variable, then B2
+    # Use a temporary var name that won't collide with existing vars
+    tmp_var = '_tmp_rhs_elem_write'
+    if tmp_var in dist.var_list:
+        tmp_var = tmp_var + '_2'
+    # Evaluate the scalar expression via the scalar update path
+    new_expr = f'{tmp_var} = {rhs_expr}'
+    try:
+        from libSOGAupdate import update_rule
+        dist_with_tmp = update_rule(dist, new_expr, data)
+    except Exception as exc:
+        raise NotImplementedError(
+            f"[fix4.4 B3] Cannot evaluate RHS expression '{rhs_expr}' as a scalar "
+            f"expression for element write '{mat_name}[{i},{j}] = {rhs_expr}': {exc}"
+        ) from exc
+    # Now it's B2
+    return matrix_element_write_dispatch(dist_with_tmp, mat_name, i, j, tmp_var, data)
+
+
+def _matrix_dense_get_cov(block: GaussianMixBlock, k: int, mat_name: str) -> np.ndarray:
+    """Return the dense (mn × mn) covariance for mat_name in component k.
+
+    Handles both Kronecker (U, V) and dense sentinel (None, Sigma) storage.
+    """
+    stored = block.cov_blocks[k].get(frozenset({mat_name}))
+    if stored is None:
+        raise KeyError(f"No covariance for '{mat_name}' in cov_blocks[{k}]")
+    U_or_none, V_or_Sigma = stored
+    if U_or_none is None:
+        return V_or_Sigma
+    return np.kron(V_or_Sigma, U_or_none)
+
 
 def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: int) -> Dist:
     """Implements y = X[i, j] where X is a matrix variable and y is a scalar.

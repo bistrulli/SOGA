@@ -227,12 +227,31 @@ class GaussianMixBlock:
         (M_k[i,j] - M_bar[i,j])^2 terms are included.  Omitting the
         between-component term would give wrong variance for multi-component
         mixtures (~20% error per plan cross-review).
+
+        fix4: handles dense sentinel (None, Sigma) storage — reads variance
+        from the dense (mn × mn) covariance via column-major index j*m+i.
         """
         M_bar = self.matrix_mean(var_name)
+        ve = next((v for v in self.var_entries if v.name == var_name), None)
         total = 0.0
         for k in range(self.n_comp()):
-            U_k, V_k = self.get_cov(k, var_name, var_name)
-            within = float(U_k[i, i] * V_k[j, j])
+            stored = self.cov_blocks[k].get(frozenset({var_name}))
+            if stored is not None and stored[0] is None:
+                # Dense sentinel: read variance from Sigma[idx, idx]
+                Sigma = stored[1]
+                m_v = ve.shape[0] if ve else Sigma.shape[0] // Sigma.shape[0]
+                idx = j * (Sigma.shape[0] // (ve.shape[1] if ve else 1)) + i if ve else j * int(Sigma.shape[0] ** 0.5) + i
+                # More robust: infer m from var_entries
+                if ve is not None:
+                    m_v, n_v = ve.shape
+                    idx = j * m_v + i
+                else:
+                    m_v = int(Sigma.shape[0] ** 0.5)
+                    idx = j * m_v + i
+                within = float(Sigma[idx, idx])
+            else:
+                U_k, V_k = self.get_cov(k, var_name, var_name)
+                within = float(U_k[i, i] * V_k[j, j])
             between = float((self.mu_blocks[k][var_name][i, j] - M_bar[i, j]) ** 2)
             total += self.pi[k] * (within + between)
         return total

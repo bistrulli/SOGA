@@ -220,6 +220,27 @@ def update_rule(dist, expr, data):
     if dist.var_entries:
         # LHS is the text before '=' in the assignment expression
         lhs_name = expr.split('=')[0].strip()
+
+        # fix4: detect X[i,j] = expr on the LHS (matrix element write)
+        # Pattern: matname[i_tok, j_tok] = rhs_expr
+        import re as _re
+        _IDX4 = r'(\d+|[A-Za-z]\w*)'
+        _m4 = _re.match(r'^([A-Za-z]\w*)\s*\[\s*' + _IDX4 + r'\s*,\s*' + _IDX4 + r'\s*\]\s*=\s*(.+)$', expr.strip())
+        if _m4 is not None:
+            mat_name_lhs = _m4.group(1)
+            if any(ve.name == mat_name_lhs for ve in dist.var_entries):
+                from libMatrixUpdate import matrix_element_write_dispatch
+                def _resolve_idx4(tok: str) -> int:
+                    if tok.lstrip('-').isdigit():
+                        return int(tok)
+                    if tok in data and data[tok][0] is not None:
+                        return int(data[tok][0])
+                    raise KeyError(f"[fix4] Cannot resolve index '{tok}' for element write.")
+                i4 = _resolve_idx4(_m4.group(2))
+                j4 = _resolve_idx4(_m4.group(3))
+                rhs4 = _m4.group(4).strip()
+                return matrix_element_write_dispatch(dist, mat_name_lhs, i4, j4, rhs4, data)
+
         if any(ve.name == lhs_name for ve in dist.var_entries):
             return update_rule_matrix(dist, expr, data)
 

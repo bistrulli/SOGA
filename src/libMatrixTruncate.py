@@ -74,43 +74,76 @@ class KroneckerProjectWarning(UserWarning):
 #   COL_SUM_INEQ  : col_sum(X, j)  op  c
 
 _RE_ELEMENT = re.compile(
-    r'^\s*(\w+)\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*(\w+)\s*\[\s*(\d+|\w+)\s*,\s*(\d+|\w+)\s*\]\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_ROW_SUM = re.compile(
-    r'^\s*row_sum\s*\(\s*(\w+)\s*,\s*(\d+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*row_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_COL_SUM = re.compile(
-    r'^\s*col_sum\s*\(\s*(\w+)\s*,\s*(\d+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*col_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_TRACE = re.compile(
     r'^\s*trace\s*\(\s*(\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 
 
-def _classify_constraint(trunc: str, mat_var: str):
+def _resolve_index(tok: str, data: Optional[dict] = None) -> int:
+    """Resolve an index token to an integer.
+
+    fix1.2: accepts both numeric strings (e.g. '0', '3') and identifier
+    strings that refer to loop-counter variables resolved via data[tok][0].
+    This matches SOGA's loop-counter convention: data[name] = [current_value].
+
+    Parameters
+    ----------
+    tok  : str — the raw token from the regex group (digit string or identifier)
+    data : dict | None — the program data dict (required for identifier tokens)
+
+    Raises
+    ------
+    KeyError if tok is an identifier not present in data (or data is None).
+    """
+    if tok.lstrip('-').isdigit():
+        return int(tok)
+    # Identifier: resolve via data dict (loop-counter convention)
+    if data is not None and tok in data and data[tok][0] is not None:
+        return int(data[tok][0])
+    raise KeyError(
+        f"[fix1.2] Cannot resolve index token '{tok}': not a numeric literal "
+        f"and not found in data dict (data={'<None>' if data is None else list(data.keys())})."
+    )
+
+
+def _classify_constraint(trunc: str, mat_var: str, data: Optional[dict] = None):
     """Classify a matrix constraint string.
 
     Returns a dict with keys:
         type  : 'ELEMENT_INEQ' | 'ROW_SUM_INEQ' | 'COL_SUM_INEQ'
         ...   : type-specific fields (i, j, direction, threshold)
     Raises NotImplementedError for TRACE_INEQ or unrecognised forms.
+
+    fix1.2: data parameter added to allow resolving loop-variable indices via
+    _resolve_index (e.g. X[i,j] op c where i,j are loop counters).
     """
     m = _RE_ELEMENT.match(trunc)
     if m:
         var, i_s, j_s, op, c_s = m.groups()
-        return {"type": "ELEMENT_INEQ", "var": var, "i": int(i_s), "j": int(j_s),
+        return {"type": "ELEMENT_INEQ", "var": var,
+                "i": _resolve_index(i_s, data), "j": _resolve_index(j_s, data),
                 "direction": op, "threshold": float(c_s)}
 
     m = _RE_ROW_SUM.match(trunc)
     if m:
         var, i_s, op, c_s = m.groups()
-        return {"type": "ROW_SUM_INEQ", "var": var, "i": int(i_s),
+        return {"type": "ROW_SUM_INEQ", "var": var,
+                "i": _resolve_index(i_s, data),
                 "direction": op, "threshold": float(c_s)}
 
     m = _RE_COL_SUM.match(trunc)
     if m:
         var, j_s, op, c_s = m.groups()
-        return {"type": "COL_SUM_INEQ", "var": var, "j": int(j_s),
+        return {"type": "COL_SUM_INEQ", "var": var,
+                "j": _resolve_index(j_s, data),
                 "direction": op, "threshold": float(c_s)}
 
     m = _RE_TRACE.match(trunc)
@@ -599,8 +632,8 @@ def truncate_matrix(
             for p in block.pi
         ]
 
-    # Classify constraint
-    constraint = _classify_constraint(trunc, mat_var)
+    # Classify constraint — pass data so loop-variable indices can be resolved (fix1.2)
+    constraint = _classify_constraint(trunc, mat_var, data)
     ct = constraint["type"]
 
     if ct == "ELEMENT_INEQ":

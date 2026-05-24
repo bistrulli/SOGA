@@ -227,15 +227,34 @@ def update_rule(dist, expr, data):
         # The scalar listener (AsgmtRule) does not handle 2-arg idd in vars, so we
         # detect this case before falling through to the scalar path and dispatch
         # to libMatrixUpdate.extract_scalar_from_matrix.
+        # fix1: extended regex accepts both numeric literals (\d+) and identifiers
+        # ([A-Za-z]\w*) as index tokens, to support loop-variable indices like X[i,i].
         import re as _re
         body = expr.split('=', 1)[1].strip()
-        _m = _re.match(r'^([A-Za-z]\w*)\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]$', body)
+        _IDX = r'(\d+|[A-Za-z]\w*)'
+        _m = _re.match(r'^([A-Za-z]\w*)\s*\[\s*' + _IDX + r'\s*,\s*' + _IDX + r'\s*\]$', body)
         if _m is not None:
             mat_name = _m.group(1)
             if any(ve.name == mat_name for ve in dist.var_entries):
                 from libMatrixUpdate import extract_scalar_from_matrix
+                # fix1: resolve index tokens — numeric strings are parsed directly,
+                # identifier strings are looked up via data[idv][0] (loop-counter
+                # convention in SOGA: the loop counter value lives at data[name][0]).
+                def _resolve_idx(tok: str) -> int:
+                    if tok.isdigit() or (tok[1:].isdigit() if tok and tok[0] == '-' else False):
+                        return int(tok)
+                    # Identifier: resolve via data dict
+                    if tok in data and data[tok][0] is not None:
+                        return int(data[tok][0])
+                    raise KeyError(
+                        f"[fix1] Cannot resolve matrix index token '{tok}': "
+                        f"not a number and not found in data dict.  "
+                        f"data keys = {list(data.keys())}"
+                    )
+                i_idx = _resolve_idx(_m.group(2))
+                j_idx = _resolve_idx(_m.group(3))
                 return extract_scalar_from_matrix(
-                    dist, lhs_name, mat_name, int(_m.group(2)), int(_m.group(3))
+                    dist, lhs_name, mat_name, i_idx, j_idx
                 )
 
     # Scalar path (unchanged)

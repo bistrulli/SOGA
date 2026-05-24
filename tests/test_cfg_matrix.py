@@ -184,11 +184,14 @@ class TestRoutingGuards:
         ve = VarEntry("X", "matrix", (2, 2), -1)
         return Dist(["x"], gm, var_entries=[ve])
 
-    def test_update_rule_matrix_lhs_raises_not_implemented(self):
-        """update_rule raises NotImplementedError for matrix LHS (M2.4 stub)."""
+    def test_update_rule_matrix_lhs_dispatches_to_matrix_handler(self):
+        """update_rule dispatches to matrix handler for matrix LHS (M2.4 routing guard + M4 impl)."""
         dist = self._make_dist_with_matrix_var()
-        with pytest.raises(NotImplementedError, match="M4-stub"):
-            update_rule(dist, "X=matrix_gm([[0,0],[0,0]],[[1,0],[0,1]],[[1,0],[0,1]])", {})
+        # matrix_gm assignment should succeed now that M4 is implemented
+        result = update_rule(dist, "X=matrix_gm([[0,0],[0,0]],[[1,0],[0,1]],[[1,0],[0,1]])", {})
+        # Should have a gm_block set
+        assert result.gm_block is not None
+        assert result.gm_block.matrix_mean("X").shape == (2, 2)
 
     def test_update_rule_scalar_lhs_passes_through(self):
         """update_rule uses scalar path for non-matrix LHS (M2.4 guard does not trigger)."""

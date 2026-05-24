@@ -11,6 +11,12 @@ from ASGMTParser import *
 from ASGMTLexer import *
 import parser_extensions  # noqa: F401 — restores Context helper methods on import (CLAUDE.md §8: keeps autogen files pure)
 
+import ast as _ast
+import warnings as _warnings
+import logging as _logging
+
+_logger = _logging.getLogger(__name__)
+
 def mul_func(self, comp):
     i = self.target
     j, k = self.mul_idx
@@ -185,34 +191,17 @@ def asgmt_parse(var_list, expr, data):
         
         
 def update_rule_matrix(dist, expr, data):
-    """Stub dispatcher for matrix-variable assignments.
+    """M4: Full dispatcher for matrix-variable assignments.
 
-    Invoked by update_rule when the LHS of an assignment is a matrix variable
-    tracked in dist.var_entries.  Full implementation is in M4.  For now this
-    stub raises NotImplementedError with a clear milestone reference so that
-    any early invocation produces a diagnosable error rather than a silent
-    wrong-path crash.
+    Delegates to libMatrixUpdate.update_rule_matrix which implements all
+    matrix operation handlers:
+      MATRIX_GM, MATMUL_LEFT/RIGHT_DET, ADD_CONST, ADD_RANDOM,
+      SCALE, TRANSPOSE.
 
-    Parameters
-    ----------
-    dist : Dist
-        Current joint distribution (must have non-empty var_entries).
-    expr : str
-        Raw assignment expression string, e.g. 'C=A_kernel@X_input+N_fault'.
-    data : dict
-        Program data dictionary from CFG.
-
-    Raises
-    ------
-    NotImplementedError
-        Always, until M4 implements the individual operation handlers.
+    See libMatrixUpdate.py for full docstring and plan §M4.
     """
-    raise NotImplementedError(
-        f"[M4-stub] Matrix assignment not yet implemented: '{expr}'. "
-        "Full implementation is in milestone M4 (update_rule_matrix dispatcher + "
-        "_matrix_affine_left/_right/_add_random/_scale/_transpose/_index_to_scalar). "
-        "See plan/2026-05-22-matrix-gm-lishan.md §M4."
-    )
+    from libMatrixUpdate import update_rule_matrix as _urm
+    return _urm(dist, expr, data)
 
 
 def update_rule(dist, expr, data):

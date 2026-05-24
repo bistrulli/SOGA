@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import warnings
 from copy import deepcopy
 from typing import List, Tuple
@@ -295,6 +296,92 @@ def _matrix_transpose(block: GaussianMixBlock, k: int, lhs: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# fix3: warning class for matmul approximation quality
+# ---------------------------------------------------------------------------
+
+class MatmulApproxWarning(UserWarning):
+    """Emitted when delta-method + NKP approximation is potentially inaccurate.
+
+    Fired when the second singular value of the rearrangement of Sigma_Z
+    exceeds 5% of the first (indicating significant discarded Kronecker term).
+    """
+
+
+# ---------------------------------------------------------------------------
+# fix3.2 — Matmul random × random component
+# ---------------------------------------------------------------------------
+
+def matmul_random_random_component(
+    M_X: np.ndarray, U_X: np.ndarray, V_X: np.ndarray,
+    M_Y: np.ndarray, U_Y: np.ndarray, V_Y: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Propagate Z = X @ Y for X ~ MN(M_X, U_X, V_X), Y ~ MN(M_Y, U_Y, V_Y).
+
+    Uses delta-method linearisation + Van Loan-Pitsianis nearest-Kronecker
+    projection per research note 05 §Problem 2.
+
+    Formulas:
+      E[Z]  = M_X @ M_Y                                           (exact)
+      Sigma = kron(M_Y.T @ V_X @ M_Y, U_X)
+            + kron(V_Y, M_X @ U_Y @ M_X.T)       (delta-method, sum of 2 krons)
+      (U_Z, V_Z) = nearest_kronecker(Sigma, m, n)                 (NKP approx)
+
+    Approximation quality warning: emits MatmulApproxWarning if the second
+    singular value of the rearrangement R[Sigma] exceeds 5% of the first.
+
+    Parameters
+    ----------
+    M_X, U_X, V_X : mean (m×p), row-cov (m×m), col-cov (p×p) for X
+    M_Y, U_Y, V_Y : mean (p×n), row-cov (p×p), col-cov (n×n) for Y
+
+    Returns
+    -------
+    M_Z (m×n), U_Z (m×m), V_Z (n×n) — Kronecker-factored MN approximation.
+    """
+    m, p = M_X.shape
+    _, n = M_Y.shape
+    # Exact mean
+    M_Z = M_X @ M_Y
+
+    # Delta-method covariance: sum of two Kronecker products
+    # Term 1: kron(M_Y.T @ V_X @ M_Y, U_X)   — shape (mn, mn)
+    A = M_Y.T @ V_X @ M_Y   # (n, n) — note: col-cov V_X is (p×p), M_Y is (p×n)
+    B = U_X                   # (m, m)
+    # Term 2: kron(V_Y, M_X @ U_Y @ M_X.T)
+    C = V_Y                   # (n, n)
+    D = M_X @ U_Y @ M_X.T    # (m, m)
+
+    # Build full (mn × mn) dense covariance in V⊗U column-major order.
+    # kron(A, B) + kron(C, D)  where A,C are (n×n) and B,D are (m×m).
+    # In the V⊗U convention the full cov is kron(V_Z, U_Z).
+    # So: kron(A, B) corresponds to V_Z_A = A, U_Z_A = B, etc.
+    Sigma_full = np.kron(A, B) + np.kron(C, D)
+
+    # Check approximation quality: rearrange Sigma_full and compute SVD rank
+    mn = m * n
+    R = np.zeros((m * m, n * n))
+    for jj in range(n):
+        for jjj in range(n):
+            block_ij = Sigma_full[jj * m:(jj + 1) * m, jjj * m:(jjj + 1) * m]
+            R[:, jj * n + jjj] = block_ij.flatten('F')
+    _, sv, _ = np.linalg.svd(R, full_matrices=False)
+    if sv[0] > 0 and len(sv) > 1:
+        ratio = sv[1] / sv[0]
+        if ratio > 0.05:
+            warnings.warn(
+                f"MatmulApproxWarning: NKP projection discards significant term "
+                f"(s2/s1={ratio:.3%} > 5%).  Delta-method approximation may be inaccurate.",
+                MatmulApproxWarning,
+                stacklevel=3,
+            )
+
+    # NKP projection to nearest single Kronecker product
+    U_Z, V_Z = _nearest_kronecker(Sigma_full, m, n)
+    U_Z, V_Z = _enforce_psd_kron_factors(U_Z, V_Z)
+    return M_Z, U_Z, V_Z
+
+
+# ---------------------------------------------------------------------------
 # Main dispatcher: update_rule_matrix (M4.1)
 # ---------------------------------------------------------------------------
 
@@ -372,9 +459,69 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
         left_is_mat = any(ve.name == left_tok for ve in dist.var_entries)
         right_is_mat = any(ve.name == right_tok for ve in dist.var_entries)
         if left_is_mat and right_is_mat:
-            raise NotImplementedError(
-                f"[M4.1] Random x random matmul not supported in v1. See plan §M4.1."
+            # fix3: implement random × random matmul via delta-method + NKP
+            # Full mixture product: |comp(left)| * |comp(right)| components.
+            # Apply ranking_prune(K_max) immediately after.
+            K_MAX_MATMUL = int(os.environ.get("SOGA_MATMUL_PRUNE_K", "50"))
+            new_pi_mm = []
+            new_mu_mm = []
+            new_sigma_mm = []
+            new_mu_blocks_mm = []
+            new_cov_blocks_mm = []
+            lhs_ve = next((v for v in dist.var_entries if v.name == lhs), None)
+            left_ve = next((v for v in dist.var_entries if v.name == left_tok), None)
+            right_ve = next((v for v in dist.var_entries if v.name == right_tok), None)
+            for ki in range(block.n_comp()):
+                M_X = block.get_mu(ki, left_tok)
+                U_X, V_X = block.get_cov(ki, left_tok, left_tok)
+                pi_X = block.pi[ki]
+                for kj in range(block.n_comp()):
+                    M_Y = block.get_mu(kj, right_tok)
+                    U_Y, V_Y = block.get_cov(kj, right_tok, right_tok)
+                    pi_Y = block.pi[kj]
+                    M_Z, U_Z, V_Z = matmul_random_random_component(
+                        M_X, U_X, V_X, M_Y, U_Y, V_Y
+                    )
+                    # Combined weight for (ki, kj) pair
+                    new_pi_mm.append(pi_X * pi_Y)
+                    # Scalar gm component: copy from ki (arbitrary; no scalar dep)
+                    new_mu_mm.append(dist.gm.mu[ki % dist.gm.n_comp()])
+                    new_sigma_mm.append(dist.gm.sigma[ki % dist.gm.n_comp()])
+                    # Build new mu/cov block for this pair
+                    mu_k = {lhs: M_Z}
+                    for ve_sv in block.var_entries:
+                        if ve_sv.name != lhs:
+                            pass  # cross-cov between different matrix vars not tracked
+                    cov_k = {frozenset({lhs}): (U_Z, V_Z)}
+                    for sv in block.var_list:
+                        cov_k[frozenset({sv, lhs})] = np.zeros(
+                            M_Z.shape[0] * M_Z.shape[1]
+                        )
+                    new_mu_blocks_mm.append(mu_k)
+                    new_cov_blocks_mm.append(cov_k)
+            # Normalise weights
+            total_w = sum(new_pi_mm)
+            if total_w > 0:
+                new_pi_mm = [p / total_w for p in new_pi_mm]
+            from libSOGAsharedMatrix import GaussianMixBlock as _GMB
+            new_block = _GMB(
+                var_list=block.var_list,
+                var_entries=[lhs_ve] if lhs_ve else [],
+                pi=new_pi_mm,
+                mu_blocks=new_mu_blocks_mm,
+                cov_blocks=new_cov_blocks_mm,
             )
+            new_gm = GaussianMix(new_pi_mm, new_mu_mm, new_sigma_mm)
+            new_dist = Dist(
+                dist.var_list, new_gm,
+                var_entries=[lhs_ve] if lhs_ve else [],
+                gm_block=new_block,
+            )
+            # fix3.4: prune to K_max immediately
+            if new_block.n_comp() > K_MAX_MATMUL:
+                from libSOGAmerge import ranking_prune as _rp
+                new_dist = _rp(new_dist, K_MAX_MATMUL)
+            return new_dist
         elif not left_is_mat:
             A = np.asarray(data[left_tok], dtype=float)
             for k in range(block.n_comp()):

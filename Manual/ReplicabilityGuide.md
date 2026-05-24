@@ -97,3 +97,53 @@ java -jar $ANTLR_JAR -Dlanguage=Python3 -visitor -listener grammars/TRUNC.g4 -o 
 ```
 
 After regeneration, the `grammars/` source files and `src/` generated files must stay in sync. Run `scripts/check_grammar_sync.sh` to verify (added in M1.5 of the matrix-GM integration branch).
+
+---
+
+## Matrix-Variate Gaussian DSL (feat/matrix-gm-integration)
+
+SOGA supports matrix-variate Gaussian mixture (MVGM) variables in addition to
+scalar GM variables.  This section documents all working patterns.
+
+### Declaration and initialisation
+
+```
+matrix[m][n] X;
+X = matrix_gm(M_list, U_list, V_list);
+```
+
+Declares `X` as a matrix random variable with shape `(m, n)` and initialises
+it as `X ~ MN(M, U, V)` where `M` is the mean matrix, `U` is the m×m row
+covariance, and `V` is the n×n column covariance.
+
+### Supported operations (12 patterns)
+
+| Pattern | DSL syntax | Formula |
+|---------|-----------|---------|
+| Init | `X = matrix_gm(M, U, V)` | `vec(X) ~ N(vec(M), V⊗U)` |
+| Scalar extract | `y = X[i,j]` | `E[y]=M[i,j]`, `Var(y)=U[i,i]*V[j,j]` |
+| Loop extract | `d = X[i,i]` (i loop var) | same, i resolved at runtime |
+| Affine left | `Y = A @ X` | `Y ~ MN(A M, A U A^T, V)` |
+| Affine right | `Y = X @ B` | `Y ~ MN(M B, U, B^T V B)` |
+| Add constant | `Y = X + C` | `Y ~ MN(M+C, U, V)` |
+| Add random | `Y = X + N` | NKP approx of sum (iso path is exact) |
+| Transpose | `Y = transp(X)` | `Y ~ MN(M^T, V, U)` |
+| Element observe | `observe(X[i,j] > c)` | rank-1 Schur update |
+| If/else merge | `if cond { ... } else { ... }` | component concatenation |
+| Rand matmul | `Z = X @ Y` | delta-method + NKP (approx, E[Z] exact) |
+| Element write | `X[i,j] = expr` | Schur downdate, densifies cov |
+
+### v1 Limitations
+
+- `X[i,j] = expr` densifies the covariance to `(mn × mn)`.  Subsequent
+  Kronecker-dependent ops (affine, transpose) raise `NotImplementedError`.
+- `Z = X @ Y` (random matmul) uses a delta-method approximation; emits
+  `MatmulApproxWarning` when approximation error exceeds 5%.
+- Cross-matrix-variable covariance (`Cov(X, Y)` for two distinct matrix vars)
+  is not tracked; initialised to zero.
+- `observe(expr_with_two_matrix_vars)` raises `NotImplementedError`.
+
+### Verification and testing
+
+The 12-feature smoke battery `/tmp/t1..t12_*.soga` verifies all patterns end-to-end.
+Full formal semantics with closed-form formulas: see `docs/MATRIX_GM_SEMANTICS.md`.

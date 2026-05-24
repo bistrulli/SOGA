@@ -191,6 +191,72 @@ class Dist():
 
     def __repr__(self):
         return str(self)
+
+    # ------------------------------------------------------------------
+    # M3.8: Output API for matrix programs
+    # ------------------------------------------------------------------
+
+    def scalar_view(self):
+        """Existing scalar interface: (var_list, mu, sigma).
+
+        Unchanged from pre-M3 Dist.  Accessible via dist.scalar_view()
+        for callers that want a tuple instead of the object attributes.
+        """
+        return self.var_list, self.gm.mean(), self.gm.cov()
+
+    def matrix_mean(self, var_name: str):
+        """Mixture mean for a matrix variable: M_bar = sum_k pi_k * M_k.
+
+        Requires gm_block to be set (M3 initialised).  Delegates to
+        GaussianMixBlock.matrix_mean().
+        """
+        if self.gm_block is None:
+            raise RuntimeError(
+                f"[M3.8] dist.matrix_mean('{var_name}') called but gm_block is None.  "
+                "This Dist was not initialised with a GaussianMixBlock.  "
+                "matrix_mean is only available after M3 initialisation (start_SOGA "
+                "with matrix variables)."
+            )
+        return self.gm_block.matrix_mean(var_name)
+
+    def matrix_var(self, var_name: str, i: int, j: int) -> float:
+        """Per-element variance via law of total variance.
+
+        Var(X[i,j]) = sum_k pi_k * (U_k[i,i]*V_k[j,j] + (M_k[i,j] - M_bar[i,j])^2)
+
+        Both within-component and between-component terms are included.
+        """
+        if self.gm_block is None:
+            raise RuntimeError(
+                f"[M3.8] dist.matrix_var('{var_name}', ...) called but gm_block is None."
+            )
+        return self.gm_block.matrix_var(var_name, i, j)
+
+    def matrix_cov(
+        self, var_name: str, i1: int, j1: int, i2: int, j2: int
+    ) -> float:
+        """Mixture covariance Cov(X[i1,j1], X[i2,j2]) — law of total covariance."""
+        if self.gm_block is None:
+            raise RuntimeError(
+                f"[M3.8] dist.matrix_cov('{var_name}', ...) called but gm_block is None."
+            )
+        return self.gm_block.matrix_cov(var_name, i1, j1, i2, j2)
+
+    def matrix_full_cov(self, var_name: str):
+        """Full (mn × mn) vectorised covariance matrix (dense; for small mn or validation)."""
+        if self.gm_block is None:
+            raise RuntimeError(
+                f"[M3.8] dist.matrix_full_cov('{var_name}') called but gm_block is None."
+            )
+        return self.gm_block.matrix_full_cov(var_name)
+
+    def matrix_kron_factors(self, var_name: str):
+        """Return (U, V) Kronecker factors for var_name, or None if densified."""
+        if self.gm_block is None:
+            raise RuntimeError(
+                f"[M3.8] dist.matrix_kron_factors('{var_name}') called but gm_block is None."
+            )
+        return self.gm_block.matrix_kron_factors(var_name)
         
 ### FUNCTIONS FOR NUMERICAL STABILITY OF COVARIANCE MATRICES
 

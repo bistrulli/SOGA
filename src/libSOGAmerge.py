@@ -16,7 +16,31 @@ from libSOGAshared import *
 def merge(list_dist):
     """
     Given a list of couples (p,dist), where each dist is a GaussianMix object, computes a couple (current_p, current_dist), in which current_pi is the sum of p and current_dist is a single GaussianMix object.
+
+    M3.6 type-safety guard: if any two Dist objects in list_dist have differing
+    var_entries, raise.  In v1 (no matrix-mixture), merge of matrix-variable
+    distributions is not supported and raises NotImplementedError.
+    Scalar-only merge is unchanged.
     """
+    # M3.6 type-safety guard
+    if len(list_dist) > 1:
+        ref_ve = list_dist[0][1].var_entries
+        for _, d in list_dist[1:]:
+            if d.var_entries != ref_ve:
+                raise NotImplementedError(
+                    "[M3.6] merge of distributions with differing var_entries is not "
+                    "supported in v1.  All branches must declare the same matrix "
+                    "variables.  See plan/2026-05-22-matrix-gm-lishan.md §M3.6."
+                )
+        # In v1, merging of matrix-variable distributions is not supported
+        if ref_ve:
+            raise NotImplementedError(
+                "[M3.6] merge with matrix variables is not yet implemented in v1.  "
+                "Matrix programs with branching/looping (merge nodes) are deferred "
+                "to the matrix-mixture milestone (v2).  "
+                "See plan/2026-05-22-matrix-gm-lishan.md §M3.6."
+            )
+
     final_pi = []
     final_mu = []
     final_sigma = []
@@ -28,14 +52,14 @@ def merge(list_dist):
             final_pi = final_pi + list(p*np.array(dist.gm.pi))
             final_mu = final_mu + list(dist.gm.mu)
             final_sigma = final_sigma + list(dist.gm.sigma)
-    
+
     if len(final_pi) == 0:
         d = len(list_dist[0][1].gm.mu[0])
         #print('no components found')
         return 0, Dist(list_dist[0][1].var_list, GaussianMix([0], [np.array([0]*d)], [np.zeros((d,d))]))
-    
+
     final_pi = list(np.array(final_pi)/current_p)
-    
+
     # deletes components with probability less than tol
     zero_list = np.where(np.array(final_pi) < prob_tol)[0]
     if len(zero_list)>0:
@@ -79,7 +103,18 @@ def compute_matrix_mean(current_dist):
     return sums/pis
         
 def classic_prune(current_dist, Kmax):
-    """ Merges components with optimal cost"""
+    """Merges components with optimal cost (Salmond/Runnalls criterion).
+
+    M3.7: asserts that current_dist.gm_block is None — matrix programs must
+    use ranking_prune (top-K by weight) only, since distance-based merging
+    on dense vector means doesn't make sense across Kronecker block representations.
+    """
+    assert current_dist.gm_block is None, (
+        "[M3.7] classic_prune invoked on a Dist with gm_block set. "
+        "Matrix-variable programs must use ranking_prune (top-K by weight).  "
+        "Call prune(dist, 'ranking', Kmax) instead.  "
+        "See plan/2026-05-22-matrix-gm-lishan.md §M3.7."
+    )
     if current_dist.gm.n_comp() > Kmax:
         n = current_dist.gm.n_comp()
         #computes a matrix containing the weighted means

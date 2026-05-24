@@ -536,3 +536,134 @@ class TestUpdateRuleMatrixIntegration:
         data = {"A_k": A.tolist()}
         dist = update_rule_matrix(dist, "C=A_k@X", data)
         _check_psd(dist.gm_block, "C")
+
+
+# ---------------------------------------------------------------------------
+# A1/A2 — scalar = matrix[i,j] cross-cov + observe back-prop
+# ---------------------------------------------------------------------------
+
+class TestExtractScalarCrossCov:
+    """A1 (research-note 04): extract_scalar_from_matrix stores
+    `Cov(y, vec(X)) = V[:,j] ⊗ U[:,i]` per Gupta & Nagar 1999 Thm 2.3.1.
+    """
+
+    def _make_X_2x2_iso(self):
+        """X ~ MN(0, I, I) — independent 2x2 standard normal entries."""
+        from libMatrixUpdate import update_rule_matrix
+        ve_X = VarEntry(name="X", kind="matrix", shape=(2, 2), flat_offset=-1)
+        dist = Dist(
+            var_list=[],
+            gm=GaussianMix([1.0], [np.zeros(0)], [np.zeros((0, 0))]),
+            var_entries=[ve_X],
+            gm_block=GaussianMixBlock(
+                var_list=[],
+                var_entries=[],
+                pi=[1.0],
+                mu_blocks=[{}],
+                cov_blocks=[{}],
+            ),
+        )
+        I = "[[1,0],[0,1]]"
+        z = "[[0,0],[0,0]]"
+        return update_rule_matrix(dist, f"X=matrix_gm({z},{I},{I})", {})
+
+    def test_extract_cross_cov_value(self):
+        """Cov(y, vec(X)) stored as np.kron(V[:,j], U[:,i]) (column-major)."""
+        from libMatrixUpdate import extract_scalar_from_matrix
+        dist0 = self._make_X_2x2_iso()
+        dist1 = extract_scalar_from_matrix(dist0, "y", "X", 0, 0)
+        # Expected: V[:,0] ⊗ U[:,0] = [1,0] ⊗ [1,0] = [1,0,0,0]
+        stored = dist1.gm_block.cov_blocks[0][frozenset({"y", "X"})]
+        np.testing.assert_allclose(stored, np.array([1, 0, 0, 0]), atol=1e-12)
+
+    def test_extract_marginal_moments(self):
+        """E[y] = M[i,j], Var[y] = U[i,i]·V[j,j]."""
+        from libMatrixUpdate import extract_scalar_from_matrix
+        dist0 = self._make_X_2x2_iso()
+        dist1 = extract_scalar_from_matrix(dist0, "y", "X", 0, 1)
+        assert dist1.var_list == ["y"]
+        np.testing.assert_allclose(dist1.gm.mu[0][0], 0.0, atol=1e-12)
+        # U[0,0]=1, V[1,1]=1 → Var(y)=1
+        np.testing.assert_allclose(dist1.gm.sigma[0][0, 0], 1.0, atol=1e-12)
+
+
+class TestObserveExtractedScalarBackprop:
+    """A2 (research-note 04): observe(y > c) on an extracted scalar updates
+    the source matrix's mean via the stored cross-cov.
+
+    Analytic ground truth: for X ~ MN(0, I, I), y = X[i,j] ~ N(0,1),
+    E[y | y > 0] = sqrt(2/pi) ≈ 0.79788.
+    """
+
+    def _run_program(self, src_text):
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".soga", delete=False) as f:
+            f.write(src_text)
+            f.flush()
+            r = subprocess.run(
+                [sys.executable, "SOGA.py", "-f", f.name],
+                cwd=SRC, capture_output=True, text=True, timeout=30,
+            )
+        return r.stdout + r.stderr
+
+    def test_observe_y_propagates_to_matrix_mean(self):
+        """E[X[0,0]] after observe(y > 0) ≈ sqrt(2/pi) for X ~ MN(0, I, I)."""
+        src = (
+            "matrix[2][2] X;\n"
+            "X = matrix_gm([[0,0],[0,0]], [[1,0],[0,1]], [[1,0],[0,1]]);\n"
+            "y = X[0,0];\n"
+            "observe(y > 0);\n"
+        )
+        out = self._run_program(src)
+        assert "E[y]" in out
+        assert "E[X]" in out
+        # Parse E[y] line
+        for line in out.splitlines():
+            if "E[y]:" in line:
+                e_y = float(line.split(":")[1].strip())
+                expected = np.sqrt(2.0 / np.pi)
+                assert abs(e_y - expected) < 1e-4, f"E[y]={e_y}, expected={expected}"
+        # Parse E[X] block — find the X[0,0] value (first number after E[X]:)
+        x_block = out.split("E[X]:")[1].splitlines()
+        first_row = None
+        for ln in x_block[1:]:
+            ln = ln.strip().lstrip("[")
+            if ln and ln[0].isdigit() or (ln and ln[0] == "-"):
+                first_row = ln
+                break
+        assert first_row is not None
+        x00 = float(first_row.split()[0].rstrip("]"))
+        expected = np.sqrt(2.0 / np.pi)
+        assert abs(x00 - expected) < 1e-4, f"E[X[0,0]]={x00}, expected={expected}"
+
+    def test_correlated_backprop(self):
+        """U with off-diagonal coupling: E[X[1,0]] ≈ 0.5·sqrt(2/pi) after observe(y > 0)
+        where y = X[0,0] and U=[[1,0.5],[0.5,1]] (row correlation 0.5)."""
+        src = (
+            "matrix[2][2] X;\n"
+            "X = matrix_gm([[0,0],[0,0]], [[1.0,0.5],[0.5,1.0]], [[1.0,0.0],[0.0,1.0]]);\n"
+            "y = X[0,0];\n"
+            "observe(y > 0);\n"
+        )
+        out = self._run_program(src)
+        x_block = out.split("E[X]:")[1].splitlines()
+        rows = []
+        for ln in x_block[1:]:
+            stripped = ln.strip().lstrip("[").rstrip("]")
+            parts = stripped.split()
+            if len(parts) >= 2:
+                try:
+                    rows.append([float(p.rstrip("]")) for p in parts])
+                    if len(rows) == 2:
+                        break
+                except ValueError:
+                    pass
+        assert len(rows) == 2, f"expected 2 rows, got {rows}"
+        c = np.sqrt(2.0 / np.pi)
+        # X[0,0] post = c, X[1,0] post = 0.5 * c (Kalman gain via U[0,1]·V[0,0] = 0.5)
+        assert abs(rows[0][0] - c) < 1e-3
+        assert abs(rows[1][0] - 0.5 * c) < 1e-3
+        # X[0,1] and X[1,1] independent → stay 0
+        assert abs(rows[0][1]) < 1e-3
+        assert abs(rows[1][1]) < 1e-3

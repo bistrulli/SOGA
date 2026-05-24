@@ -445,14 +445,22 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
 def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: int) -> Dist:
     """Implements y = X[i, j] where X is a matrix variable and y is a scalar.
 
-    Marginal moments of y per component k:
+    Marginal moments of y per component k (Gupta & Nagar 1999, Thm 2.3.1):
       mu_y(k)  = M_k[i, j]
       var_y(k) = U_k[i, i] * V_k[j, j]
 
-    The new scalar y is appended (or overwritten) in the scalar gm.  Cross-cov
-    between y and the existing scalar variables, and between y and the matrix
-    X itself, is set to 0 in this v1 simplification (plan M4.8).  The matrix
-    variable's gm_block storage is preserved unchanged.
+    Cross-covariances (A1 of plan M4.8 / docs/research-notes/04-...):
+      Cov(y, vec(X)) = V[:, j] ⊗ U[:, i]                  (mn-vector, exact)
+      Cov(y, z)      = (V[:, j] ⊗ U[:, i])^T · Cov(z, vec(X))
+                     = factored shortcut via mixed-product property
+
+    Storage convention (matches GaussianMixBlock §M3.1):
+      - cov_blocks[k][frozenset({y, X})] = (mn,) ndarray, column-major V⊗U order
+      - sigma scalar-scalar entries are floats stored in dist.gm.sigma[k][y_idx, z_idx]
+
+    The new scalar y is appended (or overwritten) in the scalar gm.  X's
+    own (M, U, V) is preserved unchanged; only the cross-covariance dict
+    grows by one entry per component.
 
     Raises
     ------
@@ -477,7 +485,7 @@ def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: i
             f"[M4.8] index ({i},{j}) out of range for matrix '{mat_name}' of shape ({m},{n})"
         )
 
-    block = dist.gm_block
+    block = deepcopy(dist.gm_block)  # mutate copy: we add a cross-cov entry per k
     n_comp = block.n_comp()
 
     # Determine layout: new scalar var or overwrite existing
@@ -499,6 +507,14 @@ def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: i
         U_k, V_k = block.get_cov(k, mat_name, mat_name)
         mu_y_k = float(M_k[i, j])
         var_y_k = float(U_k[i, i] * V_k[j, j])
+
+        # A1: compute exact cross-covariance Cov(y, vec(X)) = V[:,j] ⊗ U[:,i].
+        # np.kron of two 1D arrays (length n, length m) returns a 1D array of
+        # length mn equal to the column-major vec of the outer product
+        # outer(U[:,i], V[:,j]).flatten('F') — matching the V⊗U column-major
+        # convention stored elsewhere in cov_blocks.
+        cross_y_X = np.kron(V_k[:, j], U_k[:, i])  # shape (mn,)
+        block.cov_blocks[k][frozenset({lhs, mat_name})] = cross_y_X
 
         # Existing scalar mean/cov for this mixture weight
         if dist.gm.n_comp() > k:
@@ -522,9 +538,31 @@ def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: i
             new_sigma_k[:, y_idx] = 0.0
             new_sigma_k[y_idx, y_idx] = var_y_k
 
+        # A1: Cov(y, z) for every prior scalar z that has a stored cross-cov to X.
+        # Uses the mixed-product identity: (V[:,j] ⊗ U[:,i])^T · cov_z_vecX
+        # is a scalar dot product over the mn-vector cov_z_vecX.
+        for z_idx_scan, z_name in enumerate(dist.var_list):
+            if z_name == lhs:
+                continue  # skip self (handled by var_y_k diagonal)
+            key_zX = frozenset({z_name, mat_name})
+            if key_zX in block.cov_blocks[k]:
+                cov_z_vecX = block.cov_blocks[k][key_zX]
+                # Robustness: support either (mn,) flat or a factored (u,v) pair
+                if isinstance(cov_z_vecX, tuple) and len(cov_z_vecX) == 2:
+                    u_z, v_z = cov_z_vecX
+                    cov_yz = float(np.dot(U_k[:, i], u_z) * np.dot(V_k[:, j], v_z))
+                else:
+                    cov_yz = float(np.dot(cross_y_X, np.asarray(cov_z_vecX)))
+                if abs(cov_yz) > 0:
+                    new_sigma_k[y_idx, z_idx_scan] = cov_yz
+                    new_sigma_k[z_idx_scan, y_idx] = cov_yz
+
         new_pi.append(float(block.pi[k]) if k < len(block.pi) else 1.0)
         new_mu.append(new_mu_k)
         new_sigma.append(new_sigma_k)
+
+    # Keep block.var_list in sync (it's the scalar var list reflected in gm)
+    block.var_list = list(new_var_list)
 
     new_gm = GaussianMix(new_pi, new_mu, new_sigma)
     return Dist(new_var_list, new_gm, var_entries=dist.var_entries, gm_block=block)

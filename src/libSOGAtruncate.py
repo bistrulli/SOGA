@@ -691,6 +691,61 @@ def truncate_matrix(dist, trunc, data, mat_var):
     return _trm(dist, trunc, data, mat_var)
 
 
+def _backprop_scalar_truncate_to_matrices(prior_dist, new_dist):
+    """A2 (research-note 04): after a scalar truncate updates dist.gm, propagate
+    the change in scalar means back to any matrix variables via the stored
+    scalar↔matrix cross-covariance.
+
+    Only the MEAN of each matrix var (block.mu_blocks[k][mat_name]) is updated.
+    The matrix's (U, V) Kronecker factors are NOT touched here — that would
+    break the Kronecker structure (research-note 04 Finding B1).  Covariance
+    back-prop requires densification (M4.8 Opt-2 / plan §M5.2 DENSE strategy).
+
+    Only applied when prior and posterior have a 1:1 component mapping (i.e.,
+    no truncate-driven component split or drop).  In other cases the back-prop
+    is skipped silently; a future iteration can handle split components by
+    duplicating cov_blocks entries per sub-component.
+
+    Kalman gain per component k, per scalar z that has cross-cov to matrix X:
+        Δmu_X = reshape(cov_zX[k], (m, n), 'F') · (mu_z_post - mu_z_prior) / var_z_prior
+
+    where cov_zX[k] is the stored (mn,) ndarray in V⊗U column-major order.
+    """
+    block = new_dist.gm_block
+    if block is None or not new_dist.var_entries:
+        return  # no matrix state to back-prop into
+    if new_dist.gm.n_comp() != prior_dist.gm.n_comp():
+        return  # 1:1 component mapping broken (split/drop) — skip in v1
+
+    n_comp = new_dist.gm.n_comp()
+    var_list = prior_dist.var_list
+    for k in range(n_comp):
+        mu_prior = np.asarray(prior_dist.gm.mu[k], dtype=float)
+        sigma_prior = np.asarray(prior_dist.gm.sigma[k], dtype=float)
+        mu_post = np.asarray(new_dist.gm.mu[k], dtype=float)
+        for z_idx, z_name in enumerate(var_list):
+            var_z = float(sigma_prior[z_idx, z_idx]) if z_idx < sigma_prior.shape[0] else 0.0
+            if var_z <= 0:
+                continue
+            delta_z = float(mu_post[z_idx] - mu_prior[z_idx])
+            if abs(delta_z) <= 0:
+                continue
+            gain = delta_z / var_z
+            for ve in new_dist.var_entries:
+                key = frozenset({z_name, ve.name})
+                if key in block.cov_blocks[k]:
+                    cov_z_vecX = block.cov_blocks[k][key]
+                    m, n = ve.shape
+                    if isinstance(cov_z_vecX, tuple) and len(cov_z_vecX) == 2:
+                        u_z, v_z = cov_z_vecX
+                        delta_M = np.outer(u_z, v_z) * gain
+                    else:
+                        delta_M = np.asarray(cov_z_vecX, dtype=float).reshape(
+                            (m, n), order='F'
+                        ) * gain
+                    block.mu_blocks[k][ve.name] = block.mu_blocks[k][ve.name] + delta_M
+
+
 def truncate(dist, trunc, data):
     """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution.
 
@@ -698,6 +753,11 @@ def truncate(dist, trunc, data):
     dist.var_entries, dispatch to truncate_matrix (M5 stub for now).  The guard
     is a simple string-contains check against each matrix variable name.
     The existing scalar path is unchanged (zero overhead for scalar programs).
+
+    A2 back-prop (research-note 04): after the scalar path completes, any change
+    in scalar mean is propagated back to matrix-variable means via the stored
+    cross-covariance.  Covariance back-prop deferred (would densify Kronecker
+    factors; tracked as Opt-2 in research-note 04).
     """
     if trunc == 'true':
         return 1., dist
@@ -751,6 +811,14 @@ def truncate(dist, trunc, data):
         new_dist.gm.pi = [0.]
         new_dist.gm.mu = [dist.gm.mu[0]]
         new_dist.gm.sigma = [dist.gm.sigma[0]]
+
+    # A2 back-prop: propagate scalar mean change to matrix var means via cross-cov.
+    # Deep-copy gm_block so we don't mutate the caller's state.
+    if new_dist.gm_block is not None and new_dist.var_entries:
+        from copy import deepcopy as _deepcopy
+        new_dist.gm_block = _deepcopy(new_dist.gm_block)
+        _backprop_scalar_truncate_to_matrices(dist, new_dist)
+
     return norm_factor, new_dist
 
 # parallel implementation

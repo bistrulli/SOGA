@@ -31,8 +31,15 @@ RNG = np.random.default_rng(42)
 # ---------------------------------------------------------------------------
 
 def _analytical_cov_delta(M_X, U_X, V_X, M_Y, U_Y, V_Y):
-    """Exact delta-method covariance (sum of 2 Kronecker products)."""
-    A = M_Y.T @ V_X @ M_Y
+    """EXACT 2nd-moment Isserlis covariance (post fix3.2 upgrade).
+
+    Cov(vec(Z)) = tr(V_X·U_Y)·(V_Y⊗U_X) + (M_Y^T V_X M_Y)⊗U_X + V_Y⊗(M_X U_Y M_X^T)
+
+    Grouped: [tr(V_X U_Y)·V_Y + M_Y^T V_X M_Y] ⊗ U_X + V_Y ⊗ (M_X U_Y M_X^T)
+    (Function name preserved for backward compat; the formula is now exact, not delta.)
+    """
+    trace_VxUy = float(np.trace(V_X @ U_Y))
+    A = trace_VxUy * V_Y + M_Y.T @ V_X @ M_Y
     B = U_X
     C = V_Y
     D = M_X @ U_Y @ M_X.T

@@ -332,36 +332,48 @@ distribution of `Z` is NOT Gaussian; SOGA approximates via:
 2. Van Loan-Pitsianis nearest-Kronecker projection (NKP) to restore
    Kronecker structure.
 
-**Closed-form formula**
+**Closed-form formula (EXACT 2nd-moment Isserlis matriciale, fix3.2 upgrade 2026-05-24)**
 ```
-E[Z] = M_X @ M_Y                               (exact)
-Cov(vec(Z)) ≈ kron(M_Y.T @ V_X @ M_Y, U_X)
-            + kron(V_Y, M_X @ U_Y @ M_X.T)     (delta-method)
-(U_Z, V_Z) = nearest_kronecker(Cov(vec(Z)), m, n)   (NKP rank-1)
+E[Z] = M_X @ M_Y                                          (exact)
+Cov(vec(Z)) = tr(V_X · U_Y) · (V_Y ⊗ U_X)                 [Isserlis trace term]
+            + (M_Y^T V_X M_Y) ⊗ U_X                       [delta-method term 1]
+            + V_Y ⊗ (M_X U_Y M_X^T)                       [delta-method term 2]
+            (= EXACT for the second moment; no Taylor approximation)
+(U_Z, V_Z) = nearest_kronecker(Cov(vec(Z)), m, n)         [only approx: NKP rank-1]
 ```
 
-Approximation error: `||Cov - kron(V_Z, U_Z)||_F / ||Cov||_F`.
+The Isserlis trace term `tr(V_X · U_Y) · (V_Y ⊗ U_X)` was MISSING from the
+original delta-method linearisation (research note 05 §Q2c).  Its inclusion
+captures the cov × cov interaction that delta-method drops as 2nd-order.
+The fix3.2 derivation is the matrix-variate extension of the scalar Isserlis
+formula `E[(xy)²] = σ_xy² + 2σ_xy·μ_x·μ_y + var_x·var_y + var_x·μ_y² + var_y·μ_x²`
+that has always been used in scalar SOGA for `z = x*y`.
+
+**Sole remaining approximation**: NKP rank-1 projection from the sum of two
+(post-grouping) Kronecker products to a single V_Z ⊗ U_Z.  Approximation
+error: `||Cov - kron(V_Z, U_Z)||_F / ||Cov||_F`.
 
 **Approximation flags**: `MatmulApproxWarning` when `s_2 / s_1 > 5%` in the
 NKP SVD (indicates significant non-Kronecker term discarded).
 
 ### Empirical accuracy (MC validation, 20k samples, 2026-05-24)
 
-Validated against Monte Carlo ground truth on four regimes covering the
-practical accuracy envelope of the delta+NKP approximation.  Each cell
-is the Frobenius-norm relative error `||Soga - MC||_F / ||MC||_F`.
+Validated against Monte Carlo ground truth on four regimes.  Each cell is
+the Frobenius-norm relative error `||Soga - MC||_F / ||MC||_F`.
 
-| Regime                        | E[Z] rel err | Cov(vec Z) rel err | Verdict |
-|-------------------------------|--------------|--------------------|---------|
-| R1 small cov (σ²=0.01), M=I   | 2e-4         | ≈ 0 (denominator ~0) | ✓ |
-| R2 moderate cov, non-triv M   | 4e-4         | 0.09               | ✓ |
-| R3 BALANCED (σ²=0.5, M=I)     | 0.007        | **0.20**           | ⚠ worst case |
-| R4 3x3 small cov              | 8e-4         | ≈ 0                | ✓ |
+| Regime                        | E[Z] rel err | Pre-Isserlis Cov | Post-Isserlis Cov | Improvement |
+|-------------------------------|--------------|------------------|-------------------|-------------|
+| R1 small cov (σ²=0.01), M=I   | 2e-4         | ≈ 0              | ≈ 0               | unchanged   |
+| R2 moderate cov, non-triv M   | 4e-4         | 0.091            | 0.091             | unchanged   |
+| R3 BALANCED (σ²=0.5, M=I)     | 0.007        | **0.197**        | **0.013**         | **15× ✓**   |
+| R4 3x3 small cov              | 8e-4         | ≈ 0              | ≈ 0               | unchanged   |
 
-The mean `E[Z] = M_X @ M_Y` is exact in all regimes (only sampling noise).
-The covariance approximation degrades when both Kronecker components in
-the delta-method sum have comparable magnitude (regime R3: identical X,Y
-priors with σ² = 0.5 produces ~20 % relative error on `Cov(vec(Z))`).
+The R3 "balanced" regime (M_X = M_Y = I and σ²_X = σ²_Y = 0.5) — where
+delta-method previously had ~20% relative error on `Cov(vec(Z))` — is now
+exact (1.3% residual is MC sampling noise + NKP rank-1 floor).  Other regimes
+were already accurate via delta-method; the Isserlis correction term
+`tr(V_X · U_Y) · V_Y` becomes negligible relative to `M_Y^T V_X M_Y` whenever
+M_Y is large (small-covariance regime).
 
 ### Practical guidance for users
 

@@ -345,8 +345,47 @@ Approximation error: `||Cov - kron(V_Z, U_Z)||_F / ||Cov||_F`.
 **Approximation flags**: `MatmulApproxWarning` when `s_2 / s_1 > 5%` in the
 NKP SVD (indicates significant non-Kronecker term discarded).
 
+### Empirical accuracy (MC validation, 20k samples, 2026-05-24)
+
+Validated against Monte Carlo ground truth on four regimes covering the
+practical accuracy envelope of the delta+NKP approximation.  Each cell
+is the Frobenius-norm relative error `||Soga - MC||_F / ||MC||_F`.
+
+| Regime                        | E[Z] rel err | Cov(vec Z) rel err | Verdict |
+|-------------------------------|--------------|--------------------|---------|
+| R1 small cov (σ²=0.01), M=I   | 2e-4         | ≈ 0 (denominator ~0) | ✓ |
+| R2 moderate cov, non-triv M   | 4e-4         | 0.09               | ✓ |
+| R3 BALANCED (σ²=0.5, M=I)     | 0.007        | **0.20**           | ⚠ worst case |
+| R4 3x3 small cov              | 8e-4         | ≈ 0                | ✓ |
+
+The mean `E[Z] = M_X @ M_Y` is exact in all regimes (only sampling noise).
+The covariance approximation degrades when both Kronecker components in
+the delta-method sum have comparable magnitude (regime R3: identical X,Y
+priors with σ² = 0.5 produces ~20 % relative error on `Cov(vec(Z))`).
+
+### Practical guidance for users
+
+- **Recommended regime** (E[Z] and Cov accurate to <5 %): at least one
+  of the operands has small covariance relative to its mean magnitude
+  (concentrated prior).  This includes the typical Lishan-class case
+  where X is a parameter prior and Y is data/kernel.
+- **Caveat regime** (R3-like): both X and Y are diffuse random matrices
+  with comparable variance scales.  In this case the post-multiply
+  covariance carries ~20 % relative error.  The `MatmulApproxWarning`
+  fires (s_2/s_1 > 5 %) — users should treat it as a flag to either
+  (a) accept the approximation, (b) re-formulate the computation, or
+  (c) use Monte Carlo for the affected step.
+- **Hard limit**: the delta-method linearisation is a first-order Taylor
+  expansion around the means.  It is *not* well-defined when either
+  operand has zero mean (the linearisation becomes degenerate).  For
+  the `M_X = 0` or `M_Y = 0` corner, the exact distribution of vec(Z)
+  is the matrix-product chi-squared family (Bishop & Del Moral 2017,
+  arXiv:1703.00353) — no current PPL handles this symbolically.
+
 **Source**: `libMatrixUpdate.py`, `matmul_random_random_component`;
 `libMatrixGaussian.py`, `_nearest_kronecker`.
+**Validation**: `tests/test_random_matmul.py` + MC suite in
+`docs/research-notes/05-matrix-gm-merge-and-random-matmul.md` §Problem 2.
 
 ---
 

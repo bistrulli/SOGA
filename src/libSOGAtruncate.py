@@ -680,35 +680,15 @@ def _truncate_vectorized(dist, trunc_rule):
 
 
 def truncate_matrix(dist, trunc, data, mat_var):
-    """Stub dispatcher for matrix-variable truncation (observe/condition).
+    """M5: Full dispatcher for matrix-variable truncation (observe/condition).
 
-    Invoked by truncate() when the truncation expression references a matrix
-    variable from dist.var_entries.  Full implementation is in M5.  For now
-    this stub raises NotImplementedError with a clear milestone reference.
+    Delegates to libMatrixTruncate.truncate_matrix which implements:
+      ELEMENT_INEQ (X[i,j] op c), ROW_SUM_INEQ, COL_SUM_INEQ.
 
-    Parameters
-    ----------
-    dist : Dist
-        Current joint distribution with non-empty var_entries / gm_block.
-    trunc : str
-        Raw truncation expression string from the SOGA parser.
-    data : dict
-        Program data dictionary from CFG.
-    mat_var : str
-        Name of the matrix variable referenced in trunc.
-
-    Raises
-    ------
-    NotImplementedError
-        Always, until M5 implements the individual constraint handlers.
+    See libMatrixTruncate.py for full docstring and plan §M5.
     """
-    raise NotImplementedError(
-        f"[M5-stub] Matrix truncation not yet implemented for variable '{mat_var}': "
-        f"expression='{trunc}'. "
-        "Full implementation is in milestone M5 "
-        "(truncate_matrix_element_ineq / row_sum / col_sum). "
-        "See plan/2026-05-22-matrix-gm-lishan.md §M5."
-    )
+    from libMatrixTruncate import truncate_matrix as _trm
+    return _trm(dist, trunc, data, mat_var)
 
 
 def truncate(dist, trunc, data):

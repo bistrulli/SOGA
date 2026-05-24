@@ -26,7 +26,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from libSOGAshared import Dist, VarEntry
+from libSOGAshared import Dist, VarEntry, GaussianMix
 from libSOGAsharedMatrix import GaussianMixBlock, _enforce_psd_kron_factors
 from libMatrixGaussian import _nearest_kronecker
 
@@ -436,3 +436,95 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
         raise NotImplementedError(f"[M4] Unknown op '{op}' for '{expr}'.")
 
     return Dist(dist.var_list, dist.gm, var_entries=dist.var_entries, gm_block=block)
+
+
+# ---------------------------------------------------------------------------
+# M4.8: scalar = matrix[i, j] — extract scalar from matrix variable
+# ---------------------------------------------------------------------------
+
+def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: int) -> Dist:
+    """Implements y = X[i, j] where X is a matrix variable and y is a scalar.
+
+    Marginal moments of y per component k:
+      mu_y(k)  = M_k[i, j]
+      var_y(k) = U_k[i, i] * V_k[j, j]
+
+    The new scalar y is appended (or overwritten) in the scalar gm.  Cross-cov
+    between y and the existing scalar variables, and between y and the matrix
+    X itself, is set to 0 in this v1 simplification (plan M4.8).  The matrix
+    variable's gm_block storage is preserved unchanged.
+
+    Raises
+    ------
+    RuntimeError
+        if mat_name is not in dist.var_entries or dist.gm_block is None.
+    IndexError
+        if (i, j) is outside the declared shape of mat_name.
+    """
+    if dist.gm_block is None:
+        raise RuntimeError(
+            f"[M4.8] extract_scalar_from_matrix({mat_name}[{i},{j}]) called but "
+            "dist.gm_block is None.  Initialise the matrix variable with matrix_gm(...)."
+        )
+    ve = next((v for v in dist.var_entries if v.name == mat_name), None)
+    if ve is None:
+        raise RuntimeError(
+            f"[M4.8] '{mat_name}' is not a matrix variable in dist.var_entries"
+        )
+    m, n = ve.shape
+    if not (0 <= i < m and 0 <= j < n):
+        raise IndexError(
+            f"[M4.8] index ({i},{j}) out of range for matrix '{mat_name}' of shape ({m},{n})"
+        )
+
+    block = dist.gm_block
+    n_comp = block.n_comp()
+
+    # Determine layout: new scalar var or overwrite existing
+    if lhs in dist.var_list:
+        y_idx = dist.var_list.index(lhs)
+        new_var_list = list(dist.var_list)
+        is_new = False
+    else:
+        new_var_list = list(dist.var_list) + [lhs]
+        y_idx = len(new_var_list) - 1
+        is_new = True
+    d_new = len(new_var_list)
+
+    new_pi = []
+    new_mu = []
+    new_sigma = []
+    for k in range(n_comp):
+        M_k = block.get_mu(k, mat_name)
+        U_k, V_k = block.get_cov(k, mat_name, mat_name)
+        mu_y_k = float(M_k[i, j])
+        var_y_k = float(U_k[i, i] * V_k[j, j])
+
+        # Existing scalar mean/cov for this mixture weight
+        if dist.gm.n_comp() > k:
+            old_mu_k = np.asarray(dist.gm.mu[k], dtype=float)
+            old_sigma_k = np.asarray(dist.gm.sigma[k], dtype=float)
+        else:
+            # Should not happen: gm_block and gm components are kept in sync
+            old_mu_k = np.zeros(d_new - (0 if is_new else 1))
+            old_sigma_k = np.zeros((len(old_mu_k), len(old_mu_k)))
+
+        if is_new:
+            new_mu_k = np.concatenate([old_mu_k, [mu_y_k]])
+            new_sigma_k = np.zeros((d_new, d_new))
+            new_sigma_k[: len(old_mu_k), : len(old_mu_k)] = old_sigma_k
+            new_sigma_k[y_idx, y_idx] = var_y_k
+        else:
+            new_mu_k = old_mu_k.copy()
+            new_mu_k[y_idx] = mu_y_k
+            new_sigma_k = old_sigma_k.copy()
+            new_sigma_k[y_idx, :] = 0.0
+            new_sigma_k[:, y_idx] = 0.0
+            new_sigma_k[y_idx, y_idx] = var_y_k
+
+        new_pi.append(float(block.pi[k]) if k < len(block.pi) else 1.0)
+        new_mu.append(new_mu_k)
+        new_sigma.append(new_sigma_k)
+
+    new_gm = GaussianMix(new_pi, new_mu, new_sigma)
+    return Dist(new_var_list, new_gm, var_entries=dist.var_entries, gm_block=block)

@@ -233,6 +233,33 @@ class SOGAListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SOGAParser#transp_call.
+    def enterTransp_call(self, ctx:SOGAParser.Transp_callContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#transp_call.
+    def exitTransp_call(self, ctx:SOGAParser.Transp_callContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#row_sum_expr.
+    def enterRow_sum_expr(self, ctx:SOGAParser.Row_sum_exprContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#row_sum_expr.
+    def exitRow_sum_expr(self, ctx:SOGAParser.Row_sum_exprContext):
+        pass
+
+
+    # Enter a parse tree produced by SOGAParser#col_sum_expr.
+    def enterCol_sum_expr(self, ctx:SOGAParser.Col_sum_exprContext):
+        pass
+
+    # Exit a parse tree produced by SOGAParser#col_sum_expr.
+    def exitCol_sum_expr(self, ctx:SOGAParser.Col_sum_exprContext):
+        pass
+
+
     # Enter a parse tree produced by SOGAParser#idd.
     def enterIdd(self, ctx:SOGAParser.IddContext):
         pass

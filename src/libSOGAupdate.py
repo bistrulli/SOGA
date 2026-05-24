@@ -223,6 +223,21 @@ def update_rule(dist, expr, data):
         if any(ve.name == lhs_name for ve in dist.var_entries):
             return update_rule_matrix(dist, expr, data)
 
+        # M4.8 hybrid routing: scalar LHS, RHS = X[i,j] where X is matrix var.
+        # The scalar listener (AsgmtRule) does not handle 2-arg idd in vars, so we
+        # detect this case before falling through to the scalar path and dispatch
+        # to libMatrixUpdate.extract_scalar_from_matrix.
+        import re as _re
+        body = expr.split('=', 1)[1].strip()
+        _m = _re.match(r'^([A-Za-z]\w*)\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]$', body)
+        if _m is not None:
+            mat_name = _m.group(1)
+            if any(ve.name == mat_name for ve in dist.var_entries):
+                from libMatrixUpdate import extract_scalar_from_matrix
+                return extract_scalar_from_matrix(
+                    dist, lhs_name, mat_name, int(_m.group(2)), int(_m.group(3))
+                )
+
     # Scalar path (unchanged)
     rule_func = asgmt_parse(dist.var_list, expr, data)    # define function
     new_pi = []

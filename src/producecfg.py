@@ -191,8 +191,18 @@ class CFG(SOGAListener):
         self._subroot = []
         
     def enterData(self, ctx):
+        """F1: data accepts flat list (1D) or mlist (2D matrix literal).
+        Grammar: data : 'data' symvars '=' (list | mlist);
+        Uses ast.literal_eval (safe) instead of eval (arbitrary-code).
+        """
+        import ast as _ast
         data_name = ctx.symvars().getText()
-        data_value = eval(ctx.list_().getText())
+        if ctx.list_() is not None:
+            data_value = _ast.literal_eval(ctx.list_().getText())
+        elif ctx.mlist() is not None:
+            data_value = _ast.literal_eval(ctx.mlist().getText())
+        else:
+            raise ValueError(f"[CFG] data {data_name!r} has neither list nor mlist RHS")
         self.data[data_name] = data_value
         
     def enterArray(self, ctx):

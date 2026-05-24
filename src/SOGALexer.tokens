@@ -30,13 +30,17 @@ T__28=29
 T__29=30
 T__30=31
 T__31=32
-MATRIX=33
-MATRIX_GM=34
-IDV=35
-NUM=36
-COMM=37
-WS=38
-DIGIT=39
+T__32=33
+MATRIX=34
+MATRIX_GM=35
+TRANSP=36
+ROW_SUM=37
+COL_SUM=38
+IDV=39
+NUM=40
+COMM=41
+WS=42
+DIGIT=43
 ';'=1
 'data'=2
 '='=3
@@ -50,24 +54,28 @@ DIGIT=39
 '+'=11
 '-'=12
 '*'=13
-'end if'=14
-'if'=15
-'{'=16
-'}'=17
-'else'=18
-'<'=19
-'<='=20
-'>='=21
-'>'=22
-'=='=23
-'!='=24
-'prune('=25
-'observe('=26
-'for'=27
-'in range('=28
-'end for'=29
-'^2'=30
-'gm('=31
-'uniform('=32
-'matrix'=33
-'matrix_gm'=34
+'@'=14
+'end if'=15
+'if'=16
+'{'=17
+'}'=18
+'else'=19
+'<'=20
+'<='=21
+'>='=22
+'>'=23
+'=='=24
+'!='=25
+'prune('=26
+'observe('=27
+'for'=28
+'in range('=29
+'end for'=30
+'^2'=31
+'gm('=32
+'uniform('=33
+'matrix'=34
+'matrix_gm'=35
+'transp'=36
+'row_sum'=37
+'col_sum'=38

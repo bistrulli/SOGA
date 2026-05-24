@@ -134,6 +134,21 @@ class SOGAVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by SOGAParser#transp_call.
+    def visitTransp_call(self, ctx:SOGAParser.Transp_callContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#row_sum_expr.
+    def visitRow_sum_expr(self, ctx:SOGAParser.Row_sum_exprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SOGAParser#col_sum_expr.
+    def visitCol_sum_expr(self, ctx:SOGAParser.Col_sum_exprContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by SOGAParser#idd.
     def visitIdd(self, ctx:SOGAParser.IddContext):
         return self.visitChildren(ctx)

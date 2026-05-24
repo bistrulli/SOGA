@@ -92,6 +92,31 @@ def printOutput(output_dist,preprocTime,cfgTime,sogaTime,args):
 				i = output_dist.var_list.index(var)
 				print('E['+var+']:', round(output_dist.gm.mean()[i],5))
 				var_idx.append(i)
+
+		# F5: also print matrix-variable moments (E[X] and Var[X]) for any
+		# matrix variables tracked in dist.var_entries.  Uses the Dist
+		# matrix-output API added in M3.8 (matrix_mean / matrix_var).
+		if getattr(output_dist, 'var_entries', None):
+			matrix_entries = [ve for ve in output_dist.var_entries if ve.kind == 'matrix']
+			if matrix_entries:
+				selected = set(args.vars) if args.vars else None
+				for ve in matrix_entries:
+					if selected is not None and ve.name not in selected:
+						continue
+					try:
+						M = output_dist.matrix_mean(ve.name)
+						print('E[' + ve.name + ']:')
+						print(np.around(M, 5))
+						if args.covariance:
+							m_dim, n_dim = ve.shape
+							V = np.zeros((m_dim, n_dim))
+							for i in range(m_dim):
+								for j in range(n_dim):
+									V[i, j] = output_dist.matrix_var(ve.name, i, j)
+							print('Var[' + ve.name + '] (per-element):')
+							print(np.around(V, 5))
+					except Exception as _e:
+						print('E[' + ve.name + ']: <unavailable: ' + type(_e).__name__ + '>')
 		print('\n')
 
 		if args.covariance:

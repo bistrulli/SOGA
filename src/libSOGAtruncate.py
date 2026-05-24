@@ -679,55 +679,99 @@ def _truncate_vectorized(dist, trunc_rule):
     return _ineq_truncate_vectorized_impl(dist, trunc_rule)
 
 
+def truncate_matrix(dist, trunc, data, mat_var):
+    """Stub dispatcher for matrix-variable truncation (observe/condition).
+
+    Invoked by truncate() when the truncation expression references a matrix
+    variable from dist.var_entries.  Full implementation is in M5.  For now
+    this stub raises NotImplementedError with a clear milestone reference.
+
+    Parameters
+    ----------
+    dist : Dist
+        Current joint distribution with non-empty var_entries / gm_block.
+    trunc : str
+        Raw truncation expression string from the SOGA parser.
+    data : dict
+        Program data dictionary from CFG.
+    mat_var : str
+        Name of the matrix variable referenced in trunc.
+
+    Raises
+    ------
+    NotImplementedError
+        Always, until M5 implements the individual constraint handlers.
+    """
+    raise NotImplementedError(
+        f"[M5-stub] Matrix truncation not yet implemented for variable '{mat_var}': "
+        f"expression='{trunc}'. "
+        "Full implementation is in milestone M5 "
+        "(truncate_matrix_element_ineq / row_sum / col_sum). "
+        "See plan/2026-05-22-matrix-gm-lishan.md §M5."
+    )
+
+
 def truncate(dist, trunc, data):
-    """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution. """
+    """ Given a distribution dist computes its truncation to trunc. Returns a pair norm_factor, new_dist where norm_factor is the probability mass of the original distribution dist on trunc and new_dist is a Dist object representing the (approximated) truncated distribution.
+
+    M2.5 routing guard: if any token in trunc matches a matrix variable name from
+    dist.var_entries, dispatch to truncate_matrix (M5 stub for now).  The guard
+    is a simple string-contains check against each matrix variable name.
+    The existing scalar path is unchanged (zero overhead for scalar programs).
+    """
     if trunc == 'true':
         return 1., dist
     elif trunc == 'false':
         return 0., dist
+
+    # M2.5: routing guard — check if trunc references any matrix variable
+    if dist.var_entries:
+        for ve in dist.var_entries:
+            if ve.name in trunc:
+                return truncate_matrix(dist, trunc, data, ve.name)
+
+    # Scalar path (unchanged) — reached when no matrix variable is referenced in trunc
+    trunc_rule = trunc_parse(dist.var_list, trunc, data)
+    if USE_VECTORIZE_TRUNCATE:
+        return _truncate_vectorized(dist, trunc_rule)
+    trunc_func = trunc_rule.func
+    trunc_type = trunc_rule.type
+    trunc_idx = np.where(np.array(trunc_rule.coeff) != 0)[0][0]
+    hard = []
+    new_dist = Dist(dist.var_list, GaussianMix([],[],[]),
+                    var_entries=dist.var_entries, gm_block=dist.gm_block)
+    new_pi = []
+    trans_comp = []
+    for k in range(dist.gm.n_comp()):
+        comp = Dist(dist.var_list, dist.gm.comp(k))
+        trans_comp.append(trunc_func(comp))
+    for k in range(dist.gm.n_comp()):
+        if trunc_type == '==' and dist.gm.sigma[k][trunc_idx,trunc_idx] < delta_tol and sum(trans_comp[k].pi) > 0:
+            hard.append(k)
+    if len(hard) == 0:
+        for k in range(dist.gm.n_comp()):
+            new_mix = trans_comp[k]
+            for h in range(new_mix.n_comp()):
+                if new_mix.pi[h] > prob_tol:
+                    new_dist.gm.mu.append(new_mix.mu[h])
+                    new_dist.gm.sigma.append(new_mix.sigma[h])
+                    new_pi.append(dist.gm.pi[k]*new_mix.pi[h])
     else:
-        trunc_rule = trunc_parse(dist.var_list, trunc, data)
-        if USE_VECTORIZE_TRUNCATE:
-            return _truncate_vectorized(dist, trunc_rule)
-        trunc_func = trunc_rule.func
-        trunc_type = trunc_rule.type
-        trunc_idx = np.where(np.array(trunc_rule.coeff) != 0)[0][0]
-        hard = []
-        new_dist = Dist(dist.var_list, GaussianMix([],[],[]))
-        new_pi = [] 
-        trans_comp = []
-        for k in range(dist.gm.n_comp()):
-            comp = Dist(dist.var_list, dist.gm.comp(k))  
-            trans_comp.append(trunc_func(comp))
-        for k in range(dist.gm.n_comp()):
-            if trunc_type == '==' and dist.gm.sigma[k][trunc_idx,trunc_idx] < delta_tol and sum(trans_comp[k].pi) > 0:
-                hard.append(k)
-        if len(hard) == 0:
-            for k in range(dist.gm.n_comp()):
-                new_mix = trans_comp[k]
-                for h in range(new_mix.n_comp()):
-                    if new_mix.pi[h] > prob_tol:
-                        new_dist.gm.mu.append(new_mix.mu[h])
-                        new_dist.gm.sigma.append(new_mix.sigma[h])
-                        new_pi.append(dist.gm.pi[k]*new_mix.pi[h])
-        else:
-            for k in hard:
-                new_mix = trans_comp[k]
-                for h in range(new_mix.n_comp()):
-                    if new_mix.pi[h] > prob_tol:
-                        new_dist.gm.mu.append(new_mix.mu[h])
-                        new_dist.gm.sigma.append(new_mix.sigma[h])
-                        new_pi.append(dist.gm.pi[k]*new_mix.pi[h])
-        norm_factor = sum(np.array(new_pi))
-        if norm_factor > prob_tol:
-            new_dist.gm.pi = list(np.array(new_pi)/norm_factor)
-        else:
-            new_dist.gm.pi = [0.]
-            new_dist.gm.mu = [dist.gm.mu[0]]
-            new_dist.gm.sigma = [dist.gm.sigma[0]]
-        return norm_factor, new_dist
-        #if norm_factor < prob_tol:
-        #    return 0, dist
+        for k in hard:
+            new_mix = trans_comp[k]
+            for h in range(new_mix.n_comp()):
+                if new_mix.pi[h] > prob_tol:
+                    new_dist.gm.mu.append(new_mix.mu[h])
+                    new_dist.gm.sigma.append(new_mix.sigma[h])
+                    new_pi.append(dist.gm.pi[k]*new_mix.pi[h])
+    norm_factor = sum(np.array(new_pi))
+    if norm_factor > prob_tol:
+        new_dist.gm.pi = list(np.array(new_pi)/norm_factor)
+    else:
+        new_dist.gm.pi = [0.]
+        new_dist.gm.mu = [dist.gm.mu[0]]
+        new_dist.gm.sigma = [dist.gm.sigma[0]]
+    return norm_factor, new_dist
 
 # parallel implementation
 def parallel_truncate(dist, trunc, data,nproc):

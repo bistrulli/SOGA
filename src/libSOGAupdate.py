@@ -184,23 +184,69 @@ def asgmt_parse(var_list, expr, data):
     return asgmt_rule.func
         
         
+def update_rule_matrix(dist, expr, data):
+    """Stub dispatcher for matrix-variable assignments.
+
+    Invoked by update_rule when the LHS of an assignment is a matrix variable
+    tracked in dist.var_entries.  Full implementation is in M4.  For now this
+    stub raises NotImplementedError with a clear milestone reference so that
+    any early invocation produces a diagnosable error rather than a silent
+    wrong-path crash.
+
+    Parameters
+    ----------
+    dist : Dist
+        Current joint distribution (must have non-empty var_entries).
+    expr : str
+        Raw assignment expression string, e.g. 'C=A_kernel@X_input+N_fault'.
+    data : dict
+        Program data dictionary from CFG.
+
+    Raises
+    ------
+    NotImplementedError
+        Always, until M4 implements the individual operation handlers.
+    """
+    raise NotImplementedError(
+        f"[M4-stub] Matrix assignment not yet implemented: '{expr}'. "
+        "Full implementation is in milestone M4 (update_rule_matrix dispatcher + "
+        "_matrix_affine_left/_right/_add_random/_scale/_transpose/_index_to_scalar). "
+        "See plan/2026-05-22-matrix-gm-lishan.md §M4."
+    )
+
+
 def update_rule(dist, expr, data):
-    """ Applies expr to dist. It first parses expr using the function asgmt_parse, implemented as an ANTLR listener. asgmt_parse returns a function rule_func, such that, rule_func(GaussianMix) returns a new GaussianMix object obtained applying expr to the initial distribution. rule_func is applied to each component of dist, and the resulting Gaussian mixtures are stored in a single GaussianMix object."""
-    
+    """ Applies expr to dist. It first parses expr using the function asgmt_parse, implemented as an ANTLR listener. asgmt_parse returns a function rule_func, such that, rule_func(GaussianMix) returns a new GaussianMix object obtained applying expr to the initial distribution. rule_func is applied to each component of dist, and the resulting Gaussian mixtures are stored in a single GaussianMix object.
+
+    M2.4 routing guard: if any variable in var_entries (matrix-typed) is the LHS of expr,
+    dispatch to update_rule_matrix (M4 stub for now).  The guard is a cheap string-prefix
+    check against dist.var_entries names — no ANTLR parse needed at this stage.
+    The existing scalar path is unchanged (zero overhead for scalar programs).
+    """
+
     if expr == 'skip':
         return dist
-    else:
-        rule_func = asgmt_parse(dist.var_list, expr, data)    # define function
-        new_pi = []
-        new_mu = []
-        new_sigma = []
-        for k in range(dist.gm.n_comp()):
-            comp = Dist(dist.var_list, dist.gm.comp(k))
-            new_mix = rule_func(comp)
-            new_pi += list(dist.gm.pi[k]*np.array(new_mix.pi))
-            new_mu += new_mix.mu
-            new_sigma += new_mix.sigma
-        return Dist(dist.var_list, GaussianMix(new_pi, new_mu, new_sigma))
+
+    # M2.4: routing guard — check LHS name against matrix var_entries
+    if dist.var_entries:
+        # LHS is the text before '=' in the assignment expression
+        lhs_name = expr.split('=')[0].strip()
+        if any(ve.name == lhs_name for ve in dist.var_entries):
+            return update_rule_matrix(dist, expr, data)
+
+    # Scalar path (unchanged)
+    rule_func = asgmt_parse(dist.var_list, expr, data)    # define function
+    new_pi = []
+    new_mu = []
+    new_sigma = []
+    for k in range(dist.gm.n_comp()):
+        comp = Dist(dist.var_list, dist.gm.comp(k))
+        new_mix = rule_func(comp)
+        new_pi += list(dist.gm.pi[k]*np.array(new_mix.pi))
+        new_mu += new_mix.mu
+        new_sigma += new_mix.sigma
+    return Dist(dist.var_list, GaussianMix(new_pi, new_mu, new_sigma),
+                var_entries=dist.var_entries, gm_block=dist.gm_block)
     
     
 

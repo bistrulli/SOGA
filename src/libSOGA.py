@@ -16,6 +16,35 @@ from libSOGAupdate import *
 from libSOGAmerge import *
 import timing
 
+
+def _assert_no_matrix_in_lbc(lbc: str, var_entries) -> None:
+    """Guard against branching on matrix variables in v1.
+
+    M2.6: Checking branch condition expressions (LBC) for matrix variable names.
+    If any matrix variable name is found in the condition expression, this raises
+    NotImplementedError with a clear informative message.  This prevents the
+    scalar truncate path from silently producing wrong results.
+
+    Parameters
+    ----------
+    lbc : str
+        Branch condition expression string (e.g. 'x>0.5', 'X[0,1]>0').
+    var_entries : list[VarEntry] | None
+        Matrix variable entries from Dist or CFG.  Empty/None means no matrix
+        variables; the guard is skipped entirely (zero overhead).
+    """
+    if not var_entries:
+        return
+    for ve in var_entries:
+        if ve.name in lbc:
+            raise NotImplementedError(
+                f"[M2.6] Branching on matrix variables is not supported in v1. "
+                f"Variable '{ve.name}' (shape {ve.shape}) appears in branch condition: "
+                f"'{lbc}'. "
+                "Matrix-in-branch-condition support is deferred to the matrix-mixture "
+                "milestone (v2). See plan/2026-05-22-matrix-gm-lishan.md §Constraints."
+            )
+
 def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False,sparse_truncate=False,vectorize_truncate=False):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
         If pruning='classic' implements pruning at the merge nodes with maximum number of component Kmax.
@@ -42,7 +71,12 @@ def start_SOGA(cfg, pruning=None, Kmax=None, parallel=None,useR=False,sparse_tru
     var_list = cfg.ID_list
     data = cfg.data
     gm = GaussianMix([1.], [np.array([0.]*len(var_list))], [np.zeros((len(var_list),len(var_list)))])
-    init_dist = Dist(var_list, gm)
+
+    # M2.7: propagate var_entries from CFG to the initial Dist so all downstream
+    # nodes (update_rule, truncate, SOGA dispatcher) can see which variables are
+    # matrix-typed.  gm_block stays None here — M3 will initialize the actual
+    # GaussianMixBlock once joint state storage is implemented.
+    init_dist = Dist(var_list, gm, var_entries=list(cfg.var_entries))
     cfg.root.set_dist(init_dist)
     
     # initializes visit queue
@@ -79,6 +113,8 @@ def SOGA(node, data, parallel, exec_queue):
     
     # if tests saves LBC and calls on children
     if node.type == 'test':
+        # M2.6: guard — matrix variables must not appear in branch conditions in v1
+        _assert_no_matrix_in_lbc(node.LBC, current_dist.var_entries)
         current_trunc = node.LBC
         for child in node.children:
             child.set_dist(copy(node.dist))

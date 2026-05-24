@@ -335,11 +335,21 @@ class CFG(SOGAListener):
         self.node_list[node.name] = node
         
     def enterSymvars(self, ctx):
-        """ Symbolic variables names encountered during the parsing are stored in the attribute list ID_list."""
+        """ Symbolic variables names encountered during the parsing are stored in the attribute list ID_list.
+
+        M2.4 fix: matrix variable names (tracked in var_entries) must NOT be appended to ID_list.
+        Before this fix, enterSymvars would add matrix variable names to ID_list, causing
+        libSOGAupdate.AsgmtRule to attempt scalar treatment of matrix assignments and crash.
+        """
         if not ctx.IDV() is None:
             var = ctx.IDV().getText()
-            if var not in self.ID_list and var not in self.data.keys():
-                self.ID_list.append(var)
+            # Skip if already in ID_list or data
+            if var in self.ID_list or var in self.data.keys():
+                return
+            # Skip matrix-typed variables — they live in var_entries, not ID_list
+            if any(ve.name == var for ve in self.var_entries):
+                return
+            self.ID_list.append(var)
                          
         
     def get_leaves(self, node, leaves, checked):

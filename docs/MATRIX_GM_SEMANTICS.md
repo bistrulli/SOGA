@@ -438,6 +438,70 @@ densification.  Cost: `O((mn)^2)` storage vs `O(m^2 + n^2)` for Kronecker.
 
 ---
 
+## 14. Matrix element equality observe (O5)
+
+**DSL syntax**
+```
+observe(X[i,j] == c);
+observe(row_sum(X, i) == c);
+observe(col_sum(X, j) == c);
+```
+
+**Formal semantics**
+Hard Dirac conditioning on a single linear functional of `vec(X)`.  The
+constraint `a^T vec(X) = c` (with `a = e_{j·m+i}` for element, or selector for
+row/col sums) collapses the joint distribution onto the hyperplane.
+
+**Closed-form formula (Schur-complement rank-1 downdate, equivalent to fix4
+element write)**:
+```
+mu_s   = a^T vec(M)
+var_s  = a^T Sigma a
+g      = Sigma a
+M_new  = vec(M) + g · (c - mu_s) / var_s
+S_new  = Sigma - outer(g, g) / var_s
+P      = 1.0   (by convention; the constraint is measure-zero but treated as
+                an exact conditioning, consistent with scalar SOGA `==` semantics)
+```
+
+**Source**: `libMatrixTruncate.py`, `_tnorm1d` dispatches `direction == "=="`
+to (m_hat=c, v_hat=0, P=1) which feeds the existing `_rank1_cond_update`.
+
+## 15. Linear combination of matrix elements observe (O7)
+
+**DSL syntax**
+```
+observe(2*X[0,0] + 3*X[1,1] > 1);
+observe(X[0,0] - X[1,1] >= 0);
+observe(a*X[i,j] + b*X[k,l] + ... op c);   # any number of terms
+```
+
+**Formal semantics**
+General linear functional `s^T vec(X) op c` where `s ∈ R^{mn}` is built
+term-by-term from the coefficients:
+```
+s[j_k · m + i_k] += coef_k       for each (coef_k, i_k, j_k) term
+```
+
+**Closed-form formula** (identical math to element/row/col sum, only the
+selector vector differs):
+```
+mu_s    = s^T vec(M)
+var_s   = s^T Sigma s
+m_hat, v_hat, P = 1D truncated-normal moments(mu_s, var_s, c, op)
+M_new   = vec(M) + (Sigma s) · (m_hat - mu_s) / var_s
+S_new   = Sigma - outer(Sigma s, Sigma s) · (1 - v_hat / var_s) / var_s
+```
+
+**Verification**: for `observe(2 X[0,0] + 3 X[1,1] > 1)` with X ~ MN(0, I, I):
+- Y = 2 X[0,0] + 3 X[1,1] ~ N(0, 13)
+- Truncate Y > 1: λ = pdf(1/√13) / (1 − cdf(1/√13)); E[Y|>1] = √13 · λ
+- E[X[0,0]] post = 2 · E[Y|>1] / 13;  E[X[1,1]] post = 3 · E[Y|>1] / 13
+- Empirical (test_truncate_matrix.py::TestObserveClosure): matches < 1e-4
+
+**Source**: `libMatrixTruncate.py`, `_RE_LINEAR_COMBO` regex +
+`_parse_linear_combo` + `_truncate_matrix_linear_combo` handler.
+
 ## Notation summary
 
 | Symbol | Meaning |

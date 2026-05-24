@@ -73,18 +73,58 @@ class KroneckerProjectWarning(UserWarning):
 #   ROW_SUM_INEQ  : row_sum(X, i)  op  c
 #   COL_SUM_INEQ  : col_sum(X, j)  op  c
 
+# O5: '==' and '!=' added to operator group across all element/aggregate patterns.
 _RE_ELEMENT = re.compile(
-    r'^\s*(\w+)\s*\[\s*(\d+|\w+)\s*,\s*(\d+|\w+)\s*\]\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*(\w+)\s*\[\s*(\d+|\w+)\s*,\s*(\d+|\w+)\s*\]\s*(>=|<=|>|<|==|!=)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_ROW_SUM = re.compile(
-    r'^\s*row_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*row_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<|==|!=)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_COL_SUM = re.compile(
-    r'^\s*col_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*col_sum\s*\(\s*(\w+)\s*,\s*(\d+|\w+)\s*\)\s*(>=|<=|>|<|==|!=)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
 _RE_TRACE = re.compile(
-    r'^\s*trace\s*\(\s*(\w+)\s*\)\s*(>=|<=|>|<)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+    r'^\s*trace\s*\(\s*(\w+)\s*\)\s*(>=|<=|>|<|==|!=)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
 )
+# O7: linear combination of matrix elements (any number of terms with optional
+# coefficients).  Captures the full lexpr text and the rhs constant separately;
+# tokenisation of individual terms is done in _parse_linear_combo (below).
+# Matches:  [+-]? [coef *] X[i,j] (   (+|-) [coef *] X[i,j]   )+   op  c
+_RE_LINEAR_COMBO = re.compile(
+    r'^\s*('
+    r'[+-]?\s*(?:[+-]?\d*\.?\d+(?:[eE][+-]?\d+)?\s*\*\s*)?\w+\s*\[\s*(?:\d+|\w+)\s*,\s*(?:\d+|\w+)\s*\]'
+    r'(?:\s*[+-]\s*(?:[+-]?\d*\.?\d+(?:[eE][+-]?\d+)?\s*\*\s*)?\w+\s*\[\s*(?:\d+|\w+)\s*,\s*(?:\d+|\w+)\s*\])+'
+    r')\s*(>=|<=|>|<|==|!=)\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*$'
+)
+_RE_COMBO_TERM = re.compile(
+    r'(?:^|(?<=[+-]))\s*([+-]?)\s*(?:([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*\*\s*)?(\w+)\s*\[\s*(\d+|\w+)\s*,\s*(\d+|\w+)\s*\]'
+)
+
+
+def _parse_linear_combo(lexpr_text: str, mat_var: str, data):
+    """Parse a linear combination of matrix-element terms into (coef, i, j) list.
+
+    Accepts strings like '2*X[0,0] + 3*X[1,1] - 0.5*X[i,j]' where the only
+    variable referenced is `mat_var`.  Returns list of (coef:float, i:int, j:int).
+
+    Raises ValueError if any term references a different variable name.
+    """
+    terms = []
+    pos = 0
+    text = lexpr_text.strip()
+    for match in _RE_COMBO_TERM.finditer(text):
+        sign, coef_str, var_name, i_s, j_s = match.groups()
+        if var_name != mat_var:
+            raise ValueError(
+                f"[O7] Linear combo references variable '{var_name}' but matrix var is '{mat_var}'"
+            )
+        coef = float(coef_str) if coef_str is not None else 1.0
+        if sign == '-':
+            coef = -coef
+        terms.append((coef, _resolve_index(i_s, data), _resolve_index(j_s, data)))
+    if not terms:
+        raise ValueError(f"[O7] No valid matrix-element terms in linear combo: '{lexpr_text}'")
+    return terms
 
 
 def _resolve_index(tok: str, data: Optional[dict] = None) -> int:
@@ -154,10 +194,20 @@ def _classify_constraint(trunc: str, mat_var: str, data: Optional[dict] = None):
             "'TRACE_INEQ (raise NotImplementedError in v1)'."
         )
 
+    # O7: linear combination of matrix elements
+    m = _RE_LINEAR_COMBO.match(trunc)
+    if m:
+        lexpr_text, op, c_s = m.groups()
+        terms = _parse_linear_combo(lexpr_text, mat_var, data)
+        return {"type": "LINEAR_COMBO", "var": mat_var, "terms": terms,
+                "direction": op, "threshold": float(c_s)}
+
     raise NotImplementedError(
         f"[M5] Unrecognised matrix constraint pattern: '{trunc}'.  "
-        "Supported forms: X[i,j] op c, row_sum(X,i) op c, col_sum(X,j) op c.  "
-        "See plan/2026-05-22-matrix-gm-lishan.md §M5.1."
+        "Supported forms: X[i,j] op c, row_sum(X,i) op c, col_sum(X,j) op c, "
+        "linear combo  a*X[i,j] + b*X[k,l] + ... op c   (O5+O7).  "
+        "Supported ops: >, >=, <, <=, ==, !=.  "
+        "See plan/2026-05-22-matrix-gm-lishan.md §M5.1 and docs/MATRIX_GM_SEMANTICS.md §11."
     )
 
 
@@ -166,10 +216,25 @@ def _classify_constraint(trunc: str, mat_var: str, data: Optional[dict] = None):
 # ---------------------------------------------------------------------------
 
 def _tnorm1d(mu_s: float, var_s: float, c: float, direction: str):
-    """Wrapper around libSOGAtruncate._truncated_normal_moments_1d.
+    """Wrapper around libSOGAtruncate._truncated_normal_moments_1d, extended with
+    equality conditioning per O5 (closure of element-observe API).
+
+    For `a^T x == c` we return (m_hat=c, v_hat=0, P=1) — hard Dirac conditioning
+    on the constrained linear functional.  The downstream rank-1 conditional
+    Gaussian formula in _rank1_cond_update then collapses to the standard
+    Schur-complement rank-1 downdate:
+        M_new = M + (Sigma a) · (c - a^T M) / (a^T Sigma a)
+        S_new = Sigma - outer(Sigma a, Sigma a) / (a^T Sigma a)
+    which matches the element-write semantics in libMatrixUpdate (fix4).
 
     Returns (m_hat, v_hat, P).  Imported lazily to avoid circular import.
     """
+    if direction == "==":
+        return float(c), 0.0, 1.0
+    if direction == "!=":
+        # !=  has measure 1 in continuous space → no update on Gaussian moments.
+        # Treat as no-op with P = 1 (matches scalar SOGA convention for continuous).
+        return mu_s, var_s, 1.0
     from libSOGAtruncate import _truncated_normal_moments_1d
     return _truncated_normal_moments_1d(mu_s, var_s, c, direction)
 
@@ -578,6 +643,95 @@ def _truncate_matrix_col_sum_ineq(
 
 
 # ---------------------------------------------------------------------------
+# O7 — Linear combination of matrix elements:  Σ_k coef_k · X[i_k, j_k]  op  c
+# ---------------------------------------------------------------------------
+
+def _truncate_matrix_linear_combo(
+    block: GaussianMixBlock,
+    mat_var: str,
+    m: int,
+    n: int,
+    terms: list,            # list of (coef:float, i:int, j:int)
+    c: float,
+    direction: str,
+    use_project: bool,
+) -> Tuple[GaussianMixBlock, float]:
+    """Rank-1 conditional update for a linear combination of matrix elements.
+
+    Builds the selector vector a ∈ R^{mn}:
+        a[j_k * m + i_k] += coef_k         for each (coef_k, i_k, j_k) term
+    Then dispatches to the same _dense_update_component used by element/sum
+    observes — the math is identical (any linear functional of vec(X)).
+    """
+    mn = m * n
+    a_vec = np.zeros(mn)
+    for coef, i, j in terms:
+        if not (0 <= i < m and 0 <= j < n):
+            raise IndexError(
+                f"[O7] index ({i},{j}) out of range for matrix '{mat_var}' of shape ({m},{n})"
+            )
+        a_vec[j * m + i] += coef           # column-major
+
+    use_dense = _check_memory_budget(m, n, block.n_comp(), MATRIX_DENSE_BUDGET_MB)
+    if use_dense and not use_project:
+        pass  # use DENSE
+    elif not use_dense:
+        use_project = True
+
+    new_pi = []
+    new_log_pi = [] if block.log_pi is not None else None
+    new_mu_blocks = []
+    new_cov_blocks = []
+
+    for k in range(block.n_comp()):
+        M_new_mat, U_new, V_new, Sigma_dense, P = _dense_update_component(
+            block, k, mat_var, a_vec, c, direction, m, n, use_project
+        )
+        if P < prob_tol:
+            logger.debug(
+                "Component %d dropped (P=%.2e) in linear_combo on %s with %d terms",
+                k, P, mat_var, len(terms),
+            )
+            continue
+        new_pi.append(block.pi[k] * P)
+        if new_log_pi is not None:
+            new_log_pi.append(block.log_pi[k] + math.log(P))
+
+        mu_k = deepcopy(block.mu_blocks[k])
+        mu_k[mat_var] = M_new_mat
+        cov_k = deepcopy(block.cov_blocks[k])
+
+        if use_project or U_new is not None:
+            cov_k[frozenset({mat_var})] = (U_new, V_new)
+        else:
+            cov_k[frozenset({mat_var})] = (None, Sigma_dense)
+
+        new_mu_blocks.append(mu_k)
+        new_cov_blocks.append(cov_k)
+
+    norm_factor = sum(new_pi)
+    if norm_factor > prob_tol:
+        norm_pi = [p / norm_factor for p in new_pi]
+    else:
+        norm_pi = [0.0]
+        if not new_mu_blocks:
+            new_mu_blocks = [deepcopy(block.mu_blocks[0])]
+            new_cov_blocks = [deepcopy(block.cov_blocks[0])]
+        if new_log_pi is not None:
+            new_log_pi = [float("-inf")]
+
+    result = GaussianMixBlock(
+        var_list=block.var_list,
+        var_entries=block.var_entries,
+        pi=norm_pi,
+        mu_blocks=new_mu_blocks,
+        cov_blocks=new_cov_blocks,
+        log_pi=new_log_pi,
+    )
+    return result, norm_factor
+
+
+# ---------------------------------------------------------------------------
 # M5.1 — Main dispatcher: truncate_matrix
 # ---------------------------------------------------------------------------
 
@@ -658,6 +812,16 @@ def truncate_matrix(
         threshold = constraint["threshold"]
         new_block, norm_factor = _truncate_matrix_col_sum_ineq(
             block, mat_var, m, n, j, threshold, direction, use_project
+        )
+
+    elif ct == "LINEAR_COMBO":
+        # O7: build selector vector from list of (coef, i, j) and apply the
+        # general rank-1 conditional update on the dense vec(X) covariance.
+        terms = constraint["terms"]
+        direction = constraint["direction"]
+        threshold = constraint["threshold"]
+        new_block, norm_factor = _truncate_matrix_linear_combo(
+            block, mat_var, m, n, terms, threshold, direction, use_project
         )
 
     else:

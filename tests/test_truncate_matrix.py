@@ -609,3 +609,73 @@ class TestTruncateRouting:
         dist = _make_dist_with_block(2, 2, M=np.zeros((2, 2)))
         with pytest.raises(NotImplementedError, match="trace"):
             truncate(dist, "trace(X) > 1.0", {})
+
+
+# ---------------------------------------------------------------------------
+# O5 + O7 — closure of observe API
+# ---------------------------------------------------------------------------
+
+class TestObserveClosure:
+    """O5 (equality) and O7 (linear combo) — extension of element observe."""
+
+    def _make_X_2x2_iso(self):
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+        from libSOGAshared import Dist, VarEntry, GaussianMix
+        from libSOGAsharedMatrix import GaussianMixBlock
+        from libMatrixUpdate import update_rule_matrix
+        import numpy as np
+        ve = VarEntry(name="X", kind="matrix", shape=(2, 2), flat_offset=-1)
+        dist = Dist(
+            var_list=[], gm=GaussianMix([1.0], [np.zeros(0)], [np.zeros((0, 0))]),
+            var_entries=[ve],
+            gm_block=GaussianMixBlock(
+                var_list=[], var_entries=[], pi=[1.0],
+                mu_blocks=[{}], cov_blocks=[{}],
+            ),
+        )
+        I = "[[1,0],[0,1]]"
+        z = "[[0,0],[0,0]]"
+        return update_rule_matrix(dist, f"X=matrix_gm({z},{I},{I})", {})
+
+    def test_observe_element_equality_hard_conditioning(self):
+        """observe(X[0,0] == 1) — Dirac conditioning, posterior X[0,0] = 1 exactly."""
+        from libSOGAtruncate import truncate
+        dist = self._make_X_2x2_iso()
+        norm, dist_post = truncate(dist, "X[0,0]==1", {})
+        assert abs(norm - 1.0) < 1e-12   # hard conditioning convention: P = 1
+        M_post = dist_post.gm_block.matrix_mean("X")
+        assert abs(M_post[0, 0] - 1.0) < 1e-12
+        # Off-diagonal: U=V=I → independent → unchanged at 0
+        assert abs(M_post[0, 1]) < 1e-12
+        assert abs(M_post[1, 0]) < 1e-12
+        assert abs(M_post[1, 1]) < 1e-12
+
+    def test_observe_linear_combo_kalman_gain(self):
+        """observe(2*X[0,0] + 3*X[1,1] > 1) — analytical Kalman gain.
+
+        Y = 2 X[0,0] + 3 X[1,1] ~ N(0, 13).  Truncate Y > 1:
+          z = 1/sqrt(13);  λ = pdf(z) / (1-cdf(z))
+          E[Y|Y>1] = sqrt(13) · λ
+        Kalman gain = Sigma·a / var_Y = a / 13 (since Sigma = I).
+        Post-mean of X[0,0] = 2 · E[Y|Y>1] / 13;  X[1,1] = 3 · E[Y|Y>1] / 13.
+        """
+        import numpy as np
+        from scipy.stats import norm as _norm
+        from libSOGAtruncate import truncate
+        dist = self._make_X_2x2_iso()
+        norm_f, dist_post = truncate(dist, "2*X[0,0]+3*X[1,1]>1", {})
+        assert 0.0 < norm_f < 1.0
+        M_post = dist_post.gm_block.matrix_mean("X")
+        # Analytical
+        var_Y = 13.0
+        z = 1.0 / np.sqrt(var_Y)
+        lam = _norm.pdf(z) / (1.0 - _norm.cdf(z))
+        E_Y_post = np.sqrt(var_Y) * lam
+        E_X00_expected = 2.0 * E_Y_post / var_Y
+        E_X11_expected = 3.0 * E_Y_post / var_Y
+        assert abs(M_post[0, 0] - E_X00_expected) < 1e-4
+        assert abs(M_post[1, 1] - E_X11_expected) < 1e-4
+        # X[0,1] and X[1,0] independent → unchanged
+        assert abs(M_post[0, 1]) < 1e-4
+        assert abs(M_post[1, 0]) < 1e-4

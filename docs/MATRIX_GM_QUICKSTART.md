@@ -1,61 +1,55 @@
 # Matrix-GM Quickstart
 
-A 2-page user-facing guide to SOGA's matrix-variate Gaussian DSL extension.
-For formal semantics see `docs/MATRIX_GM_SEMANTICS.md`.  For theory see
-`docs/research-notes/04-matrix-element-extract-write.md` and `05-matrix-gm-merge-and-random-matmul.md`.
+User guide to the matrix-variate Gaussian extension of SOGA. Formal semantics live in `docs/MATRIX_GM_SEMANTICS.md`; theoretical derivations in `docs/research-notes/04-matrix-element-extract-write.md` and `05-matrix-gm-merge-and-random-matmul.md`; the catalogue of currently-known bugs in `docs/LIMITATIONS.md`.
 
-## TL;DR
+## What this extension adds
 
-SOGA now propagates **matrix-variate Gaussian mixtures** through a control-flow
-graph.  Matrix variables `X ∼ MN(M, U, V)` are first-class citizens alongside
-scalar variables.  Linear operations (matmul with deterministic kernel, add,
-transpose) are **exact** in O(m²+n²) Kronecker storage.  Non-linear ops
-(matrix × matrix random, element write, observe) use exact closed-form
-2nd-moment computations followed by a single approximation step (nearest-
-Kronecker projection or covariance densification).  Branching `if/else` and
-loops with matrix indexing work natively.  All observe patterns
-(inequality, equality, row/col sum, linear combination of elements,
-back-prop on scalar extracted from matrix) are supported end-to-end.
+Matrix variables `X ∼ MN(M, U, V)` are propagated symbolically through the same control-flow graph used by scalar SOGA. The Kronecker covariance `vec(X) ∼ N(vec(M), V ⊗ U)` is stored as the pair `(U, V)` whenever the operation preserves separability, which keeps memory at `O(m² + n²)` instead of `O((mn)²)`.
 
-## Quick run
+Linear operations against a deterministic kernel (`A @ X`, `X @ B`, `X + N`, `transp(X)`, `c * X`) are exact and preserve the Kronecker factorisation. Element extract `y = X[i,j]` is exact and tracks the cross-covariance `Cov(y, vec(X)) = V[:,j] ⊗ U[:,i]`. Observe statements on matrix elements, row/column sums, linear combinations, and `==` equality all reduce to a rank-1 Schur update on `vec(X)`.
+
+Two operations carry an unavoidable approximation. Random × random matmul `Z = X1 @ X2` computes `Cov(vec(Z))` exactly via the Isserlis 3-term formula but the result is generally a sum of two Kronecker products, which we project onto the nearest single Kronecker via Van Loan–Pitsianis (rank-1 SVD on the rearrangement). Element write `X[i,j] = c` is exact via Schur but destroys Kronecker separability, so the covariance is densified to a full `(mn × mn)` matrix from that point on.
+
+Branching, loops with matrix-indexed accesses, and component pruning behave as in scalar SOGA. Five latent bugs in the matrix-GM path are documented and exposed at runtime by `NotImplementedError` or `StaleCrossCovWarning`; see `docs/LIMITATIONS.md`.
+
+## Running the showcase programs
 
 ```bash
-# Basic showcase (8 sections, all-exact operations)
+# Baseline showcase: 9 sections, all-exact operations (no approximation)
 python3 src/SOGA.py -f programs/Example/matrix_gm_showcase.soga
 
-# Advanced showcase (random × random matmul + element write)
+# Advanced showcase: random × random matmul, element write, dense matrix_gm_full
 python3 src/SOGA.py -f programs/Example/matrix_gm_advanced.soga
 ```
 
-Both run in ≈ 1 second.  Output is printed to stdout: scalar moments
-(`E[var]`) plus matrix moments (`E[X]` as a numpy-formatted 2D array).
+Each runs in roughly one second. Output is printed to stdout: scalar moments as `E[var]: <value>` lines, matrix moments as `E[X]:` followed by a numpy-formatted 2D array.
 
 ## What was added (relative to scalar-only SOGA)
 
-| Construct | DSL syntax | Status |
+| Construct | DSL syntax | Notes |
 |-----------|-----------|--------|
-| Matrix declaration | `matrix[m][n] X;` | new |
-| Matrix-variate Gaussian init | `X = matrix_gm(M, U, V);` | new |
-| 2D data | `data A = [[1,2],[3,4]];` | new |
-| Matmul (data × random) | `Y = A @ X;`  or  `Y = X @ B;` | new (Kronecker exact) |
-| Matrix add | `Y = X + N;` | new (iso path exact) |
-| Transpose | `Y = transp(X);` | new (exact) |
-| Scalar extraction | `y = X[i,j];` | new (cross-cov tracked) |
-| Loop with matrix index | `for i in range(N) { ... X[i,j] ... }` | new |
-| Branch with matrix in scope | `if cond { ... X ... } else { ... }` | new (merge concatenates components) |
-| Random × random matmul | `Z = X1 @ X2;` | new (Isserlis + NKP rank-1) |
-| Element write | `X[i,j] = expr;` | new (Schur, densifies) |
-| Element observe (inequality) | `observe(X[i,j] > c)` | new |
-| Element observe (equality) | `observe(X[i,j] == c)` | new |
-| Aggregate observe | `observe(row_sum(X,i) op c)` , `observe(col_sum(X,j) op c)` | new |
-| Linear-combo observe | `observe(2*X[0,0] + 3*X[1,1] > 1)` | new |
-| Observe on extracted scalar | `y = X[i,j]; observe(y > 0);` | new (back-prop to E[X]) |
-| Scalar SOGA semantics | unchanged | regression-tested |
+| Matrix declaration | `matrix[m][n] X;` | |
+| Kronecker constructor | `X = matrix_gm(M, U, V);` | exact, `O(m² + n²)` storage |
+| Full-covariance constructor | `X = matrix_gm_full(M, Sigma);` | auto-detects Kronecker structure |
+| 2D data | `data A = [[1,2],[3,4]];` | |
+| Matmul against deterministic kernel | `Y = A @ X;`, `Y = X @ B;` | exact, Kronecker preserved |
+| Matrix add | `Y = X + N;` | exact on the isotropic path |
+| Transpose | `Y = transp(X);` | exact |
+| Scalar extract | `y = X[i,j];` | exact, cross-cov tracked |
+| Loop with matrix index | `for i in range(N) { ... X[i,j] ... }` | runtime index resolution |
+| Branch with matrix in scope | `if cond { ... X ... } else { ... }` | merge concatenates components |
+| Random × random matmul | `Z = X1 @ X2;` | Isserlis (exact 2nd moment) + NKP projection |
+| Element write | `X[i,j] = expr;` | exact via Schur; covariance densifies |
+| Element observe (inequality) | `observe(X[i,j] > c)` | exact rank-1 Schur update |
+| Element observe (equality) | `observe(X[i,j] == c)` | hard conditioning |
+| Aggregate observe | `observe(row_sum(X,i) op c)`, `observe(col_sum(X,j) op c)` | exact |
+| Linear-combination observe | `observe(2*X[0,0] + 3*X[1,1] > 1)` | exact |
+| Observe on extracted scalar | `y = X[i,j]; observe(y > 0);` | mean-only back-prop to `E[X]` |
+| Scalar SOGA semantics | unchanged | regression-tested across 385 unit tests |
 
-## Walk-through of the showcase program
+## Walkthrough of the showcase program
 
-The file `programs/Example/matrix_gm_showcase.soga` is split into 8 commented
-sections.  Read it top-to-bottom; each section is self-contained.
+The file `programs/Example/matrix_gm_showcase.soga` is split into 9 commented sections, each self-contained. Read it top to bottom.
 
 | Section | Pattern | Storage cost | Approximation |
 |---------|---------|--------------|---------------|
@@ -69,13 +63,12 @@ sections.  Read it top-to-bottom; each section is self-contained.
 | 7 | `if theta > 0 {...} else {...}` (merge) | components multiply | none on per-component |
 | 8 | `for i { diag = X[i,i] }` (loop index) | scalar extract per iter | none |
 
-The advanced showcase (`matrix_gm_advanced.soga`) covers the two
-approximation-bearing patterns:
+The advanced showcase (`matrix_gm_advanced.soga`) covers the two patterns that carry an approximation:
 
 | Pattern | Approximation | Empirical envelope |
 |---------|---------------|---------------------|
-| `Z = X1 @ X2` (random × random) | NKP rank-1 projection of an exact 3-term Isserlis covariance | ≤ 2 % Frobenius rel err on Cov in all tested regimes; mean exact |
-| `X[i,j] = c` (element write) | none in math, but variable densifies (V⊗U → mn × mn) | exact Schur update; subsequent Kronecker-only ops fail |
+| `Z = X1 @ X2` (random × random) | rank-1 NKP projection of the exact 3-term Isserlis covariance | Frobenius relative error on Cov < 2% in all tested regimes; mean exact |
+| `X[i,j] = c` (element write) | none in the math, but `V ⊗ U` densifies to `(mn × mn)` | Schur update exact; subsequent Kronecker-only ops raise `NotImplementedError` |
 
 ## DSL cheatsheet (one screen)
 
@@ -143,9 +136,7 @@ on how you know (or want to express) the covariance structure.
 X = matrix_gm(M, U, V);     /* vec(X) ~ N(vec(M), V ⊗ U) */
 ```
 
-You supply the row factor `U` (m×m) and column factor `V` (n×n) directly.
-Storage cost: `m² + n²` entries.  All linear operations (matmul, add, transp,
-scale) use the Kronecker fast path — exact and memory-efficient.
+You supply the row factor `U` (m×m) and column factor `V` (n×n) directly. Storage cost is `m² + n²` entries. Every linear operation (matmul, add, transpose, scale) takes the Kronecker fast path: exact in closed form, memory-efficient.
 
 Use this form when:
 - You know the row/column factorisation from the model structure
@@ -192,60 +183,36 @@ W = matrix_gm_full(
 /* DenseCovarianceInfo or KroneckerNearMissWarning emitted */
 ```
 
-**Dense-mode limitations**: identical to post-element-write.
-Subsequent `affine_left`, `transp`, `Y = X + N` on a dense-mode variable
-raise `NotImplementedError`.  Element extract `y = X[i,j]` and
-`observe(X[i,j] op c)` still work.
+**Dense-mode limitations**: identical to post-element-write. Affine ops (`A @ X`, `X @ B`), scale (`c * X`), transpose, and matrix add on a dense-mode variable now raise `NotImplementedError("[C1/C7] ...")` with an explicit message pointing back to `docs/LIMITATIONS.md`. Element extract `y = X[i,j]` and `observe(X[i,j] op c)` still work on the dense path.
 
 ### Quick comparison
 
 | | `matrix_gm(M, U, V)` | `matrix_gm_full(M, Sigma)` |
 |--|--|--|
 | What you provide | Row/column factors | Full (mn×mn) covariance |
-| Student burden | Must pre-decompose Sigma → (U,V) | None — SOGA auto-detects |
+| Student burden | Must pre-decompose Sigma into (U,V) | None (SOGA auto-detects) |
 | Storage (if Kronecker) | O(m²+n²) | O(m²+n²) after detection |
-| Storage (if dense) | N/A — must be Kronecker | O((mn)²) |
+| Storage (if dense) | N/A (must be Kronecker) | O((mn)²) |
 | Linear ops | All fast-path | Kronecker-detected: fast; dense: NotImplementedError for Kronecker-ops |
 | Recommended when | You know U, V explicitly | You have Sigma; unsure of separability |
 
 
-## When NOT to use it (current v1 limits)
+## What v1 does not support
 
-- **`trace(X)` observe**: not implemented as keyword; workaround: write
-  out the diagonal sum manually `observe(X[0,0] + X[1,1] + ... > c)` — fully
-  exact via the linear-combo path.
-- **Variance back-prop on scalar observe**: only mean propagates back to
-  `E[X]`.  `Var[X]` is NOT updated by `observe(y)` where `y = X[i,j]`
-  (Opt-2 deferred; would require densification of `X`).
-- **Kronecker-only ops on a dense-mode variable**: after `X[i,j] = c`,
-  the variable is in dense covariance mode.  Subsequent `Y = A @ X`,
-  `Y = transp(X)`, `Y = X + N` raise `NotImplementedError`.
-  Element extract `y = X[i,j]` and observe `X[i,j] op c` still work.
-- **Cross-covariance between two different matrix variables**: not tracked
-  in v1.  After `Y = A @ X`, `Cov(vec(X), vec(Y))` is computed for cross-cov
-  with extracted scalars but not stored as a matrix-matrix block.
-- **Identifier names**: SOGA's IDV grammar does **not** allow underscores or
-  hyphens.  Use `wcorner` or `wCorner`, not `w_corner`.
-- **Declaration ordering**: all `data` declarations must precede matrix
-  declarations and any assignments / observes / loops (SOGA's `progr` rule).
+- **`trace(X)` as an observe keyword**: not exposed. Workaround: expand the diagonal sum by hand, `observe(X[0,0] + X[1,1] + ... > c)`. The linear-combination path handles this exactly.
+- **Variance back-prop on scalar observe**: when `observe(y)` fires on `y = X[i,j]`, only the mean of `X` is updated (exact Kalman gain). `Cov(vec(X))` is intentionally not downdated; a full downdate would densify `X` and lose the Kronecker storage.
+- **Kronecker-only ops on a dense-mode variable**: after `X[i,j] = c` or `X = matrix_gm_full(M, Sigma_dense)`, calls to `A @ X`, `X @ B`, `transp(X)`, `c * X`, and `X + N` raise `NotImplementedError("[C1/C7] ...")`. Extract and observe still work on the dense path.
+- **Cross-covariance between two distinct matrix variables**: not tracked. After `Y = A @ X`, the cross `Cov(vec(X), vec(Y))` is computed when an extracted scalar needs it but is not stored as a matrix-to-matrix block.
+- **Identifier names**: the SOGA `IDV` lexer rule does not accept underscores or hyphens. Use `wcorner` or `wCorner`, never `w_corner`.
+- **Declaration ordering**: every `data` declaration must precede the first matrix declaration, assignment, observe, or loop, per the `progr` rule in `grammars/SOGA.g4`.
 
-## Approximations in 1 paragraph
+## Where the approximations are
 
-For the v1 matrix-GM extension, the only approximations introduced are
-(1) **Van Loan-Pitsianis nearest-Kronecker rank-1 projection** applied
-after a random × random matmul or after a merge of components whose
-post-merge covariance is a sum of multiple Kronecker products
-(empirical envelope ≤ 2 % Frobenius rel error on Cov in all MC-validated
-regimes); (2) **mean-only back-propagation** when an observe fires on a
-scalar derived from a matrix (the matrix mean is updated via the exact
-Kalman gain; the covariance is intentionally not downdated to preserve
-the Kronecker factorisation — full covariance update would require
-densification of the matrix variable, which is the same machinery used
-internally by the element-write path).  All other operations (linear,
-observe on matrix elements / row sum / col sum / linear combinations /
-equality, element write, merge, loop, extract) are **exact** for the
-2nd-moment moments tracked by SOGA, matching the precision of scalar
-SOGA on its operations.
+Two places introduce approximation. The first is the nearest-Kronecker rank-1 projection (Van Loan and Pitsianis 1993) applied after random × random matmul `Z = X1 @ X2` and after sums of components whose covariance is itself a sum of distinct Kronecker products. The exact `Cov(vec(Z))` is a rank-2 element in the rearrangement-SVD sense, so projecting to rank 1 incurs `||proj - exact||_F / ||exact||_F`. Across the four regimes we have validated against Monte Carlo (20k samples), the Frobenius relative error stays below 2% in the small-cov and moderate-cov regimes and reaches 1.3% in the balanced regime that previously produced 19.7% under the older delta-method formula.
+
+The second is the mean-only back-propagation when `observe(y > c)` fires on a scalar `y` extracted from a matrix `X`. SOGA updates `E[X]` via the exact Kalman gain but does not downdate `Cov(vec(X))`; updating the covariance would require densifying `X` to `(mn × mn)`, which is the same cost as element write. This omission is deliberate (it preserves the Kronecker factorisation across subsequent operations), and it matches the precision profile of scalar SOGA where second-moment downdate is also approximated.
+
+Everything else (linear operations, element observe of any form, element write, merge, loop with matrix index, scalar extract) is exact for the second moments that SOGA propagates.
 
 ## Where to learn more
 
@@ -260,38 +227,34 @@ SOGA on its operations.
 
 ## Reproduction (regression-validated 2026-05-25)
 
-After any rebase / merge / regenerate:
+After any rebase, merge, or grammar regeneration, run:
 
 ```bash
-# Full test suite (must pass 349)
+# Full test suite: 491 tests = 385 (scalar PPL + matrix-GM internals) + 106 (stress campaign)
 .venv/bin/python -m pytest tests/ -q
 
 # Scalar regression spot checks
-python3 src/SOGA.py -f programs/Example/Bernoulli.soga      # E[theta] = 0.25689
-python3 src/SOGA.py -f programs/SOGA/ClickGraphPrune.soga    # E[simAll] = 0.61409
+python3 src/SOGA.py -f programs/Example/Bernoulli.soga          # E[theta] = 0.25689
+python3 src/SOGA.py -f programs/SOGA/ClickGraphPrune.soga       # E[simAll] = 0.61409
 
-# Matrix-GM smoke (showcase + advanced)
-python3 src/SOGA.py -f programs/Example/matrix_gm_showcase.soga
-python3 src/SOGA.py -f programs/Example/matrix_gm_advanced.soga
+# Matrix-GM smoke battery
+python3 src/SOGA.py -f programs/Example/matrix_gm_showcase.soga  # E[y00]=2.57684, E[xfull00]=5.0
+python3 src/SOGA.py -f programs/Example/matrix_gm_advanced.soga  # E[wcorner]=5.0, E[wd00]=1.0
 
-# Grammar sync check
+# Grammar regeneration sanity
 bash scripts/check_grammar_sync.sh
 ```
 
 ## Known issues
 
-The stress test campaign (2026-05-25) uncovered four latent bugs in the
-matrix-GM extension.  They are documented in full in
-[`docs/LIMITATIONS.md`](LIMITATIONS.md).
+The stress test campaign (May 2026) and the safety-patches campaign that followed it documented five latent bugs in the matrix-GM path. Four of them have a runtime signal (a `NotImplementedError` with an explicit message, or a `StaleCrossCovWarning`); the fifth (C8) is locked by a regression test but has no runtime signal yet. Full details, including source locations, test probes, and the planned fix, are in [`docs/LIMITATIONS.md`](LIMITATIONS.md).
 
-**Quick reference (do not use these combinations until fixed):**
+| Bug | Trigger | Workaround |
+|-----|---------|------------|
+| C1 (= Path 5) | `observe(X[i,j] op c)` followed by `Y = A @ X` or `Y = X @ B` | Apply affine before observe, or split into two matrix variables |
+| C7 | `matrix_gm_full(M, Sigma_dense)` followed by affine, scale, or transpose | Use `matrix_gm(M, U, V)` when factors are known; otherwise restrict to extract and observe |
+| Gap 3 | `y0 = X[0,0]; observe(X[1,0] > c)` with off-diagonal U | Extract scalars after, not before, observe statements |
+| F4 | `y = X[0,0]; X[0,0] = c` (write after extract) | Extract scalars after element writes when covariance is needed downstream |
+| C8 | `observe(X[i,j] op c)` and then reading `E[X[i',j']]` (i' ≠ i or j' ≠ j) with correlated U | Read only the observed element, or pre-derive correlated elements analytically. Sign error in dense Kalman back-prop |
 
-| Bug | Broken combination | Workaround |
-|-----|--------------------|------------|
-| C1 / Path 5 | `observe(X[i,j] op c)` followed by `Y = A @ X` or `Y = X @ B` | Apply affine ops before observe, or use a separate matrix variable |
-| C7 | `matrix_gm_full(M, Sigma_dense)` followed by `Y = A @ X` or `Y = X @ B` | Use `matrix_gm(M, U, V)` if Kronecker factors are known; or restrict to extract/observe ops |
-| Gap 3 | `y0 = X[0,0]` before `observe(X[1,0] > c)` with correlated rows | Extract scalars AFTER observe statements |
-| F4 | `y = X[0,0]` before `X[0,0] = 5.0` (element write) | Extract scalars AFTER element writes if covariance is needed |
-
-See [`docs/LIMITATIONS.md`](LIMITATIONS.md) for source locations, test probes, and
-the follow-up plan reference.
+Programs that stay within the safe envelope (only `matrix_gm`, only affine plus extract plus observe on the same element) hit none of the five.

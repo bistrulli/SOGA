@@ -1,17 +1,12 @@
 # SOGA Matrix-Variate Gaussian Mixture Semantics
 
-**Date**: 2026-05-24
+**Date**: 2026-05-25
 **Branch**: `feat/matrix-gm-integration`
-**Status**: Complete (12 patterns verified)
+**Status**: 16 patterns specified; runtime safety signals in place for the five documented latent bugs (see `docs/LIMITATIONS.md`).
 
-This document specifies, for each of the 12 matrix-GM syntactic patterns
-supported by SOGA, the following:
-(a) DSL syntax, (b) example, (c) formal semantics, (d) closed-form formula,
-(e) approximation flags, (f) source code reference.
+Each of the 16 matrix-GM syntactic patterns in SOGA is specified below as: (a) DSL syntax, (b) example, (c) formal semantics, (d) closed-form formula, (e) approximation flags or runtime safety signals, (f) source reference.
 
-All formulas use the convention `vec(X) ~ N(vec(M), V ⊗ U)` where `V` is
-the column covariance (n×n), `U` is the row covariance (m×m), and `⊗` is
-the Kronecker product.  Column-major ordering throughout.
+The convention everywhere is `vec(X) ~ N(vec(M), V ⊗ U)` with `V` the column covariance (n×n), `U` the row covariance (m×m), `⊗` the Kronecker product, and column-major ordering on `vec`. Where a pattern is currently subject to a known bug, the relevant entry in `docs/LIMITATIONS.md` is referenced inline.
 
 ---
 
@@ -256,10 +251,11 @@ vec(M)_new = vec(M) + g * (m_hat - mu_s) / (a^T g)
 Sigma_new  = Sigma - outer(g, g) * (1 - v_hat/(a^T g)) / (a^T g)
 ```
 
-**Approximation flags**: DENSE materialises `V ⊗ U` as `(mn × mn)` matrix per
-component.  `KroneckerDenseMemoryWarning` if budget exceeded (default 1024 MB).
+**Approximation flags**: the DENSE path materialises `V ⊗ U` to an `(mn × mn)` covariance per component. `KroneckerDenseMemoryWarning` fires if the budget is exceeded (default 1024 MB).
 
-**Source**: `libMatrixTruncate.py`, `_truncate_matrix_element_ineq`.
+**Runtime safety signals**: if a scalar variable in `var_list` carries a non-zero cross-covariance to `X` at the time of the observe (i.e., it was extracted before this statement), `_truncate_matrix_element_ineq` emits `StaleCrossCovWarning`. The scalar's moments are not back-propagated (bug `Gap 3` in `docs/LIMITATIONS.md`). Independently, the back-propagation to non-observed elements of `X` itself is currently sign-flipped (bug `C8`); the observed element's marginal is correct, the back-propagation to other elements via off-diagonal `U` is not.
+
+**Source**: `libMatrixTruncate.py`, `_truncate_matrix_element_ineq`, `_rank1_cond_update`.
 
 ---
 
@@ -368,12 +364,7 @@ the Frobenius-norm relative error `||Soga - MC||_F / ||MC||_F`.
 | R3 BALANCED (σ²=0.5, M=I)     | 0.007        | **0.197**        | **0.013**         | **15× ✓**   |
 | R4 3x3 small cov              | 8e-4         | ≈ 0              | ≈ 0               | unchanged   |
 
-The R3 "balanced" regime (M_X = M_Y = I and σ²_X = σ²_Y = 0.5) — where
-delta-method previously had ~20% relative error on `Cov(vec(Z))` — is now
-exact (1.3% residual is MC sampling noise + NKP rank-1 floor).  Other regimes
-were already accurate via delta-method; the Isserlis correction term
-`tr(V_X · U_Y) · V_Y` becomes negligible relative to `M_Y^T V_X M_Y` whenever
-M_Y is large (small-covariance regime).
+The R3 "balanced" regime sets `M_X = M_Y = I` and `σ²_X = σ²_Y = 0.5`. Under the older delta-method linearisation it produced approximately 20% relative error on `Cov(vec(Z))`. With the fix3.2 Isserlis formula the residual drops to 1.3%, which is at the level of Monte Carlo sampling noise plus the NKP rank-1 floor. The other regimes were already accurate under delta-method because whenever `M_Y` is large in the small-covariance regime, the Isserlis trace term `tr(V_X · U_Y) · V_Y` is negligible compared with `M_Y^T V_X M_Y`.
 
 ### Practical guidance for users
 
@@ -381,18 +372,8 @@ M_Y is large (small-covariance regime).
   of the operands has small covariance relative to its mean magnitude
   (concentrated prior).  This includes the typical Lishan-class case
   where X is a parameter prior and Y is data/kernel.
-- **Caveat regime** (R3-like): both X and Y are diffuse random matrices
-  with comparable variance scales.  In this case the post-multiply
-  covariance carries ~20 % relative error.  The `MatmulApproxWarning`
-  fires (s_2/s_1 > 5 %) — users should treat it as a flag to either
-  (a) accept the approximation, (b) re-formulate the computation, or
-  (c) use Monte Carlo for the affected step.
-- **Hard limit**: the delta-method linearisation is a first-order Taylor
-  expansion around the means.  It is *not* well-defined when either
-  operand has zero mean (the linearisation becomes degenerate).  For
-  the `M_X = 0` or `M_Y = 0` corner, the exact distribution of vec(Z)
-  is the matrix-product chi-squared family (Bishop & Del Moral 2017,
-  arXiv:1703.00353) — no current PPL handles this symbolically.
+- **Caveat regime** (R3-like): both X and Y are diffuse random matrices with comparable variance scales. The post-multiply covariance carries roughly 20% relative error. `MatmulApproxWarning` fires whenever `s_2/s_1 > 5%`. Treat this as a flag, and respond with one of: (a) accept the approximation, (b) re-formulate so that one operand is concentrated (small covariance relative to its mean), (c) fall back to Monte Carlo for the step in question.
+- **Zero-mean corner (`M_X = 0` or `M_Y = 0`)**: the Isserlis formula (fix3.2) handles this exactly. With `M_X = 0` and `M_Y = 0` the two delta-method terms vanish and `Cov(vec(Z))` reduces to the single Kronecker product `tr(V_X · U_Y) · (V_Y ⊗ U_X)`, which is already in NKP-projected form (residual 0). The older delta-method linearisation produced `Cov = 0` in this corner, which was the worst-case failure mode that motivated the fix3.2 upgrade. The true distribution of `vec(Z)` is still the matrix-product chi-squared family (Bishop and Del Moral 2017, arXiv:1703.00353), so only the second moment is captured exactly here; higher moments are not represented by SOGA's state.
 
 **Source**: `libMatrixUpdate.py`, `matmul_random_random_component`;
 `libMatrixGaussian.py`, `_nearest_kronecker`.
@@ -425,16 +406,13 @@ vec(M)_new = vec(M) + gain * (c_or_mu_z - vec(M)[idx])
 Sigma_new  = Sigma - outer(gain, sel_vec)
 ```
 
-After this write, the variable is in "dense mode".  Subsequent
-Kronecker-dependent ops (affine_left, transpose) raise `NotImplementedError`.
-Only element extract (`y = X[i,j]`) and observe (`observe(X[i,j] op c)`)
-remain valid on a dense-mode variable (v1 limitation).
+After this write the variable is in dense-sentinel mode. Affine ops (`A @ X`, `X @ B`), scale (`c * X`), transpose, and matrix add raise `NotImplementedError("[C1/C7] <op> on dense-sentinel covariance not implemented. ... See docs/LIMITATIONS.md §C1/C7.")` with a per-operation message. Element extract `y = X[i,j]` and `observe(X[i,j] op c)` continue to work on the dense path.
 
-**Approximation flags**: `ElementWriteDenseWarning` always emitted on first
-densification.  Cost: `O((mn)^2)` storage vs `O(m^2 + n^2)` for Kronecker.
+**Runtime safety signals**: `ElementWriteDenseWarning` fires on the first densification. If a scalar variable was extracted from `X` before this write and carries a non-zero cross-covariance to `X`, `_matrix_element_write_component` also emits `StaleCrossCovWarning` (bug `F4` in `docs/LIMITATIONS.md`). The cross-covariance entry between the scalar and `X` is not updated by the write.
 
-**Source**: `libMatrixUpdate.py`, `matrix_element_write_dispatch`,
-`_matrix_element_write_component`, `_densify_matrix_var`.
+**Approximation flags**: storage cost moves from `O(m² + n²)` to `O((mn)²)` per component. No approximation in the mathematics of the rank-1 downdate.
+
+**Source**: `libMatrixUpdate.py`, `matrix_element_write_dispatch`, `_matrix_element_write_component`, `_densify_matrix_var`.
 
 ---
 
@@ -603,15 +581,17 @@ The dense-path limitations are identical to post-element-write (fix4, §13).
 
 ## Out-of-scope (v1 limitations)
 
-The following patterns are NOT supported in v1 and raise `NotImplementedError`:
+The following patterns are not supported in v1.
 
-- `observe(expr_involving_two_matrix_vars)` — cross-matrix conditioning
-- `Z = X @ Y` where `X` and `Y` have been densified by element writes
-- Affine/transpose on a dense-mode variable (after element write)
-- `trace(X)` inequality observe
+- **Cross-matrix conditioning** (`observe(expr_involving_two_matrix_vars)`): not implemented. Raises `NotImplementedError` at runtime.
+- **Random × random matmul on densified operands** (`Z = X @ Y` after element write or `matrix_gm_full(dense)`): the Isserlis formula assumes Kronecker storage on both operands. Raises `NotImplementedError`.
+- **Affine, scale, transpose, matrix-add on a dense-mode variable**: raise `NotImplementedError("[C1/C7] ...")` with an explicit pointer to `docs/LIMITATIONS.md` §C1/C7.
+- **`trace(X)` as an observe keyword**: not recognised by the grammar. Workaround via linear-combination observe `observe(X[0,0] + X[1,1] + ... > c)`.
 
-These are tracked as v2 items in the risk register.
+## Latent bugs documented in `docs/LIMITATIONS.md`
+
+Five latent bugs in the matrix-GM path are documented (bug IDs C1, C7, Gap 3, F4, C8). Four of them are exposed at runtime by either a clean `NotImplementedError` or a `StaleCrossCovWarning`; C8 has no runtime signal yet and is locked by the regression test `test_F3_stale_cross_cov_after_observe`. The fixes are scheduled for a separate plan; this document describes the current behaviour.
 
 ---
 
-_Generated 2026-05-24 as part of feat/matrix-gm-integration fix5._
+_Last updated 2026-05-25 (safety-patches plan `2026-05-25-matrix-gm-safety-patches.md`)._

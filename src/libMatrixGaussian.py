@@ -63,6 +63,30 @@ class KroneckerApproxWarning(UserWarning):
     """Emitted when a nearest-Kronecker projection exceeds an error threshold."""
 
 
+class KroneckerDetectionInfo(UserWarning):
+    """Informational: matrix_gm_full detected exact Kronecker structure.
+
+    Emitted when residual_ratio < SOGA_KRON_STRICT and the covariance is
+    stored as efficient (U, V) Kronecker factors.
+    """
+
+
+class KroneckerNearMissWarning(UserWarning):
+    """Emitted when residual is between SOGA_KRON_STRICT and SOGA_KRON_LOOSE.
+
+    The covariance is stored as dense for safety, but it is close to Kronecker.
+    Check whether the Sigma was intended to be exactly Kronecker.
+    """
+
+
+class DenseCovarianceInfo(UserWarning):
+    """Informational: matrix_gm_full detected non-Kronecker structure.
+
+    Emitted when residual_ratio >= SOGA_KRON_LOOSE and the covariance is
+    stored as a dense sentinel (None, Sigma).
+    """
+
+
 # ---------------------------------------------------------------------------
 # Isotropy helper
 # ---------------------------------------------------------------------------
@@ -145,6 +169,73 @@ def _nearest_kronecker(Cov: np.ndarray, m: int, n: int):
         K[:] = Q @ np.diag(w) @ Q.T
 
     return U, V
+
+
+# ---------------------------------------------------------------------------
+# Kronecker decompose helper (B.4) — auto-detect for matrix_gm_full
+# ---------------------------------------------------------------------------
+
+def _try_kronecker_decompose(
+    Sigma: np.ndarray,
+    m: int,
+    n: int,
+    tol: float = 1e-8,
+) -> tuple:
+    """Test whether Sigma (mn × mn) is Kronecker-separable and decompose.
+
+    Uses the Van Loan-Pitsianis rank-1 SVD on the rearrangement R[Sigma].
+    The residual ratio is s_2 / s_1 (second / first singular value of R).
+    If R has rank exactly 1 the ratio is 0 (within machine precision).
+
+    Parameters
+    ----------
+    Sigma : np.ndarray shape (mn, mn)
+        Full covariance to test.
+    m : int
+        Row dimension of the matrix variable.
+    n : int
+        Column dimension of the matrix variable.
+    tol : float
+        Residual-ratio threshold.  If residual < tol the decomposition is
+        considered exact and the Kronecker factors (U, V) are returned.
+        Configurable via env var SOGA_KRON_STRICT (default 1e-8).
+
+    Returns
+    -------
+    U : np.ndarray (m, m)   — row Kronecker factor (best-fit)
+    V : np.ndarray (n, n)   — column Kronecker factor (best-fit)
+    residual_ratio : float  — s_2 / s_1 (0 ≤ ratio ≤ 1)
+        ratio ≈ 0 → exact Kronecker (within numerical precision)
+        0 < ratio < tol → within threshold (still stored as Kronecker)
+        ratio >= tol → not separable (stored as dense)
+
+    Notes
+    -----
+    The (U, V) factors are always returned regardless of the residual; the
+    caller decides whether to use them based on the returned ratio.
+    Sign disambiguation and PSD clipping are applied by _nearest_kronecker.
+    """
+    # Build rearrangement matrix R (m² × n²)
+    R = np.zeros((m * m, n * n))
+    for j in range(n):
+        for jj in range(n):
+            block = Sigma[j * m:(j + 1) * m, jj * m:(jj + 1) * m]
+            R[:, j * n + jj] = block.flatten('F')
+
+    _, sigma_sv, _ = np.linalg.svd(R, full_matrices=False)
+
+    # Residual ratio: s_2 / s_1
+    s1 = float(sigma_sv[0]) if len(sigma_sv) > 0 else 0.0
+    s2 = float(sigma_sv[1]) if len(sigma_sv) > 1 else 0.0
+    if s1 < 1e-14:
+        # Near-zero Sigma: trivially Kronecker (zero matrix)
+        residual_ratio = 0.0
+    else:
+        residual_ratio = s2 / s1
+
+    # Always extract best (U, V) via _nearest_kronecker
+    U, V = _nearest_kronecker(Sigma, m, n)
+    return U, V, residual_ratio
 
 
 # ---------------------------------------------------------------------------

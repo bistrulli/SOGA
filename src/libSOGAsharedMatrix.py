@@ -262,15 +262,31 @@ class GaussianMixBlock:
         """Mixture covariance between X[i1,j1] and X[i2,j2].
 
         Cov(X[i1,j1], X[i2,j2]) = sum_k pi_k * (
-            U_k[i1,i2] * V_k[j1,j2]
-          + (M_k[i1,j1] - M_bar[i1,j1]) * (M_k[i2,j2] - M_bar[i2,j2])
+            within_k + between_k
         )
+
+        where within_k is:
+          - Kronecker mode: U_k[i1,i2] * V_k[j1,j2]
+          - Dense sentinel mode: Sigma_k[j1*m+i1, j2*m+i2]  (column-major index)
+
+        fix4 / B.6: handles both Kronecker-stored (U, V) and dense sentinel
+        (None, Sigma) storage created by matrix_gm_full or element write.
         """
         M_bar = self.matrix_mean(var_name)
+        ve = next((v for v in self.var_entries if v.name == var_name), None)
         total = 0.0
         for k in range(self.n_comp()):
-            U_k, V_k = self.get_cov(k, var_name, var_name)
-            within = float(U_k[i1, i2] * V_k[j1, j2])
+            stored = self.cov_blocks[k].get(frozenset({var_name}))
+            if stored is not None and stored[0] is None:
+                # Dense sentinel: Sigma stored in stored[1]
+                Sigma_k = stored[1]
+                m_v = ve.shape[0] if ve else int(Sigma_k.shape[0] ** 0.5)
+                idx1 = j1 * m_v + i1
+                idx2 = j2 * m_v + i2
+                within = float(Sigma_k[idx1, idx2])
+            else:
+                U_k, V_k = self.get_cov(k, var_name, var_name)
+                within = float(U_k[i1, i2] * V_k[j1, j2])
             between = float(
                 (self.mu_blocks[k][var_name][i1, j1] - M_bar[i1, j1])
                 * (self.mu_blocks[k][var_name][i2, j2] - M_bar[i2, j2])
@@ -283,6 +299,8 @@ class GaussianMixBlock:
 
         Expensive — for validation and small m*n only.  Uses the law of total
         covariance across all element pairs (i1,j1), (i2,j2).
+
+        B.6: handles both Kronecker-stored (U, V) and dense sentinel (None, Sigma).
         """
         m, n = self._matrix_var_shape(var_name)
         mn = m * n
@@ -290,8 +308,13 @@ class GaussianMixBlock:
         M_bar_vec = M_bar.flatten("F")  # column-major / V⊗U convention
         Cov = np.zeros((mn, mn))
         for k in range(self.n_comp()):
-            U_k, V_k = self.get_cov(k, var_name, var_name)
-            kron_k = np.kron(V_k, U_k)  # V⊗U convention
+            stored = self.cov_blocks[k].get(frozenset({var_name}))
+            if stored is not None and stored[0] is None:
+                # Dense sentinel: use stored Sigma directly
+                kron_k = stored[1]
+            else:
+                U_k, V_k = self.get_cov(k, var_name, var_name)
+                kron_k = np.kron(V_k, U_k)  # V⊗U convention
             M_k_vec = self.mu_blocks[k][var_name].flatten("F")
             delta_k = M_k_vec - M_bar_vec
             Cov += self.pi[k] * (kron_k + np.outer(delta_k, delta_k))
@@ -425,6 +448,93 @@ class GaussianMixBlock:
             mu_blocks.append(mu_k)
             cov_blocks.append(cov_k)
         return cls(var_list, var_entries, pi, mu_blocks, cov_blocks)
+
+    # ------------------------------------------------------------------
+    # Constructor: from_matrix_gm_full (B.6)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def from_matrix_gm_full(
+        cls,
+        ve: "VarEntry",
+        M: np.ndarray,
+        Sigma: np.ndarray,
+        U: Optional[np.ndarray],
+        V: Optional[np.ndarray],
+        pi: Optional[List[float]] = None,
+        var_list: Optional[List[str]] = None,
+    ) -> "GaussianMixBlock":
+        """Initialise a GaussianMixBlock from matrix_gm_full(...) constructor data.
+
+        Handles two storage modes:
+        - Kronecker-detected (U is not None): stores cov_blocks[k][{name}] = (U, V)
+        - Dense (U is None): stores cov_blocks[k][{name}] = (None, Sigma)
+
+        Sentinel format matches fix4's dense sentinel exactly: (None, Sigma_dense).
+        Cross-covariances with scalars are initialised to zero.
+
+        Parameters
+        ----------
+        ve : VarEntry
+            Matrix variable entry (kind='matrix', shape=(m, n)).
+        M : np.ndarray (m, n)
+            Mean matrix.
+        Sigma : np.ndarray (mn, mn)
+            Full vectorised covariance (used in dense mode and as reference).
+        U : np.ndarray (m, m) | None
+            Row Kronecker factor (set if Kronecker-detected, None for dense).
+        V : np.ndarray (n, n) | None
+            Column Kronecker factor (set if Kronecker-detected, None for dense).
+        pi : list[float] | None
+            Mixing weights (default [1.0]).
+        var_list : list[str] | None
+            Scalar variable names (empty if no scalars yet).
+        """
+        if pi is None:
+            pi = [1.0]
+        if var_list is None:
+            var_list = []
+        n_comp = len(pi)
+        m_v, n_v = ve.shape
+        mn = m_v * n_v
+
+        mu_blocks = []
+        cov_blocks = []
+        for k in range(n_comp):
+            mu_k: Dict[str, np.ndarray] = {}
+            cov_k: Dict[FrozenSet, Any] = {}
+            # Matrix variable mean
+            mu_k[ve.name] = np.asarray(M, dtype=float).copy()
+            # Covariance: Kronecker or dense sentinel
+            if U is not None and V is not None:
+                # Kronecker-detected path
+                U_k, V_k = _enforce_psd_kron_factors(
+                    np.asarray(U, dtype=float).copy(),
+                    np.asarray(V, dtype=float).copy(),
+                )
+                cov_k[frozenset({ve.name})] = (U_k, V_k)
+            else:
+                # Dense sentinel path — store (None, Sigma_dense)
+                Sigma_k = np.asarray(Sigma, dtype=float).copy()
+                # Enforce symmetry
+                Sigma_k = 0.5 * (Sigma_k + Sigma_k.T)
+                # Clip negative eigenvalues for PSD
+                w, Q = np.linalg.eigh(Sigma_k)
+                w = np.clip(w, 0.0, None)
+                Sigma_k = Q @ np.diag(w) @ Q.T
+                cov_k[frozenset({ve.name})] = (None, Sigma_k)
+
+            # Scalar means and cross-covariances (zero at declaration)
+            for sv in var_list:
+                mu_k[sv] = np.array([0.0])
+            for sv in var_list:
+                cov_k[frozenset({sv})] = 0.0
+                cov_k[frozenset({sv, ve.name})] = np.zeros(mn)
+
+            mu_blocks.append(mu_k)
+            cov_blocks.append(cov_k)
+
+        return cls(var_list, [ve], pi, mu_blocks, cov_blocks)
 
     # ------------------------------------------------------------------
     # Renormalise (used after truncation)

@@ -29,7 +29,10 @@ import numpy as np
 
 from libSOGAshared import Dist, VarEntry, GaussianMix
 from libSOGAsharedMatrix import GaussianMixBlock, _enforce_psd_kron_factors
-from libMatrixGaussian import _nearest_kronecker
+from libMatrixGaussian import (
+    _nearest_kronecker, _try_kronecker_decompose,
+    KroneckerDetectionInfo, KroneckerNearMissWarning, DenseCovarianceInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,75 @@ def _parse_nested_list(text: str) -> list:
 
     result, _ = _parse_value(0)
     return result
+
+
+def _parse_matrix_gm_full_text(text: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Parse matrix_gm_full(M_list, Sigma_list) text into numpy arrays.
+
+    Returns (M, Sigma) where:
+      M:     shape (m, n) — mean matrix
+      Sigma: shape (mn, mn) — full vectorised covariance
+
+    Validates:
+      - M is 2D (m rows, each with n elements)
+      - Sigma is 2D square with shape (mn, mn)
+      - Sigma is symmetric (max |Sigma - Sigma.T| < 1e-10)
+
+    Raises ValueError on shape or symmetry violation.
+    Uses a safe numeric-only parser — no code execution.
+    """
+    inner = text[len("matrix_gm_full("):-1]
+    # Split the two top-level list arguments at depth-0 commas
+    depth = 0
+    parts: List[str] = []
+    current: List[str] = []
+    for ch in inner:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        parts.append("".join(current).strip())
+    if len(parts) != 2:
+        raise ValueError(
+            f"[B.3] matrix_gm_full expects 2 arguments (M, Sigma), got {len(parts)}"
+        )
+    M = np.asarray(_parse_nested_list(parts[0]), dtype=float)
+    Sigma = np.asarray(_parse_nested_list(parts[1]), dtype=float)
+
+    # Validate M shape: must be 2D
+    if M.ndim != 2:
+        raise ValueError(
+            f"[B.3] matrix_gm_full: M must be a 2D matrix (list of lists), "
+            f"got ndim={M.ndim}"
+        )
+    m, n = M.shape
+    mn = m * n
+
+    # Validate Sigma shape: must be (mn, mn)
+    if Sigma.ndim != 2:
+        raise ValueError(
+            f"[B.3] matrix_gm_full: Sigma must be a 2D matrix, got ndim={Sigma.ndim}"
+        )
+    if Sigma.shape != (mn, mn):
+        raise ValueError(
+            f"[B.3] matrix_gm_full: Sigma shape mismatch. "
+            f"M is {m}x{n} → expected Sigma shape ({mn},{mn}), got {Sigma.shape}"
+        )
+
+    # Validate Sigma is symmetric
+    sym_err = float(np.max(np.abs(Sigma - Sigma.T)))
+    if sym_err > 1e-8:
+        raise ValueError(
+            f"[B.3] matrix_gm_full: Sigma is not symmetric (max|Sigma-Sigma.T|={sym_err:.3e})"
+        )
+
+    return M, Sigma
 
 
 def _parse_matrix_gm_text(text: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -149,6 +221,9 @@ def _apply_psd_to_block(block: GaussianMixBlock, k: int, var_name: str) -> None:
 def _parse_matrix_expr(expr: str) -> dict:
     """Parse a matrix assignment expression into an op-type dict."""
     body = expr.split("=", 1)[1].strip()
+
+    if body.startswith("matrix_gm_full("):
+        return {"op": "MATRIX_GM_FULL", "text": body}
 
     if body.startswith("matrix_gm("):
         return {"op": "MATRIX_GM", "text": body}
@@ -450,6 +525,102 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
                     block.cov_blocks[k][frozenset({sv, lhs})] = np.zeros(m_var * n_var)
             if ve not in block.var_entries:
                 block.var_entries.append(ve)
+        return Dist(dist.var_list, dist.gm, var_entries=dist.var_entries, gm_block=block)
+
+    # --- MATRIX_GM_FULL: auto-Kronecker detection + initialise/extend gm_block ---
+    if op == "MATRIX_GM_FULL":
+        M, Sigma = _parse_matrix_gm_full_text(parsed["text"])
+        ve = next((v for v in dist.var_entries if v.name == lhs), None)
+        if ve is None:
+            raise RuntimeError(f"[B.5] No VarEntry for '{lhs}'")
+
+        m_var, n_var = ve.shape
+        if M.shape != (m_var, n_var):
+            raise ValueError(
+                f"[B.5] matrix_gm_full: M shape {M.shape} does not match "
+                f"declared shape ({m_var}, {n_var}) for variable '{lhs}'"
+            )
+        mn = m_var * n_var
+        if Sigma.shape != (mn, mn):
+            raise ValueError(
+                f"[B.5] matrix_gm_full: Sigma shape {Sigma.shape} does not match "
+                f"expected ({mn}, {mn}) for {m_var}x{n_var} variable '{lhs}'"
+            )
+
+        # Read configurable thresholds from env (default 1e-8 strict, 1e-3 loose)
+        import os as _os
+        kron_strict = float(_os.environ.get("SOGA_KRON_STRICT", "1e-8"))
+        kron_loose = float(_os.environ.get("SOGA_KRON_LOOSE", "1e-3"))
+
+        # Auto-Kronecker detection
+        U_approx, V_approx, residual_ratio = _try_kronecker_decompose(Sigma, m_var, n_var, kron_strict)
+
+        if residual_ratio < kron_strict:
+            # Exact Kronecker (within threshold) — store as (U, V) Kronecker factors
+            warnings.warn(
+                KroneckerDetectionInfo(
+                    f"[matrix_gm_full] '{lhs}': Kronecker structure detected "
+                    f"(residual={residual_ratio:.3e} < {kron_strict:.3e}). "
+                    f"Storing as (U, V) factors for efficient operations."
+                ),
+                KroneckerDetectionInfo,
+                stacklevel=2,
+            )
+            use_kronecker = True
+        else:
+            # Not Kronecker — store as dense sentinel
+            use_kronecker = False
+            if kron_strict <= residual_ratio < kron_loose:
+                warnings.warn(
+                    KroneckerNearMissWarning(
+                        f"[matrix_gm_full] '{lhs}': near-Kronecker Sigma "
+                        f"(residual={residual_ratio:.3e}, "
+                        f"threshold={kron_strict:.3e}..{kron_loose:.3e}). "
+                        f"Storing as DENSE for safety. "
+                        f"If Sigma was intended to be Kronecker, check for rounding."
+                    ),
+                    KroneckerNearMissWarning,
+                    stacklevel=2,
+                )
+            else:
+                warnings.warn(
+                    DenseCovarianceInfo(
+                        f"[matrix_gm_full] '{lhs}': non-Kronecker Sigma "
+                        f"(residual={residual_ratio:.3e} >= {kron_loose:.3e}). "
+                        f"Storing as dense sentinel (None, Sigma)."
+                    ),
+                    DenseCovarianceInfo,
+                    stacklevel=2,
+                )
+
+        if dist.gm_block is None:
+            # First matrix variable in program: use from_matrix_gm_full
+            block = GaussianMixBlock.from_matrix_gm_full(
+                ve=ve,
+                M=M,
+                Sigma=Sigma,
+                U=U_approx if use_kronecker else None,
+                V=V_approx if use_kronecker else None,
+                pi=[1.0],
+                var_list=list(dist.var_list),
+            )
+        else:
+            block = deepcopy(dist.gm_block)
+            for k in range(block.n_comp()):
+                block.mu_blocks[k][lhs] = M.copy()
+                if use_kronecker:
+                    U_k, V_k = _enforce_psd_kron_factors(U_approx.copy(), V_approx.copy())
+                    block.cov_blocks[k][frozenset({lhs})] = (U_k, V_k)
+                else:
+                    # Dense sentinel
+                    Sigma_k = 0.5 * (Sigma + Sigma.T)  # enforce symmetry
+                    block.cov_blocks[k][frozenset({lhs})] = (None, Sigma_k.copy())
+                # Cross-covariances with scalars: zero at declaration
+                for sv in block.var_list:
+                    block.cov_blocks[k][frozenset({sv, lhs})] = np.zeros(mn)
+            if ve not in block.var_entries:
+                block.var_entries.append(ve)
+
         return Dist(dist.var_list, dist.gm, var_entries=dist.var_entries, gm_block=block)
 
     # For all other ops, gm_block must exist

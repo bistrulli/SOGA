@@ -37,7 +37,7 @@ import numpy as np
 
 from libSOGAshared import Dist, GaussianMix, VarEntry, NumericalError, prob_tol
 from libSOGAsharedMatrix import GaussianMixBlock, _enforce_psd_kron_factors
-from libMatrixGaussian import _nearest_kronecker
+from libMatrixGaussian import _nearest_kronecker, StaleCrossCovWarning
 
 logger = logging.getLogger(__name__)
 
@@ -403,6 +403,31 @@ def _truncate_matrix_element_ineq(
         pass  # use DENSE
     elif not use_dense:
         use_project = True
+
+    # β-warning: scan component 0 for scalar variables with non-zero cross-cov
+    # to mat_var.  These scalars will NOT be Kalman-updated by this observe
+    # (Gap3 — stale cross-cov).  Emit StaleCrossCovWarning for each such scalar.
+    if block.cov_blocks:
+        cov_k0 = block.cov_blocks[0]
+        for s in block.var_list:
+            key = frozenset({s, mat_var})
+            if key in cov_k0:
+                cov_vec = cov_k0[key]
+                if hasattr(cov_vec, '__len__'):
+                    n_val = float(np.linalg.norm(cov_vec))
+                else:
+                    n_val = abs(float(cov_vec))
+                if n_val > 1e-8:
+                    warnings.warn(
+                        StaleCrossCovWarning(
+                            f"Scalar '{s}' has non-zero cross-cov with '{mat_var}' "
+                            f"(norm={n_val:.2e}); observe on '{mat_var}' will not "
+                            f"update '{s}'. Value of '{s}' remains STALE. "
+                            f"See docs/LIMITATIONS.md §Gap3."
+                        ),
+                        StaleCrossCovWarning,
+                        stacklevel=3,
+                    )
 
     new_pi = []
     new_log_pi = [] if block.log_pi is not None else None

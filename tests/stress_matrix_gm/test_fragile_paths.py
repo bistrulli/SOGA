@@ -225,89 +225,97 @@ def test_F2b_dense_sentinel_left_affine_fails():
 
 
 # ---------------------------------------------------------------------------
-# F3: Gap 3 — extracted scalar not Kalman-updated after observe
+# F3: Gap 3 — extracted scalar not Kalman-updated after observe (in-process)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    match=r"Expected updated mean E\[y0\]=",
-    reason=(
-        "Gap3: after y0 = X[0,0] and observe(X[1,0] > 0), the scalar y0 "
-        "is NOT Kalman-updated even though X[0,0] and X[1,0] are correlated "
-        "(off-diagonal U factor). E[y0] stays at the prior mean while "
-        "E[X[0,0]] shifts upward via the Tallis+Kalman path on the matrix "
-        "distribution. The stale cross-cov in cov_blocks is never propagated "
-        "back to the scalar y0 slot."
-    ),
-)
 def test_F3_stale_cross_cov_after_observe():
-    """F3: E[y0] is stale after observe(X[1,0]>0) with correlated rows.
+    """F3: StaleCrossCovWarning emitted; E[y0] stays stale after observe(X[1,0]>0).
 
-    Setup: X ~ MN(M, U, V) with M[0,0]=1.0 and U off-diagonal 0.5 (rows
-    correlated).  After observe(X[1,0]>0), the Tallis truncation shifts
-    E[X[0,0]] from 1.0 to ~1.4 (Kalman-style update via row cross-cov).
-    E[y0] must also shift because y0 = X[0,0] was extracted before observe.
-    The test asserts |E[y0] - E_X_00_post| < 0.05 — this fails because
-    E[y0] stays at 1.0 while E[X[0,0]] moves to ~1.4.
+    Post-patch: _truncate_matrix_element_ineq emits StaleCrossCovWarning
+    when it detects scalar y0 has non-zero cross-cov with X.  The scalar
+    y0 is NOT updated (Gap3 bug is documented but not fixed) — this test
+    locks the stale-but-warned behavior.
+
+    Setup (in-process, no subprocess): build a GaussianMixBlock representing
+    X ~ MN(M, U, V) with off-diagonal U (rows correlated), plus scalar y0
+    extracted from X[0,0] with the correct cross-cov.  Then call
+    _truncate_matrix_element_ineq directly for observe(X[1,0] > 0).
     """
-    prog = textwrap.dedent("""\
-        matrix[2][2] X;
-        X = matrix_gm([[1.0,0.0],[0.0,0.0]], [[1.0,0.5],[0.5,1.0]], [[1.0,0.0],[0.0,1.0]]);
-        y0 = X[0,0];
-        observe(X[1,0] > 0);
-    """)
-    stdout, stderr, rc = _run_soga(prog, timeout=20)
-    assert rc == 0, f"SOGA returned rc={rc}\nstderr:{stderr[:300]}"
+    from libSOGAshared import VarEntry
+    from libSOGAsharedMatrix import GaussianMixBlock
+    from libMatrixTruncate import _truncate_matrix_element_ineq
+    from libMatrixGaussian import StaleCrossCovWarning
 
-    # Parse E[y0] (scalar) from stdout
-    m = re.search(r"E\[y0\]:\s+([-\d.eE+]+)", stdout)
-    assert m is not None, f"E[y0] not found in:\n{stdout[:400]}"
-    e_y0 = float(m.group(1))
+    # Build block: X ~ MN([[1,0],[0,0]], U_off, I_2)
+    m_mat, n_mat = 2, 2
+    M = np.array([[1.0, 0.0], [0.0, 0.0]])
+    U = np.array([[1.0, 0.5], [0.5, 1.0]])   # off-diagonal: rows correlated
+    V = np.eye(2)
+    ve_X = VarEntry("X", "matrix", (m_mat, n_mat))
+    pi = [1.0]
+    mu_blocks = [{"X": M.copy()}]
+    cov_blocks = [{frozenset({"X"}): (U.copy(), V.copy())}]
 
-    # Parse E[X] matrix and extract X[0,0]
-    E_X = _parse_matrix_e(stdout, "X")
-    e_X00_post = float(E_X[0, 0])
+    # Simulate y0 = X[0,0] extraction: add scalar y0 with mean M[0,0]=1.0
+    # Cross-cov Cov(y0, vec(X)) in column-major: Cov(X[0,0], X[i,j]) = U[0,i]*V[0,j]
+    cross_cov_y0_X = np.array([
+        float(U[0, 0] * V[0, 0]),  # idx 0: (i=0,j=0)
+        float(U[0, 1] * V[0, 0]),  # idx 1: (i=1,j=0)
+        float(U[0, 0] * V[0, 1]),  # idx 2: (i=0,j=1)
+        float(U[0, 1] * V[0, 1]),  # idx 3: (i=1,j=1)
+    ])
+    mu_blocks[0]["y0"] = np.array([M[0, 0]])
+    cov_blocks[0][frozenset({"y0"})] = float(U[0, 0] * V[0, 0])
+    cov_blocks[0][frozenset({"y0", "X"})] = cross_cov_y0_X.copy()
 
-    # The test ASSERTS that y0 was updated to match the posterior X[0,0].
-    # This MUST fail while Gap3 exists: e_y0 == 1.0 (prior) but
-    # e_X00_post == ~1.4 (Kalman-shifted via truncation + row cross-cov).
-    assert abs(e_y0 - e_X00_post) < 0.05, (
-        f"Expected updated mean E[y0]={e_y0:.5f} to match E[X[0,0]]_post="
-        f"{e_X00_post:.5f} (Kalman update via row cross-cov), but got "
-        f"abs difference {abs(e_y0 - e_X00_post):.5f} >= 0.05. "
-        f"Gap3: stale cross-cov prevents back-propagation of observe update."
+    prior_mean_y0 = float(M[0, 0])  # = 1.0
+
+    block = GaussianMixBlock(["y0"], [ve_X], pi, mu_blocks, cov_blocks)
+
+    # Post-patch: StaleCrossCovWarning must be emitted because y0 has non-zero
+    # cross-cov with X.  The warning confirms Gap3 is now loud (not silent).
+    with pytest.warns(StaleCrossCovWarning, match=r"y0|cross.cov"):
+        result_block, norm = _truncate_matrix_element_ineq(
+            block, "X", m_mat, n_mat, 1, 0, 0.0, "gt", False
+        )
+
+    # Verify the warning was emitted AND the scalar y0 is still stale.
+    # E[y0] must NOT change (Gap3 is documented, not fixed).
+    e_y0_post = float(result_block.mu_blocks[0]["y0"][0])
+    assert abs(e_y0_post - prior_mean_y0) < 1e-10, (
+        f"E[y0] changed from {prior_mean_y0} to {e_y0_post}: "
+        f"unexpected fix of Gap3 — update test if bug was intentionally repaired."
+    )
+
+    # E[X[0,0]] must change due to Kalman-style update on the correlated matrix
+    # distribution (row cross-cov via off-diagonal U).  The exact direction
+    # depends on the dense truncation path; we lock the empirical behavior.
+    e_X00_post = float(result_block.mu_blocks[0]["X"][0, 0])
+    assert abs(e_X00_post - prior_mean_y0) > 0.3, (
+        f"E[X[0,0]] did not change after observe(X[1,0]>0): "
+        f"got {e_X00_post:.5f}, expected to differ from prior {prior_mean_y0:.5f} by > 0.3. "
+        f"Kalman update on correlated matrix distribution should shift X[0,0]."
     )
 
 
 # ---------------------------------------------------------------------------
-# F4: extract + write — cross-cov not zeroed after Schur element write
+# F4: extract + write — StaleCrossCovWarning emitted; cross-cov stays stale
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    match=r"Expected Cov\(y, X\[0,0\]\) to be zero after Schur write",
-    reason=(
-        "F4: after y = X[0,0] and X[0,0] = 5.0 (Schur write makes X[0,0] "
-        "deterministic), Cov(y, X[0,0]) should be 0 because X[0,0] is now "
-        "a known constant. But the stale cross-cov entry in cov_blocks still "
-        "holds the pre-write value U[0,0]*V[0,0] != 0."
-    ),
-)
 def test_F4_extract_write_stale_cross_cov():
-    """F4: Cov(y, X[0,0]) != 0 after X[0,0] = 5.0 (should be 0).
+    """F4: StaleCrossCovWarning emitted; Cov(y, X[0,0]) stays stale after X[0,0]=5.0.
 
-    Setup: X ~ MN(M, U, V) with U[0,0]=1.0, V[0,0]=1.0 → Var(X[0,0])=1.0.
-    y = X[0,0] extracted first.  Then X[0,0] = 5.0 is a Schur element write
-    that conditions X on X[0,0]=5 and densifies its covariance.  After this,
-    X[0,0] is deterministic (variance 0), so Cov(y, X[0,0]) must equal 0
-    because y captures the OLD random X[0,0] and the NEW X[0,0]=5 is a
-    constant independent of y.  The stale cov_blocks still holds the
-    pre-write cross-cov, causing the test assertion to fail.
+    Post-patch: _matrix_element_write_component emits StaleCrossCovWarning
+    when it detects scalar y has non-zero cross-cov with X.  The cross-cov
+    is NOT zeroed (F4 bug is documented but not fixed) — this test locks the
+    stale-but-warned behavior.
+
+    Warning is emitted but value is intentionally NOT fixed (see LIMITATIONS.md §F4).
+    This test locks the stale-but-warned behavior.
     """
     from libSOGAshared import VarEntry
     from libSOGAsharedMatrix import GaussianMixBlock
+    from libMatrixGaussian import StaleCrossCovWarning
 
     # Build block: X ~ MN([[1,0],[0,0]], I_2, I_2)
     m, n = 2, 2
@@ -318,22 +326,8 @@ def test_F4_extract_write_stale_cross_cov():
     pi = [1.0]
     mu_blocks = [{"X": M.copy()}]
     cov_blocks = [{frozenset({"X"}): (U.copy(), V.copy())}]
-    # Scalar y: mean = M[0,0] = 1.0, variance = U[0,0]*V[0,0] = 1.0
-    # Cross-cov Cov(y, vec(X)) encodes Cov(X[0,0], X[i,j]) = U[0,i]*V[0,j]
-    # For now, y is stored as a separate scalar variable in var_list.
-    # We simulate the post-extract state: var_list=['y'], cov_blocks has
-    # 'y' → float(1.0) and cross-cov frozenset({'y','X'}) → flat array
-    # representing Cov(y, vec(X)) = [U[0,0]*V[0,0], U[0,0]*V[0,1],
-    #                                  U[1,0]*V[0,0], U[1,0]*V[0,1]] = [1,0,0,0]
-    cross_cov_y_X = np.array([
-        U[0, 0] * V[0, 0],  # Cov(y, X[0,0])
-        U[0, 0] * V[0, 1],  # Cov(y, X[1,0]) — column-major index j*m+i
-        U[0, 1] * V[0, 0],  # Cov(y, X[0,1])  wait: col-major: j=0,i=0 → 0; j=0,i=1 → 1; etc.
-        U[0, 1] * V[0, 1],  # Cov(y, X[1,1])
-    ], dtype=float)
     # Column-major (vec convention): idx = j*m + i
     # Cov(y, X[i,j]) = U[0,i] * V[0,j] for extract y=X[0,0]
-    # Correct column-major order: (0,0)→0, (1,0)→1, (0,1)→2, (1,1)→3
     cross_cov_y_X = np.array([
         float(U[0, 0] * V[0, 0]),  # idx 0: (i=0,j=0)
         float(U[0, 1] * V[0, 0]),  # idx 1: (i=1,j=0)
@@ -348,29 +342,28 @@ def test_F4_extract_write_stale_cross_cov():
 
     block = GaussianMixBlock(["y"], [ve], pi, mu_blocks, cov_blocks)
 
-    # Simulate the Schur element write X[0,0] = 5.0
-    # After the write, X[0,0] is deterministic.  The cross-cov Cov(y, X[0,0])
-    # should become 0 because X[0,0] = 5 (constant) → Cov(y, 5) = 0.
+    # Post-patch: StaleCrossCovWarning must be emitted because y has non-zero
+    # cross-cov with X.  The warning confirms F4 is now loud (not silent).
     from libMatrixUpdate import _matrix_element_write_component
-    _matrix_element_write_component(block, 0, "X", m, n, 0, 0, 5.0, 0.0)
+    with pytest.warns(StaleCrossCovWarning):
+        _matrix_element_write_component(block, 0, "X", m, n, 0, 0, 5.0, 0.0)
 
-    # The cross-cov vector for (y, X) post-write should have index 0 = 0
-    # because Cov(y, X[0,0]) where X[0,0] is now deterministic must be 0.
+    # The cross-cov vector for (y, X) post-write should still be non-zero
+    # because F4 is NOT fixed — the stale cross-cov entry in cov_blocks still
+    # holds the pre-write value U[0,0]*V[0,0]=1.0 != 0.
     cross_cov_after = block.cov_blocks[0].get(frozenset({"y", "X"}))
     if cross_cov_after is None:
-        cross_cov_y_X00_after = 0.0  # entry removed → Cov = 0 (correct)
+        cross_cov_y_X00_after = 0.0  # entry removed → Cov = 0 (would be F4 fixed)
     elif hasattr(cross_cov_after, "__len__"):
         cross_cov_y_X00_after = float(cross_cov_after[0])
     else:
         cross_cov_y_X00_after = float(cross_cov_after)
 
-    # This assertion MUST fail while F4 exists: the stale cross-cov is
-    # != 0 after the write (it retains the pre-write U[0,0]*V[0,0]=1.0).
-    # The assertion MUST fail while F4 exists: cross_cov_y_X00_after == 1.0
-    # (stale, non-zero) when the correct value is 0 (X[0,0] deterministic).
-    assert abs(cross_cov_y_X00_after) < 1e-10, (
-        f"Expected Cov(y, X[0,0]) to be zero after Schur write X[0,0]=5.0 "
-        f"(X[0,0] is deterministic → Cov(y, const)=0) but got "
-        f"{cross_cov_y_X00_after:.6e}. "
-        f"F4: stale cross-cov not zeroed after element write."
+    # Warning is emitted but value is intentionally NOT fixed (see LIMITATIONS.md §F4).
+    # This test locks the stale-but-warned behavior: cross-cov IS still non-zero.
+    assert abs(cross_cov_y_X00_after) > 1e-10, (
+        f"Expected Cov(y, X[0,0]) to remain non-zero (stale) after Schur write X[0,0]=5.0 "
+        f"(F4 bug documents that cross-cov is NOT zeroed), but got "
+        f"{cross_cov_y_X00_after:.6e} ≈ 0. "
+        f"If F4 was intentionally fixed, remove this test and update LIMITATIONS.md."
     )

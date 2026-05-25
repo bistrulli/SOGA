@@ -923,6 +923,29 @@ def _matrix_element_write_component(
     # Store as dense sentinel: (None, Sigma_dense)
     block.cov_blocks[k][frozenset({mat_name})] = (None, Sigma_new)
 
+    # β-warning: scan for scalar variables with non-zero cross-cov to mat_name.
+    # These scalars will NOT be updated by this element write (F4 — stale cross-cov).
+    cov_k = block.cov_blocks[k]
+    for s in block.var_list:
+        key = frozenset({s, mat_name})
+        if key in cov_k:
+            cov_vec = cov_k[key]
+            if hasattr(cov_vec, '__len__'):
+                n_val = float(np.linalg.norm(cov_vec))
+            else:
+                n_val = abs(float(cov_vec))
+            if n_val > 1e-8:
+                warnings.warn(
+                    StaleCrossCovWarning(
+                        f"Scalar '{s}' has non-zero cross-cov with '{mat_name}' "
+                        f"(norm={n_val:.2e}); element write on '{mat_name}' will not "
+                        f"update '{s}'. Value of '{s}' remains STALE. "
+                        f"See docs/LIMITATIONS.md §F4."
+                    ),
+                    StaleCrossCovWarning,
+                    stacklevel=3,
+                )
+
 
 class ElementWriteDenseWarning(UserWarning):
     """Emitted when an element write densifies a matrix variable's covariance.

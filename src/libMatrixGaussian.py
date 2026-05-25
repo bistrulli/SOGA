@@ -87,6 +87,21 @@ class DenseCovarianceInfo(UserWarning):
     """
 
 
+class StaleCrossCovWarning(UserWarning):
+    """Scalar variable extracted before an observe/write on a correlated
+    matrix variable; its moments are now stale (Gap3/F4).
+
+    Emitted when a scalar variable has a non-zero cross-covariance with a
+    matrix variable that is about to be conditioned (via observe or element
+    write).  The scalar's moments will NOT be updated by the operation —
+    they remain at the pre-condition value.
+
+    To avoid stale moments: extract scalar variables AFTER any observe or
+    element-write operations on correlated matrix variables.
+    See docs/LIMITATIONS.md §Gap3 and §F4.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Isotropy helper
 # ---------------------------------------------------------------------------

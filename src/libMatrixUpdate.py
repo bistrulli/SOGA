@@ -32,6 +32,7 @@ from libSOGAsharedMatrix import GaussianMixBlock, _enforce_psd_kron_factors
 from libMatrixGaussian import (
     _nearest_kronecker, _try_kronecker_decompose,
     KroneckerDetectionInfo, KroneckerNearMissWarning, DenseCovarianceInfo,
+    StaleCrossCovWarning,
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +270,12 @@ def _matrix_affine_left(block: GaussianMixBlock, k: int, lhs: str, A: np.ndarray
     """Y = A @ X per component k (M4.2)."""
     M_x = block.get_mu(k, lhs)
     U_x, V_x = block.get_cov(k, lhs, lhs)
+    if U_x is None:
+        raise NotImplementedError(
+            f"[C1/C7] left-affine (A@X) on dense-sentinel covariance not implemented. "
+            f"Variable '{lhs}' was densified by observe() or matrix_gm_full(dense Sigma). "
+            f"See docs/LIMITATIONS.md §C1/C7."
+        )
     n = M_x.shape[1]
     block.mu_blocks[k][lhs] = A @ M_x
     block.cov_blocks[k][frozenset({lhs})] = (A @ U_x @ A.T, V_x.copy())
@@ -283,6 +290,12 @@ def _matrix_affine_right(block: GaussianMixBlock, k: int, lhs: str, B: np.ndarra
     """Y = X @ B per component k (M4.3)."""
     M_x = block.get_mu(k, lhs)
     U_x, V_x = block.get_cov(k, lhs, lhs)
+    if U_x is None:
+        raise NotImplementedError(
+            f"[C1/C7] right-affine (X@B) on dense-sentinel covariance not implemented. "
+            f"Variable '{lhs}' was densified by observe() or matrix_gm_full(dense Sigma). "
+            f"See docs/LIMITATIONS.md §C1/C7."
+        )
     m = M_x.shape[0]
     block.mu_blocks[k][lhs] = M_x @ B
     block.cov_blocks[k][frozenset({lhs})] = (U_x.copy(), B.T @ V_x @ B)
@@ -351,6 +364,12 @@ def _matrix_scale(block: GaussianMixBlock, k: int, lhs: str, c: float) -> None:
     """Y = c * X per component k (M4.6)."""
     M_x = block.get_mu(k, lhs)
     U_x, V_x = block.get_cov(k, lhs, lhs)
+    if U_x is None:
+        raise NotImplementedError(
+            f"[C1/C7] scale (c*X) on dense-sentinel covariance not implemented. "
+            f"Variable '{lhs}' was densified by observe() or matrix_gm_full(dense Sigma). "
+            f"See docs/LIMITATIONS.md §C1/C7."
+        )
     block.mu_blocks[k][lhs] = c * M_x
     U_new, V_new = _enforce_psd_kron_factors((c * c) * U_x, V_x.copy())
     block.cov_blocks[k][frozenset({lhs})] = (U_new, V_new)
@@ -364,6 +383,12 @@ def _matrix_transpose(block: GaussianMixBlock, k: int, lhs: str) -> None:
     """Y = X^T per component k (M4.7). Factors swap; cross-covs via commutation matrix."""
     M_x = block.get_mu(k, lhs)
     U_x, V_x = block.get_cov(k, lhs, lhs)
+    if U_x is None:
+        raise NotImplementedError(
+            f"[C1/C7] transpose (X^T) on dense-sentinel covariance not implemented. "
+            f"Variable '{lhs}' was densified by observe() or matrix_gm_full(dense Sigma). "
+            f"See docs/LIMITATIONS.md §C1/C7."
+        )
     m, n = M_x.shape
     block.mu_blocks[k][lhs] = M_x.T
     block.cov_blocks[k][frozenset({lhs})] = (V_x.copy(), U_x.copy())

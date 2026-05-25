@@ -70,14 +70,20 @@ PYTHON = sys.executable
 # SOGA subprocess runner (same as test_ops_analytical.py)
 # ---------------------------------------------------------------------------
 
-def _run_soga(program_text: str, timeout: int = 15) -> tuple:
-    """Run a SOGA program via subprocess. Return (stdout, stderr, returncode)."""
+def _run_soga(program_text: str, timeout: int = 15, soga_timeout: int = None) -> tuple:
+    """Run a SOGA program via subprocess. Return (stdout, stderr, returncode).
+
+    soga_timeout: the -t flag passed to SOGA.py (worker queue timeout).
+    Defaults to timeout - 2 if not specified.
+    """
+    if soga_timeout is None:
+        soga_timeout = timeout - 2
     with tempfile.NamedTemporaryFile(mode="w", suffix=".soga", delete=False) as f:
         f.write(program_text)
         fname = f.name
     try:
         result = subprocess.run(
-            [PYTHON, SOGA_PY, "-f", fname, "-t", str(timeout - 2)],
+            [PYTHON, SOGA_PY, "-f", fname, "-t", str(soga_timeout)],
             capture_output=True, text=True, timeout=timeout,
             cwd=_SRC,
         )
@@ -104,65 +110,60 @@ def _parse_matrix_e(output: str, var: str) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# F1: observe(X[i,j] > c) followed by Y = A @ X crashes subprocess
+# F1: observe(X[i,j] > c) followed by Y = A @ X → NotImplementedError (subprocess)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    match=r"Expected 'E\[Y\]' in SOGA stdout",
-    reason=(
-        "C1+Path5: observe on matrix variable densifies covariance sentinel. "
-        "Subsequent A@X in _matrix_affine_left calls A @ None (TypeError). "
-        "Subprocess crashes → SOGA prints 'Warning: SOGA Timeout occurred' "
-        "with no E[Y] in stdout → assert below raises AssertionError."
-    ),
-)
 def test_F1_observe_then_left_affine_hangs():
-    """F1: observe(X[0,0]>0) then Y = A@X — subprocess worker crashes silently.
+    """F1: observe(X[0,0]>0) then Y = A@X — worker raises NotImplementedError.
 
-    Expected broken behaviour: SOGA stdout contains 'Warning: SOGA Timeout
-    occurred' and does NOT contain 'E[Y]' because the multiprocessing worker
-    crashes with TypeError (A @ None) before writing to the Queue.
+    Post-patch behaviour: the guard in _matrix_affine_left raises
+    NotImplementedError (message "[C1/C7]...LIMITATIONS.md") when called on a
+    dense-sentinel covariance (produced by observe densifying X).
 
-    The test ASSERTS that E[Y] is present in stdout; this assertion fails
-    (AssertionError) because it is not — confirming the bug is still present.
+    SOGA architecture note: the worker Process raises NotImplementedError;
+    its traceback appears in stderr (worker inherits parent stderr).  The main
+    process then hits the queue.get() timeout and prints
+    "Warning: SOGA Timeout occurred", then exits with rc=0 (no sys.exit call).
+    Therefore: assert rc == 0, assert "NotImplementedError" in combined output,
+    assert "LIMITATIONS" or "dense" in combined output.
     """
     prog = textwrap.dedent("""\
+        data A = [[1.0,0.0],[0.0,1.0]];
         matrix[2][2] X;
-        matrix[2][2] A;
+        matrix[2][2] Y;
         X = matrix_gm([[1.0,0.0],[0.0,0.0]], [[1.0,0.0],[0.0,1.0]], [[1.0,0.0],[0.0,1.0]]);
-        A = matrix_gm([[1.0,0.0],[0.0,1.0]], [[0.1,0.0],[0.0,0.1]], [[0.1,0.0],[0.0,0.1]]);
         observe(X[0,0] > 0);
         Y = A @ X;
     """)
-    stdout, stderr, rc = _run_soga(prog, timeout=10)
-    # This assertion MUST fail while the bug exists.
-    # If it passes (xpass), the bug was silently fixed — update the xfail marker.
-    assert "E[Y]" in stdout, (
-        f"Expected 'E[Y]' in SOGA stdout but got:\n{stdout[:400]}\n"
-        f"(stderr: {stderr[:200]})"
+    stdout, stderr, rc = _run_soga(prog, timeout=5, soga_timeout=3)
+    combined = stdout + stderr
+    # rc=0: SOGA main process hits queue timeout, prints warning, exits cleanly.
+    assert rc == 0, (
+        f"Expected rc=0 (SOGA queue timeout path) but got rc={rc}.\n"
+        f"stdout: {stdout[:400]}\nstderr: {stderr[:400]}"
+    )
+    # Worker traceback (NotImplementedError) must appear somewhere in combined output.
+    assert "NotImplementedError" in combined, (
+        f"Expected 'NotImplementedError' in stdout+stderr but not found.\n"
+        f"stdout: {stdout[:400]}\nstderr: {stderr[:400]}"
+    )
+    # The error message must reference LIMITATIONS or 'dense' to guide the user.
+    assert "LIMITATIONS" in combined or "dense" in combined.lower(), (
+        f"Expected 'LIMITATIONS' or 'dense' in stdout+stderr but not found.\n"
+        f"stdout: {stdout[:400]}\nstderr: {stderr[:400]}"
     )
 
 
 # ---------------------------------------------------------------------------
-# F2a: X = matrix_gm_full(M, Sigma_dense); Y = X @ B → AttributeError
+# F2a: X = matrix_gm_full(M, Sigma_dense); Y = X @ B → NotImplementedError
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AttributeError,
-    reason=(
-        "C7: _matrix_affine_right called on dense sentinel (None, Sigma). "
-        "get_cov returns (None, Sigma_dense); code executes U_x.copy() where "
-        "U_x is None → AttributeError: 'NoneType' object has no attribute 'copy'."
-    ),
-)
 def test_F2a_dense_sentinel_right_affine_fails():
-    """F2a: Y = X @ B when X is stored as dense sentinel → AttributeError.
+    """F2a: Y = X @ B when X is stored as dense sentinel → NotImplementedError.
 
-    Reproduced directly against the internal API (no subprocess) to avoid
-    the timeout path and get the raw exception from _matrix_affine_right.
+    Post-patch: the guard in _matrix_affine_right raises NotImplementedError
+    with a clear message referencing [C1/C7] and LIMITATIONS.md §C1/C7,
+    instead of the previous AttributeError on U_x.copy() where U_x is None.
     """
     from libSOGAshared import VarEntry
     from libSOGAsharedMatrix import GaussianMixBlock
@@ -183,30 +184,21 @@ def test_F2a_dense_sentinel_right_affine_fails():
     block = GaussianMixBlock([], [ve], pi, mu_blocks, cov_blocks)
 
     B = np.array([[1.0, 0.3], [0.0, 1.0]])
-    # This call MUST raise AttributeError while the bug exists.
-    # If it succeeds (xpass), the bug was fixed — update the xfail marker.
-    _matrix_affine_right(block, 0, "X", B)
+    # Post-patch: guard raises NotImplementedError with clear message.
+    with pytest.raises(NotImplementedError, match=r"(?i)dense.sentinel|C1/C7"):
+        _matrix_affine_right(block, 0, "X", B)
 
 
 # ---------------------------------------------------------------------------
-# F2b: X = matrix_gm_full(M, Sigma_dense); Y = A @ X → ValueError
+# F2b: X = matrix_gm_full(M, Sigma_dense); Y = A @ X → NotImplementedError
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ValueError,
-    reason=(
-        "C7: _matrix_affine_left called on dense sentinel (None, Sigma). "
-        "get_cov returns (None, Sigma_dense); code executes A @ U_x where "
-        "U_x is None (a 0-d object) → ValueError: matmul: Input operand 1 "
-        "does not have enough dimensions."
-    ),
-)
 def test_F2b_dense_sentinel_left_affine_fails():
-    """F2b: Y = A @ X when X is stored as dense sentinel → ValueError.
+    """F2b: Y = A @ X when X is stored as dense sentinel → NotImplementedError.
 
-    Reproduced directly against the internal API (no subprocess) to avoid
-    the timeout path and get the raw exception from _matrix_affine_left.
+    Post-patch: the guard in _matrix_affine_left raises NotImplementedError
+    with a clear message referencing [C1/C7] and LIMITATIONS.md §C1/C7,
+    instead of the previous ValueError on A @ U_x where U_x is None.
     """
     from libSOGAshared import VarEntry
     from libSOGAsharedMatrix import GaussianMixBlock
@@ -227,9 +219,9 @@ def test_F2b_dense_sentinel_left_affine_fails():
     block = GaussianMixBlock([], [ve], pi, mu_blocks, cov_blocks)
 
     A = np.array([[2.0, 0.5], [0.0, 1.0]])
-    # This call MUST raise ValueError while the bug exists.
-    # If it succeeds (xpass), the bug was fixed — update the xfail marker.
-    _matrix_affine_left(block, 0, "X", A)
+    # Post-patch: guard raises NotImplementedError with clear message.
+    with pytest.raises(NotImplementedError, match=r"(?i)dense.sentinel|C1/C7"):
+        _matrix_affine_left(block, 0, "X", A)
 
 
 # ---------------------------------------------------------------------------

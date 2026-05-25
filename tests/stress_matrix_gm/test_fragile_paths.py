@@ -287,14 +287,19 @@ def test_F3_stale_cross_cov_after_observe():
         f"unexpected fix of Gap3 — update test if bug was intentionally repaired."
     )
 
-    # E[X[0,0]] must change due to Kalman-style update on the correlated matrix
-    # distribution (row cross-cov via off-diagonal U).  The exact direction
-    # depends on the dense truncation path; we lock the empirical behavior.
+    # E[X[0,0]] changes after observe(X[1,0] > 0) via Kalman back-prop through the
+    # off-diagonal U cross-cov.  ANALYTICALLY CORRECT VALUE: 1.39894
+    #   E[X[0,0]|obs] = M[0,0] + Cov(X[0,0],X[1,0])/Var(X[1,0]) * delta
+    #                 = 1 + 0.5/1 * sqrt(2/pi) = 1.39894
+    # CURRENT (BUGGY) VALUE: 0.60106 — same magnitude (0.39894) but OPPOSITE SIGN.
+    # This is bug C8 (sign error in dense Kalman back-prop to non-observed elements).
+    # See docs/LIMITATIONS.md §C8.  This assertion LOCKS the buggy direction so
+    # that when C8 is fixed the test will xpass (FAIL strict) and force a review.
     e_X00_post = float(result_block.mu_blocks[0]["X"][0, 0])
-    assert abs(e_X00_post - prior_mean_y0) > 0.3, (
-        f"E[X[0,0]] did not change after observe(X[1,0]>0): "
-        f"got {e_X00_post:.5f}, expected to differ from prior {prior_mean_y0:.5f} by > 0.3. "
-        f"Kalman update on correlated matrix distribution should shift X[0,0]."
+    assert e_X00_post == pytest.approx(0.60106, abs=1e-3), (
+        f"E[X[0,0]] = {e_X00_post:.5f}, expected 0.60106 (buggy current C8 behavior); "
+        f"analytical correct value is 1.39894.  If this test now produces 1.39894, "
+        f"C8 has been fixed — update LIMITATIONS.md and assert the correct value here."
     )
 
 

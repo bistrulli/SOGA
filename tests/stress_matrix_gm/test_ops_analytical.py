@@ -191,7 +191,7 @@ def test_P4b_constructor_matrix_gm_full_kron_auto():
 def test_P4c_constructor_matrix_gm_full_dense():
     """P4c: matrix_gm_full 2x2 with non-Kronecker Sigma (dense path)."""
     # Use FIXED_NON_KRON_4x4 from conftest
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
     S = FIXED_NON_KRON_4x4
     rows = "; ".join(", ".join(f"{v}" for v in row) for row in S)
     sigma_str = "[[" + "],[".join(", ".join(str(v) for v in row) for row in S) + "]]"
@@ -610,7 +610,7 @@ def test_P18_extract_2x2_kron():
 def test_P19_extract_2x2_dense():
     """P19: y = X[0,0] extract from 2x2 Dense. E[y] = M[0,0]."""
     M = np.array([[1.0, 2.0], [3.0, 4.0]])
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
     S = FIXED_NON_KRON_4x4
     sigma_str = "[[" + "],[".join(", ".join(str(v) for v in row) for row in S) + "]]"
     prog = textwrap.dedent(f"""\
@@ -673,7 +673,7 @@ def test_P22_schur_write_2x2_kron():
 
 def test_P22b_schur_write_2x2_dense():
     """P22b: X[0,0] = 5.0 (Schur write, Dense). E[X[0,0]] after write == 5."""
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
     S = FIXED_NON_KRON_4x4
     sigma_str = "[[" + "],[".join(", ".join(str(v) for v in row) for row in S) + "]]"
     prog = textwrap.dedent(f"""\
@@ -708,7 +708,7 @@ def test_P24_observe_ineq_2x2_dense():
     """P24: observe(X[0,0] > 0) on Dense. E[X[0,0]] > 0 after conditioning."""
     # Dense path: extract x00 from dense matrix, then observe
     # The mean diagonal entry of FIXED_NON_KRON_4x4 Sigma is 4.0 (Sigma[0,0])
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
     S = FIXED_NON_KRON_4x4
     sigma_str = "[[" + "],[".join(", ".join(str(v) for v in row) for row in S) + "]]"
     # X[0,0] ~ N(0, S[0,0]) = N(0, 4.0) → sigma=2.0

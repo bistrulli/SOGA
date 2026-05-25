@@ -365,3 +365,35 @@ def agt_tallis_truncate(
         - ((phi_a - phi_b) / Z) ** 2
     )
     return float(mu_post), float(var_post), float(Z)
+
+
+# ---------------------------------------------------------------------------
+# FIXED_NON_KRON_4x4 — certified non-Kronecker SPD 4×4 matrix
+#
+# A Kronecker product V ⊗ U with U (2×2) and V (2×2) satisfies the rank-1
+# condition on the rearrangement R[Sigma].  The necessary condition is:
+#   Sigma[0,3] * Sigma[1,2] == Sigma[0,2] * Sigma[1,3]
+#
+# We choose a matrix that violates this:
+#   abs(Sigma[0,3]*Sigma[1,2] - Sigma[0,2]*Sigma[1,3]) > 0.1
+# and is SPD (all eigenvalues > 0).
+# ---------------------------------------------------------------------------
+FIXED_NON_KRON_4x4 = np.array([
+    [4.0, 1.5, 0.8, 0.3],
+    [1.5, 3.0, 0.6, 0.9],
+    [0.8, 0.6, 2.5, 1.1],
+    [0.3, 0.9, 1.1, 2.0],
+], dtype=float)
+
+_eigs = np.linalg.eigvalsh(FIXED_NON_KRON_4x4)
+assert np.all(_eigs > 0), (
+    f"FIXED_NON_KRON_4x4 is not SPD: eigenvalues = {_eigs}"
+)
+
+_kron_violation = abs(
+    FIXED_NON_KRON_4x4[0, 3] * FIXED_NON_KRON_4x4[1, 2]
+    - FIXED_NON_KRON_4x4[0, 2] * FIXED_NON_KRON_4x4[1, 3]
+)
+assert _kron_violation > 0.1, (
+    f"FIXED_NON_KRON_4x4 may be Kronecker: violation = {_kron_violation:.4f} (need > 0.1)"
+)

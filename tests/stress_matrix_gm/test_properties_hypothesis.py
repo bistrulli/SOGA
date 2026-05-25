@@ -186,7 +186,7 @@ def test_H5_kron_detection_kron_and_dense():
     Tests the _try_kronecker_decompose kernel used by matrix_gm_full dispatcher.
     Combined into one test node to keep total campaign at 106 tests.
     """
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
 
     # H5a: Kronecker case
     Sigma_kron = np.eye(4)  # I_4 = I_2 ⊗ I_2 — exact Kronecker

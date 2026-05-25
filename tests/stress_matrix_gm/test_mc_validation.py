@@ -322,7 +322,7 @@ def test_prog6_matrix_gm_full_kron_auto():
 @pytest.mark.prog_1_to_8
 def test_prog7_matrix_gm_full_dense():
     """Prog 7: matrix_gm_full Dense (non-Kronecker). MC vs SOGA on mean."""
-    from tests.stress_matrix_gm.conftest import FIXED_NON_KRON_4x4
+    from analytical_ground_truth import FIXED_NON_KRON_4x4
     S = FIXED_NON_KRON_4x4
     M = np.array([[2.0, 3.0], [4.0, 5.0]])
     # Extract Kronecker factors (best approximation) for MC sampling
@@ -383,7 +383,7 @@ def test_prog8_transp_2x3():
 def test_prog9_observe_back_prop_kalman():
     """Prog 9: observe back-prop (mini Kalman): y=X[0,0]; observe(y>0). E[y]>0."""
     # Prior: X[0,0] ~ N(0,1). After observe(y>0): E[y] ≈ 0.7979
-    from tests.stress_matrix_gm.analytical_ground_truth import agt_tallis_truncate
+    from analytical_ground_truth import agt_tallis_truncate
     expected, _, _ = agt_tallis_truncate(0.0, 1.0, 0.0)
 
     prog = textwrap.dedent("""\

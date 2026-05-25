@@ -1,0 +1,145 @@
+/* =====================================================================
+ * Matrix-GM Showcase — base tutorial program
+ * =====================================================================
+ * Demonstrates the core matrix-GM patterns in a single linear narrative.
+ *   1. Matrix declaration and matrix_gm constructor
+ *   2. 2D data + deterministic kernel matmul
+ *   3. Additive matrix-variate noise
+ *   4. Transpose
+ *   5. Scalar extraction with cross-covariance tracking
+ *   6. Observe on extracted scalar (back-propagation to source matrix mean)
+ *   7. If/else branching with matrix variables in scope
+ *   8. Loop with matrix-indexed extraction
+ *
+ * Run:
+ *     python3 src/SOGA.py -f programs/Example/matrix_gm_showcase.soga
+ *
+ * Expected CLI output (verified analytically; key values at end of file).
+ *
+ * For destructive ops (matrix element write, random×random matmul)
+ * see programs/Example/matrix_gm_advanced.soga.
+ * For formal semantics: docs/MATRIX_GM_SEMANTICS.md.
+ * For quickstart: docs/MATRIX_GM_QUICKSTART.md.
+ *
+ * GRAMMAR ORDERING (important): SOGA's `progr` rule is
+ *     (data ';')*?  (instr ';' | array ';' | matrix_decl ';')*
+ * → all `data` declarations MUST precede matrix declarations and
+ *   any assignments / observes / loops.
+ * ===================================================================== */
+
+
+/* --- SECTION 0: 2D data declaration (must come FIRST) -----------------
+ * `data NAME = [[...],[...]]` stores a deterministic 2D matrix in cfg.data.
+ * Available throughout the program as a deterministic operand of @.       */
+
+data A = [[2,0],[0,1]];     /* diagonal scaling: row 0 ×2, row 1 ×1 */
+
+
+/* --- SECTION 1: Matrix declaration + matrix_gm initialisation ---------
+ * matrix[m][n] X declares a m×n matrix variable.  matrix_gm(M, U, V)
+ * initialises X as a matrix-variate Gaussian MN(M, U, V):
+ *   M = mean (m×n),  U = row covariance (m×m),  V = col covariance (n×n)
+ * Storage: O(m² + n²) Kronecker factored.                                */
+
+matrix[2][2] X;
+matrix[2][2] Y;
+matrix[2][2] N;
+matrix[2][2] Z;
+
+X = matrix_gm(
+    [[1,2],[3,4]],          /* M: prior mean */
+    [[1,0],[0,1]],          /* U: row cov = I_2 */
+    [[1,0],[0,1]]           /* V: col cov = I_2 */
+);
+
+
+/* --- SECTION 2: Deterministic kernel matmul Y = A @ X -----------------
+ * `Y = A @ X` is matrix-variate matmul.  Exact in closed form:
+ *     E[Y] = A · E[X]                  = [[2,4],[3,4]]
+ *     U_Y  = A · U_X · A^T,    V_Y = V_X    (Kronecker preserved)        */
+
+Y = A @ X;
+
+
+/* --- SECTION 3: Additive matrix-variate noise -------------------------
+ * Y = Y + N with N ~ MN(0, 0.1·I, 0.1·I) isotropic noise.
+ * Exact via iso path (Kronecker preserved).                              */
+
+N = matrix_gm(
+    [[0,0],[0,0]],
+    [[0.1,0],[0,0.1]],
+    [[0.1,0],[0,0.1]]
+);
+Y = Y + N;                  /* E[Y] = [[2,4],[3,4]] (mean unchanged) */
+
+
+/* --- SECTION 4: Transpose Z = transp(Y) -------------------------------
+ * Swaps shape (m,n) → (n,m) and Kronecker factors U ↔ V.  Exact.        */
+
+Z = transp(Y);              /* E[Z] = [[2,3],[4,4]] */
+
+
+/* --- SECTION 5: Scalar extraction with cross-cov tracking -------------
+ * y00 = Y[0,0] creates scalar variable y00.
+ *     E[y00] = E[Y][0,0] = 2
+ *     Cov(y00, vec(Y)) = V[:,0] ⊗ U[:,0]  (stored, used by A2 back-prop)*/
+
+y00 = Y[0,0];
+
+
+/* --- SECTION 6: Observe on extracted scalar — back-prop to Y mean -----
+ * observe(y00 > 0): y00 prior is N(2, var). The tail-prob is high so the
+ * truncated normal mean shifts slightly.  The back-prop (A2-mean) updates
+ * E[Y[0,0]] correspondingly. Var[Y] is NOT updated (Opt-2 deferred).    */
+
+observe(y00 > 0);
+
+
+/* --- SECTION 7: If/else branching with matrix in scope ----------------
+ * Symmetric bimodal scalar prior on theta.  Two branches: pick = X[0,0]
+ * (if theta > 0) or pick = X[1,1] (else).  Merge concatenates components;
+ * prune(K) bounds growth.                                                */
+
+theta = gm([0.5, 0.5], [-1.0, 1.0], [0.1, 0.1]);
+if theta > 0 {
+    pick = X[0,0];
+} else {
+    pick = X[1,1];
+} end if;
+prune(10);
+
+
+/* --- SECTION 8: Loop with matrix-element index ------------------------
+ * Loop variable i resolves inside X[i,i] via the matrix-extract routing.
+ * At each iteration, diag picks the i-th diagonal element of X.          */
+
+for i in range(2) {
+    diag = X[i,i];          /* iter 0: X[0,0]=1, iter 1: X[1,1]=4 (final) */
+} end for;
+
+
+/* =====================================================================
+ * Expected CLI output (verified — match within 5 decimal places):
+ *
+ *   c: 2                          (2 components after if/else+prune)
+ *   d: 4                          (scalars: y00, theta, pick, diag)
+ *
+ *   E[y00]   = 2.57684            (truncated N(2, 4) above 0; analytical
+ *                                  derivation: σ_Y[0,0]² = U_Y[0,0]·V_Y[0,0]
+ *                                  = 4·1 = 4, z = -1, λ = φ(-1)/Φ(1) = 0.288,
+ *                                  E[y00|>0] = 2 + 2·0.288 = 2.577)
+ *   E[theta] = 0.00000            (symmetric bimodal: ½·(-1) + ½·1 = 0)
+ *   E[pick]  = 2.50000            (½·X[0,0] + ½·X[1,1] = ½·1 + ½·4)
+ *   E[diag]  = 4.00000            (final iter, X[1,1])
+ *
+ *   E[X] = [[1, 2], [3, 4]]                       (prior preserved)
+ *   E[Y] = [[2.57684, 4], [3, 4]]                 (Y[0,0] shifted by
+ *                                                  Kalman back-prop from y00)
+ *   E[Z] = [[2, 3], [4, 4]]                       (transpose of pre-observe Y)
+ *   E[N] = [[0, 0], [0, 0]]                       (noise prior)
+ *
+ * Approximations involved in this program: NONE.
+ * All operations here are EXACT (no random×random matmul, no element
+ * write, no NKP projection).  See matrix_gm_advanced.soga for the cases
+ * that involve approximations.
+ * ===================================================================== */

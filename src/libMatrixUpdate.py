@@ -502,6 +502,10 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
             lhs_ve = next((v for v in dist.var_entries if v.name == lhs), None)
             left_ve = next((v for v in dist.var_entries if v.name == left_tok), None)
             right_ve = next((v for v in dist.var_entries if v.name == right_tok), None)
+            # Preserve all matrix variables that existed before this op
+            # (they are independent of X1@X2; we just copy their state
+            # from ki=0 since no random@random can correlate them).
+            other_ves = [v for v in dist.var_entries if v.name != lhs]
             for ki in range(block.n_comp()):
                 M_X = block.get_mu(ki, left_tok)
                 U_X, V_X = block.get_cov(ki, left_tok, left_tok)
@@ -515,15 +519,24 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
                     )
                     # Combined weight for (ki, kj) pair
                     new_pi_mm.append(pi_X * pi_Y)
-                    # Scalar gm component: copy from ki (arbitrary; no scalar dep)
+                    # Scalar gm component: copy from ki
                     new_mu_mm.append(dist.gm.mu[ki % dist.gm.n_comp()])
                     new_sigma_mm.append(dist.gm.sigma[ki % dist.gm.n_comp()])
-                    # Build new mu/cov block for this pair
+                    # Build new mu/cov block — preserve ALL pre-existing matrix
+                    # variables (they're independent of the matmul op).
                     mu_k = {lhs: M_Z}
-                    for ve_sv in block.var_entries:
-                        if ve_sv.name != lhs:
-                            pass  # cross-cov between different matrix vars not tracked
                     cov_k = {frozenset({lhs}): (U_Z, V_Z)}
+                    for ve_sv in other_ves:
+                        if ve_sv.name in block.mu_blocks[ki]:
+                            mu_k[ve_sv.name] = block.mu_blocks[ki][ve_sv.name].copy()
+                            sv_cov_key = frozenset({ve_sv.name})
+                            if sv_cov_key in block.cov_blocks[ki]:
+                                sv_cov = block.cov_blocks[ki][sv_cov_key]
+                                if isinstance(sv_cov, tuple) and len(sv_cov) == 2:
+                                    cov_k[sv_cov_key] = (sv_cov[0], sv_cov[1])
+                                else:
+                                    cov_k[sv_cov_key] = sv_cov
+                    # Scalar-matrix cross-cov for lhs (zero — newly created)
                     for sv in block.var_list:
                         cov_k[frozenset({sv, lhs})] = np.zeros(
                             M_Z.shape[0] * M_Z.shape[1]
@@ -535,9 +548,13 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
             if total_w > 0:
                 new_pi_mm = [p / total_w for p in new_pi_mm]
             from libSOGAsharedMatrix import GaussianMixBlock as _GMB
+            # Preserve full var_entries list (lhs + all pre-existing matrix vars).
+            preserved_ves = list(dist.var_entries)
+            if lhs_ve is not None and not any(v.name == lhs for v in preserved_ves):
+                preserved_ves.append(lhs_ve)
             new_block = _GMB(
                 var_list=block.var_list,
-                var_entries=[lhs_ve] if lhs_ve else [],
+                var_entries=preserved_ves,
                 pi=new_pi_mm,
                 mu_blocks=new_mu_blocks_mm,
                 cov_blocks=new_cov_blocks_mm,
@@ -545,7 +562,7 @@ def update_rule_matrix(dist: Dist, expr: str, data: dict) -> Dist:
             new_gm = GaussianMix(new_pi_mm, new_mu_mm, new_sigma_mm)
             new_dist = Dist(
                 dist.var_list, new_gm,
-                var_entries=[lhs_ve] if lhs_ve else [],
+                var_entries=preserved_ves,
                 gm_block=new_block,
             )
             # fix3.4: prune to K_max immediately
@@ -874,14 +891,20 @@ def extract_scalar_from_matrix(dist: Dist, lhs: str, mat_name: str, i: int, j: i
         M_k = block.get_mu(k, mat_name)
         U_k, V_k = block.get_cov(k, mat_name, mat_name)
         mu_y_k = float(M_k[i, j])
-        var_y_k = float(U_k[i, i] * V_k[j, j])
 
-        # A1: compute exact cross-covariance Cov(y, vec(X)) = V[:,j] ⊗ U[:,i].
-        # np.kron of two 1D arrays (length n, length m) returns a 1D array of
-        # length mn equal to the column-major vec of the outer product
-        # outer(U[:,i], V[:,j]).flatten('F') — matching the V⊗U column-major
-        # convention stored elsewhere in cov_blocks.
-        cross_y_X = np.kron(V_k[:, j], U_k[:, i])  # shape (mn,)
+        # fix4-extend: support both Kronecker-stored (U, V) tuples and
+        # dense-sentinel storage (None, Sigma_mn_x_mn) created by a previous
+        # element write.  The cross-covariance formula is computed accordingly.
+        if U_k is None:
+            # Dense mode: V_k is actually the full (mn, mn) covariance.
+            Sigma_full = V_k
+            idx_col = j * m + i           # column-major index of X[i,j] in vec(X)
+            var_y_k = float(Sigma_full[idx_col, idx_col])
+            cross_y_X = Sigma_full[:, idx_col].copy()    # exact, no Kron factor
+        else:
+            var_y_k = float(U_k[i, i] * V_k[j, j])
+            # A1: Cov(y, vec(X)) = V[:,j] ⊗ U[:,i] (Gupta&Nagar 1999 Thm 2.3.1)
+            cross_y_X = np.kron(V_k[:, j], U_k[:, i])  # shape (mn,)
         block.cov_blocks[k][frozenset({lhs, mat_name})] = cross_y_X
 
         # Existing scalar mean/cov for this mixture weight

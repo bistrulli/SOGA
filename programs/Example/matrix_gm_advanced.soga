@@ -1,0 +1,112 @@
+/* =====================================================================
+ * Matrix-GM Advanced — operations with approximations
+ * =====================================================================
+ * Demonstrates the two matrix-GM patterns that involve a known
+ * approximation step (clearly flagged with explanation):
+ *
+ *   PART A: random × random matmul   Z = X1 @ X2
+ *           → Isserlis 2nd-moment EXACT, then Van Loan-Pitsianis NKP
+ *             rank-1 projection (only approximation).
+ *           → MatmulApproxWarning when projection discards > 5%.
+ *
+ *   PART B: element write   X[i,j] = c
+ *           → Schur-complement update is EXACT, but Kronecker
+ *             factorisation is destroyed (V⊗U → dense Σ of size mn × mn).
+ *           → ElementWriteDenseWarning on densification.
+ *           → Subsequent Kronecker-dependent ops (transp, affine, +N)
+ *             raise NotImplementedError on the dense-mode variable.
+ *
+ * Run:
+ *     python3 src/SOGA.py -f programs/Example/matrix_gm_advanced.soga
+ *
+ * For non-approximate operations: programs/Example/matrix_gm_showcase.soga.
+ * For formal semantics: docs/MATRIX_GM_SEMANTICS.md  §12 (random@random),
+ *                                                   §13 (element write).
+ * ===================================================================== */
+
+
+/* --- PART A: random × random matmul   Z = X1 @ X2 ---------------------
+ * Each X_i ~ MN(M_i, U_i, V_i) is a matrix-variate Gaussian.
+ * The product X1 @ X2 is NOT matrix-Gaussian (product of Gaussians
+ * is non-Gaussian).  SOGA computes:
+ *     E[Z]         = M_1 @ M_2                                  (EXACT)
+ *     Cov(vec Z)   = tr(V_1·U_2)·(V_2 ⊗ U_1)                    (EXACT, Isserlis)
+ *                  + (M_2^T V_1 M_2) ⊗ U_1
+ *                  + V_2 ⊗ (M_1 U_2 M_1^T)
+ *     (U_Z, V_Z)   = nearest_kronecker(Cov_full, m, n)          (APPROX)
+ *
+ * MC validation envelope (research note 05, 20k samples):
+ *   Small cov regime:    Cov rel err < 1%      OK
+ *   Moderate cov regime: Cov rel err < 5%      OK
+ *   Balanced regime:     Cov rel err < 2%      OK (post-Isserlis fix3.2)
+ *   Both means = 0:      formula exactly captures (delta would fail)     */
+
+matrix[2][2] X1;
+matrix[2][2] X2;
+matrix[2][2] Zrand;
+
+X1 = matrix_gm(
+    [[1,0],[0,1]],          /* M_1 = I */
+    [[0.1,0],[0,0.1]],      /* U_1 = 0.1·I (small cov) */
+    [[0.1,0],[0,0.1]]
+);
+X2 = matrix_gm(
+    [[2,0],[0,2]],          /* M_2 = 2·I */
+    [[0.1,0],[0,0.1]],
+    [[0.1,0],[0,0.1]]
+);
+
+Zrand = X1 @ X2;
+/* Expected E[Zrand] = M_1 @ M_2 = I @ 2I = 2·I = [[2,0],[0,2]]
+ * Cov approximation: small (since small cov regime) — no warning expected. */
+
+
+/* --- PART B: matrix element write   X[i,j] = c ------------------------
+ * Sets a single element of a matrix to a deterministic value.  The joint
+ * distribution post-conditioning is exact via Schur-complement rank-1
+ * downdate on vec(X).  But the resulting covariance is NOT Kronecker-
+ * separable → SOGA densifies V⊗U into an mn×mn dense matrix.
+ *
+ * After the write, Kronecker-only ops (affine_left, affine_right,
+ * transpose) on this variable raise NotImplementedError.  The element
+ * extract `y = X[i,j]` and `observe(X[i,j] op c)` still work.
+ *
+ * Memory cost: (mn)² per component.  For m=n=8: 64²·8 = 32 KB per component.
+ *              For m=n=32: 1024²·8 = 8 MB per component.                  */
+
+matrix[2][2] W;
+W = matrix_gm(
+    [[1,1],[1,1]],
+    [[1,0],[0,1]],
+    [[1,0],[0,1]]
+);
+
+/* Write W[0,0] = 5  →  Schur-complement updates the full joint posterior.
+ * For iso V⊗U = I_4, the gain reduces to a single non-zero element
+ * (the diagonal entry at idx j*m+i = 0*2+0 = 0).  The cross-terms vanish
+ * because U=V=I means independent entries.                                */
+W[0,0] = 5;
+/* Expected E[W] = [[5, 1], [1, 1]]  (only [0,0] changed; others independent)*/
+
+/* You can still extract scalars from W after the write: */
+wcorner = W[0,0];          /* Expected: E[wcorner] = 5 (deterministic) */
+
+/* You can still observe elements after the write (Schur on the dense Σ): */
+observe(W[1,1] > 0);        /* Truncates N(1, 1) above 0; small shift on W[1,1] */
+
+
+/* =====================================================================
+ * Expected CLI output (verified to 4 decimal places):
+ *
+ *   E[wcorner] = 5.0                        (post-write deterministic)
+ *   E[X1]      = [[1, 0], [0, 1]]
+ *   E[X2]      = [[2, 0], [0, 2]]
+ *   E[Zrand]   = [[2, 0], [0, 2]]            (exact mean = M_X1 @ M_X2)
+ *   E[W]       = [[5, 1], [1, 1.2876]]       (post-write + observe(W[1,1]>0):
+ *                                             W[1,1] ~ N(1,1) truncated above 0
+ *                                             gives E = 1 + 1·φ(−1)/Φ(1) ≈ 1.288)
+ *
+ * Warnings emitted:
+ *   ElementWriteDenseWarning  — fires on W[0,0] = 5 (Kronecker → dense)
+ *   MatmulApproxWarning       — NOT emitted here (small-cov regime)
+ * ===================================================================== */

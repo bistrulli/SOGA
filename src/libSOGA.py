@@ -220,7 +220,10 @@ def SOGA(node, data, parallel, exec_queue):
         return
     
     if node.type == 'prune':
-        current_dist = prune(current_dist,'classic',node.Kmax)        ### options: 'classic', 'ranking' (see libSOGAmerge)
+        # M3.7 routing: matrix programs (gm_block != None) require ranking_prune.
+        # classic_prune asserts gm_block is None — would crash on matrix programs.
+        prune_kind = 'ranking' if current_dist.gm_block is not None else 'classic'
+        current_dist = prune(current_dist, prune_kind, node.Kmax)
         node.list_dist = []
         for child in node.children:
             if child.type == 'merge' or child.type == 'exit':

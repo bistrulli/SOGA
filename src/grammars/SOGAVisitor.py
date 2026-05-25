@@ -1,4 +1,4 @@
-# Generated from SOGA.g4 by ANTLR 4.10
+# Generated from grammars/SOGA.g4 by ANTLR 4.10
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SOGAParser import SOGAParser

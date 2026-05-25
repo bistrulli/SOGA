@@ -1,4 +1,4 @@
-# Generated from ASGMT.g4 by ANTLR 4.10
+# Generated from grammars/ASGMT.g4 by ANTLR 4.10
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO

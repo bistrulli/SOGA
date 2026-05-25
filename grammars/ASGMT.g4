@@ -1,7 +1,9 @@
 /* ASGMT grammar — scalar assignments and matrix assignment expressions.
    New tokens (v1): MATMUL '@', transp(X) function, X[i,j] two-arg indexing.
+   New tokens (v1.2): MATRIX_GM_FULL for general-covariance constructor.
    ANTLR 4.10. Regenerate with:
      java -jar tools/antlr-4.10-complete.jar -Dlanguage=Python3 -visitor -listener grammars/ASGMT.g4 -o src/
+   IMPORTANT: MATRIX_GM_FULL must appear BEFORE MATRIX_GM in the lexer section (longest-match rule).
 */
 grammar ASGMT;
 
@@ -33,6 +35,7 @@ mat_atom: transp
         | mat_idd
         | IDV
         | matrix_gm
+        | matrix_gm_full
         ;
 
 /* transp(X): matrix transpose. Using function-call form to avoid T variable collision. */
@@ -40,6 +43,10 @@ transp: TRANSP '(' IDV ')';
 
 /* matrix_gm constructor (mirrors SOGA.g4 — ASGMT parses RHS of matrix assignments) */
 matrix_gm: MATRIX_GM '(' mlist ',' mlist ',' mlist ')';
+
+/* matrix_gm_full constructor (2-arg: M + full covariance Sigma) */
+matrix_gm_full: MATRIX_GM_FULL '(' mlist ',' mlist ')';
+
 mlist: '[' list (',' list)* ']';
 
 /* mat_idd: two-argument matrix element access X[i,j] */
@@ -56,10 +63,12 @@ list: '[' NUM (',' NUM)*? ']';
 
 sub: '-';
 
-/* Reserved keywords before IDV. */
-TRANSP    : 'transp';
-MATRIX_GM : 'matrix_gm';
-MATMUL    : '@';
+/* Reserved keywords before IDV.
+   CRITICAL: MATRIX_GM_FULL must appear BEFORE MATRIX_GM (longest-match rule). */
+TRANSP         : 'transp';
+MATRIX_GM_FULL : 'matrix_gm_full';
+MATRIX_GM      : 'matrix_gm';
+MATMUL         : '@';
 
 IDV : ALPHA (ALPHA|DIGIT)*;
 NUM : ('-')? DIGIT+ ('.' DIGIT*)?;

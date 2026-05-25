@@ -128,7 +128,10 @@ def printOutput(output_dist,preprocTime,cfgTime,sogaTime,args):
 		print("SOGA Timedout")
 
 def printBanner():
-	print('/ ___| / _ \ / ___|  / \\\n\___ \| | | | |  _  / _ \\\n ___) | |_| | |_| |/ ___ \\\n|____/ \___/ \____/_/   \_\\\n')
+	print('/ ___| / _ \\ / ___|  / \\\n'
+	      '\\___ \\| | | | |  _  / _ \\\n'
+	      ' ___) | |_| | |_| |/ ___ \\\n'
+	      '|____/ \\___/ \\____/_/   \\_\\\n')
 
 
 def get_process_cpu_usage(pid,pid2=None):

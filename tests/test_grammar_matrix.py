@@ -274,3 +274,63 @@ class TestScalarRegression:
 
     def test_inline_scalar_observe_equality(self):
         assert_ok(parse_trunc("x == 5"))
+
+
+# ---------------------------------------------------------------------------
+# B.10 — matrix_gm_full grammar tests (6 new cases)
+# ---------------------------------------------------------------------------
+
+
+class TestSOGAMatrixGmFull:
+    """Grammar tests for matrix_gm_full constructor [B.10]."""
+
+    def test_matrix_gm_full_positive_2x2_identity(self):
+        """Positive: 2-arg matrix_gm_full with 2x2 mean and 4x4 Sigma."""
+        src = (
+            "matrix[2][2] X;"
+            " X = matrix_gm_full([[0,0],[0,0]], [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]);"
+        )
+        assert_ok(parse_soga(src))
+
+    def test_matrix_gm_full_positive_asgmt_parser(self):
+        """Positive: matrix_gm_full parses in ASGMT grammar."""
+        src = "X = matrix_gm_full([[0,0],[0,0]], [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])"
+        assert_ok(parse_asgmt(src))
+
+    def test_matrix_gm_full_negative_3_args(self):
+        """Negative: 3-arg matrix_gm_full is rejected (wrong arity)."""
+        src = "X = matrix_gm_full([[0,0],[0,0]], [[1,0],[0,1]], [[1,0],[0,1]])"
+        assert_rejected(parse_asgmt(src))
+
+    def test_matrix_gm_full_negative_1_arg(self):
+        """Negative: 1-arg matrix_gm_full is rejected."""
+        src = "X = matrix_gm_full([[0,0],[0,0]])"
+        assert_rejected(parse_asgmt(src))
+
+    def test_matrix_gm_full_lex_precedence_over_matrix_gm(self):
+        """Lex precedence: 'matrix_gm_full(' does NOT tokenize as MATRIX_GM + identifier.
+
+        If MATRIX_GM_FULL is declared before MATRIX_GM in the lexer (as required),
+        the full program should parse without errors.  If the order is wrong, the lexer
+        would split 'matrix_gm_full' into MATRIX_GM + '_full' identifier, which would
+        cause a syntax error (MATRIX_GM expects 3 mlists, not 'full(...)').
+        """
+        src = (
+            "matrix[2][2] X;"
+            " X = matrix_gm_full([[0,0],[0,0]], [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]);"
+        )
+        tree, errors = parse_soga(src)
+        assert errors == [], (
+            f"Lex precedence test FAILED — 'matrix_gm_full' was NOT tokenized as "
+            f"MATRIX_GM_FULL.  Likely MATRIX_GM_FULL declared after MATRIX_GM in lexer. "
+            f"Errors: {errors}"
+        )
+
+    def test_matrix_gm_full_in_full_program_with_extract(self):
+        """Positive: matrix_gm_full in a complete SOGA program with scalar extraction."""
+        src = (
+            "matrix[2][2] X;"
+            " X = matrix_gm_full([[1,2],[3,4]], [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]);"
+            " x00 = X[0,0];"
+        )
+        assert_ok(parse_soga(src))

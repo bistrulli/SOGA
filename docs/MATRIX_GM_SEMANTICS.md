@@ -518,6 +518,89 @@ S_new   = Sigma - outer(Sigma s, Sigma s) · (1 - v_hat / var_s) / var_s
 
 ---
 
+## §16 — `matrix_gm_full` constructor (v1.2)
+
+### Formal grammar
+
+```antlr4
+/* SOGA.g4 */
+matrix_gm_full : MATRIX_GM_FULL '(' mlist ',' mlist ')' ;
+/* mlist is a row-by-row list of lists (already defined) */
+
+/* Lexer — MATRIX_GM_FULL declared BEFORE MATRIX_GM (longest-match rule) */
+MATRIX_GM_FULL : 'matrix_gm_full' ;
+MATRIX_GM      : 'matrix_gm' ;
+```
+
+**Semantic form**: `X = matrix_gm_full(M, Sigma);`
+- `M`     — (m × n) mean matrix (mlist of m rows, each with n elements)
+- `Sigma` — (mn × mn) full vectorised covariance matrix (mlist of mn rows, each with mn elements)
+
+`Sigma` must be symmetric (max|Σ − Σᵀ| < 1e-8) and is checked at parse time.
+
+### Auto-Kronecker detection algorithm
+
+Given `Sigma` (mn × mn), SOGA runs the Van Loan-Pitsianis rank-1 SVD:
+
+1. **Rearrange**: build `R` (m² × n²) where column `j·n + j'` of R holds
+   `Sigma[j·m:(j+1)·m, j'·m:(j'+1)·m].flatten('F')`.
+2. **SVD**: `[U_s, σ, Vt] = svd(R, full_matrices=False)`.
+3. **Residual ratio**: `ρ = σ[1] / σ[0]` (second / first singular value).
+   - If `σ[0] < 1e-14` (zero Sigma): `ρ = 0`.
+4. **Threshold check**:
+   - `ρ < SOGA_KRON_STRICT` (default 1e-8):  
+     Sigma is exact Kronecker. Extract `(U, V)` via the same NKP step.  
+     Store as `cov_blocks[k][{X}] = (U, V)`. Emit `KroneckerDetectionInfo`.
+   - `SOGA_KRON_STRICT ≤ ρ < SOGA_KRON_LOOSE` (default 1e-3):  
+     Sigma is near-Kronecker but stored as dense for safety.  
+     Emit `KroneckerNearMissWarning`. Store as `(None, Sigma)`.
+   - `ρ ≥ SOGA_KRON_LOOSE`:  
+     Sigma is not separable. Store as dense `(None, Sigma)`. Emit `DenseCovarianceInfo`.
+
+Thresholds are configurable via environment variables `SOGA_KRON_STRICT` and `SOGA_KRON_LOOSE`.
+
+### Storage format
+
+Consistent with fix4's dense sentinel (no new sentinel type introduced):
+
+```python
+# Kronecker-detected: same as matrix_gm
+cov_blocks[k][frozenset({name})] = (U, V)    # U: (m,m), V: (n,n)
+
+# Dense: same as after element write (fix4)
+cov_blocks[k][frozenset({name})] = (None, Sigma_dense)  # Sigma_dense: (mn,mn)
+```
+
+### Subsequent operations
+
+| Operation | Kronecker-detected path | Dense path |
+|-----------|------------------------|------------|
+| `y = X[i,j]` (scalar extract) | Exact via U[:,i] ⊗ V[:,j] | Exact via Sigma[:,j*m+i] |
+| `observe(X[i,j] op c)` | Exact truncation | Exact truncation |
+| `Y = A @ X` (affine left) | Kronecker fast path | NotImplementedError |
+| `Y = transp(X)` | Exact factor swap | NotImplementedError |
+| `Y = X + N` (add noise) | Iso path or NKP | NotImplementedError |
+| `Y = c * X` (scale) | Kronecker fast path | NotImplementedError |
+
+The dense-path limitations are identical to post-element-write (fix4, §13).
+
+### Invariants
+
+- The AC2/AC3 invariants (constraint 6 from plan §8):
+  - Exact Kronecker `Sigma = V ⊗ U` → residual ≈ 0 → stored as `(U, V)` → `kron(V, U)` matches `Sigma` to 1e-14.
+  - Near-Kronecker `Sigma = V ⊗ U + 1e-12 · δ` → residual ≈ 1e-12 → stored as Kronecker.
+  - Non-separable `Sigma` (rank-2 rearrangement) → residual > 0.05 → stored as dense.
+
+### Implementation files
+
+- `libMatrixGaussian._try_kronecker_decompose` — the SVD + residual computation
+- `libMatrixGaussian.KroneckerDetectionInfo`, `KroneckerNearMissWarning`, `DenseCovarianceInfo` — warning classes
+- `libMatrixUpdate._parse_matrix_gm_full_text` — safe nested-list parser for M and Sigma
+- `libMatrixUpdate.update_rule_matrix` MATRIX_GM_FULL branch — dispatcher
+- `libSOGAsharedMatrix.GaussianMixBlock.from_matrix_gm_full` — block constructor
+
+---
+
 ## Out-of-scope (v1 limitations)
 
 The following patterns are NOT supported in v1 and raise `NotImplementedError`:

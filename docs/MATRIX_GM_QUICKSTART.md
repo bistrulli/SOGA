@@ -132,6 +132,83 @@ for i in range(2) {
 } end for;
 ```
 
+## Specifying covariance: Kronecker vs Full
+
+SOGA offers two constructors for matrix-variate Gaussian priors.  Choose based
+on how you know (or want to express) the covariance structure.
+
+### Form 1 — Explicit Kronecker factors (original constructor)
+
+```soga
+X = matrix_gm(M, U, V);     /* vec(X) ~ N(vec(M), V ⊗ U) */
+```
+
+You supply the row factor `U` (m×m) and column factor `V` (n×n) directly.
+Storage cost: `m² + n²` entries.  All linear operations (matmul, add, transp,
+scale) use the Kronecker fast path — exact and memory-efficient.
+
+Use this form when:
+- You know the row/column factorisation from the model structure
+  (e.g. spatial row covariance × temporal column covariance).
+- You want the smallest memory footprint.
+
+### Form 2 — Full covariance with auto-detection (new in v1.2)
+
+```soga
+X = matrix_gm_full(M, Sigma);   /* vec(X) ~ N(vec(M), Sigma) */
+```
+
+You supply the full `(mn × mn)` covariance matrix `Sigma`.
+SOGA auto-detects whether `Sigma` is Kronecker-separable via Van Loan-Pitsianis
+rank-1 SVD on the rearrangement `R[Sigma]`.
+
+| Sigma structure | Residual `s₂/s₁` | Storage | Info emitted |
+|-----------------|------------------|---------|--------------|
+| Exact `V ⊗ U` | < `SOGA_KRON_STRICT` (1e-8) | `(U, V)` factors | `KroneckerDetectionInfo` |
+| Near-Kronecker | in `[1e-8, 1e-3)` | dense `(None, Sigma)` | `KroneckerNearMissWarning` |
+| Truly dense | ≥ `SOGA_KRON_LOOSE` (1e-3) | dense `(None, Sigma)` | `DenseCovarianceInfo` |
+
+The thresholds are configurable via environment variables:
+```bash
+export SOGA_KRON_STRICT=1e-10   # stricter Kronecker detection
+export SOGA_KRON_LOOSE=0.01     # wider near-miss band
+```
+
+**Example — Kronecker-detected (I₄ = I₂ ⊗ I₂):**
+```soga
+matrix[2][2] X;
+X = matrix_gm_full([[0,0],[0,0]], [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]);
+/* SOGA detects Sigma = I_4 = I_2 ⊗ I_2; stores (I_2, I_2) — Kronecker fast path */
+```
+
+**Example — Dense (non-Kronecker off-diagonal coupling):**
+```soga
+matrix[2][2] W;
+W = matrix_gm_full(
+    [[1,0],[0,2]],
+    [[2,0,0,0.5],[0,1,0,0],[0,0,1,0],[0.5,0,0,2]]  /* Cov(W[0,0],W[1,1])=0.5 */
+);
+/* SOGA detects non-Kronecker; stores dense sentinel (None, Sigma) */
+/* DenseCovarianceInfo or KroneckerNearMissWarning emitted */
+```
+
+**Dense-mode limitations**: identical to post-element-write.
+Subsequent `affine_left`, `transp`, `Y = X + N` on a dense-mode variable
+raise `NotImplementedError`.  Element extract `y = X[i,j]` and
+`observe(X[i,j] op c)` still work.
+
+### Quick comparison
+
+| | `matrix_gm(M, U, V)` | `matrix_gm_full(M, Sigma)` |
+|--|--|--|
+| What you provide | Row/column factors | Full (mn×mn) covariance |
+| Student burden | Must pre-decompose Sigma → (U,V) | None — SOGA auto-detects |
+| Storage (if Kronecker) | O(m²+n²) | O(m²+n²) after detection |
+| Storage (if dense) | N/A — must be Kronecker | O((mn)²) |
+| Linear ops | All fast-path | Kronecker-detected: fast; dense: NotImplementedError for Kronecker-ops |
+| Recommended when | You know U, V explicitly | You have Sigma; unsure of separability |
+
+
 ## When NOT to use it (current v1 limits)
 
 - **`trace(X)` observe**: not implemented as keyword; workaround: write

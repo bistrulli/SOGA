@@ -118,25 +118,52 @@ for i in range(2) {
 } end for;
 
 
+/* --- SECTION 9: matrix_gm_full with auto-Kronecker detection -----------
+ * matrix_gm_full(M, Sigma) accepts a FULL (mn×mn) covariance matrix.
+ * SOGA auto-detects whether Sigma is Kronecker-separable:
+ *   - If residual (s_2/s_1 of rearrangement SVD) < 1e-8 → stored as (U, V)
+ *   - Otherwise → stored as dense sentinel (None, Sigma)
+ *
+ * Here: Sigma = I_4 = I_2 ⊗ I_2  → SOGA detects Kronecker; stores (I_2, I_2)
+ * This is equivalent to matrix_gm(M, I_2, I_2).
+ *
+ * Analytical ground truth:
+ *   E[xfull00] = 5.0   (from mean [[5,6],[7,8]])
+ *   E[xfull11] = 8.0
+ *   Var[xfull00] = 1.0 (from I_4 covariance, Sigma[0,0] = 1)
+ *
+ * KroneckerDetectionInfo warning is emitted (residual ~ 7e-18 << 1e-8).
+ * Subsequent operations (scale, extract) use the Kronecker fast path.  */
+
+matrix[2][2] Xfull;
+Xfull = matrix_gm_full(
+    [[5,6],[7,8]],            /* M: mean matrix */
+    [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]   /* Sigma = I_4 = I_2 ⊗ I_2 */
+);
+xfull00 = Xfull[0,0];        /* E[xfull00] = 5.0 (exactly) */
+
+
 /* =====================================================================
  * Expected CLI output (verified — match within 5 decimal places):
  *
  *   c: 2                          (2 components after if/else+prune)
- *   d: 4                          (scalars: y00, theta, pick, diag)
+ *   d: 5                          (scalars: y00, theta, pick, diag, xfull00)
  *
- *   E[y00]   = 2.57684            (truncated N(2, 4) above 0; analytical
+ *   E[y00]     = 2.57684          (truncated N(2, 4) above 0; analytical
  *                                  derivation: σ_Y[0,0]² = U_Y[0,0]·V_Y[0,0]
  *                                  = 4·1 = 4, z = -1, λ = φ(-1)/Φ(1) = 0.288,
  *                                  E[y00|>0] = 2 + 2·0.288 = 2.577)
- *   E[theta] = 0.00000            (symmetric bimodal: ½·(-1) + ½·1 = 0)
- *   E[pick]  = 2.50000            (½·X[0,0] + ½·X[1,1] = ½·1 + ½·4)
- *   E[diag]  = 4.00000            (final iter, X[1,1])
+ *   E[theta]   = 0.00000          (symmetric bimodal: ½·(-1) + ½·1 = 0)
+ *   E[pick]    = 2.50000          (½·X[0,0] + ½·X[1,1] = ½·1 + ½·4)
+ *   E[diag]    = 4.00000          (final iter, X[1,1])
+ *   E[xfull00] = 5.00000          (from Xfull mean; Kronecker-detected I_4)
  *
- *   E[X] = [[1, 2], [3, 4]]                       (prior preserved)
- *   E[Y] = [[2.57684, 4], [3, 4]]                 (Y[0,0] shifted by
+ *   E[X]     = [[1, 2], [3, 4]]                   (prior preserved)
+ *   E[Y]     = [[2.57684, 4], [3, 4]]             (Y[0,0] shifted by
  *                                                  Kalman back-prop from y00)
- *   E[Z] = [[2, 3], [4, 4]]                       (transpose of pre-observe Y)
- *   E[N] = [[0, 0], [0, 0]]                       (noise prior)
+ *   E[Z]     = [[2, 3], [4, 4]]                   (transpose of pre-observe Y)
+ *   E[N]     = [[0, 0], [0, 0]]                   (noise prior)
+ *   E[Xfull] = [[5, 6], [7, 8]]                   (matrix_gm_full prior)
  *
  * Approximations involved in this program: NONE.
  * All operations here are EXACT (no random×random matmul, no element

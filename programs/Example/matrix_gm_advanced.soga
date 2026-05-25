@@ -95,18 +95,53 @@ wcorner = W[0,0];          /* Expected: E[wcorner] = 5 (deterministic) */
 observe(W[1,1] > 0);        /* Truncates N(1, 1) above 0; small shift on W[1,1] */
 
 
+/* --- PART C: matrix_gm_full with truly dense (non-Kronecker) Σ ----------
+ * Demonstrates the case where the user specifies a full covariance that
+ * is NOT Kronecker-separable.  SOGA detects this automatically (residual
+ * s_2/s_1 of rearrangement SVD exceeds SOGA_KRON_STRICT=1e-8) and stores
+ * the covariance as a dense sentinel (None, Σ_dense).
+ *
+ * Dense storage cost: (mn)² entries vs m²+n² for Kronecker.
+ * For a 2×2 matrix: 16 entries vs 8 — small.  At m=n=8: 4096 vs 128.
+ *
+ * Sigma below is:  diag(2, 1, 1, 2)  +  off-diagonal coupling
+ *   Sigma[0,3] = Sigma[3,0] = 0.5   (Cov(X[0,0], X[1,1]) = 0.5)
+ * This is NOT a single Kronecker product (rank-2 rearrangement).
+ *
+ * DenseCovarianceInfo (or KroneckerNearMissWarning if near threshold) emitted.
+ * E[wd00] = 1 (mean [[1,0],[0,2]]), Var[wd00] = 2 (Sigma[0,0]), Cov(X[0,0],X[1,1])=0.5
+ *
+ * Available operations on dense-stored variable:
+ *   element extract (wd00 = Wdense[0,0]) — WORKS
+ *   observe element (observe(Wdense[1,1] op c)) — WORKS
+ * NOT available (same restriction as post-element-write):
+ *   affine_left, transp — would raise NotImplementedError
+ */
+
+matrix[2][2] Wdense;
+Wdense = matrix_gm_full(
+    [[1,0],[0,2]],             /* M: mean — E[Wdense[0,0]]=1, E[Wdense[1,1]]=2 */
+    [[2,0,0,0.5],[0,1,0,0],[0,0,1,0],[0.5,0,0,2]]  /* Sigma: diag + coupling */
+);
+wd00 = Wdense[0,0];            /* E[wd00] = 1 (exact) */
+
+
 /* =====================================================================
  * Expected CLI output (verified to 4 decimal places):
  *
  *   E[wcorner] = 5.0                        (post-write deterministic)
+ *   E[wd00]    = 1.0                        (from dense-mode matrix_gm_full mean)
  *   E[X1]      = [[1, 0], [0, 1]]
  *   E[X2]      = [[2, 0], [0, 2]]
  *   E[Zrand]   = [[2, 0], [0, 2]]            (exact mean = M_X1 @ M_X2)
  *   E[W]       = [[5, 1], [1, 1.2876]]       (post-write + observe(W[1,1]>0):
  *                                             W[1,1] ~ N(1,1) truncated above 0
  *                                             gives E = 1 + 1·φ(−1)/Φ(1) ≈ 1.288)
+ *   E[Wdense]  = [[1, 0], [0, 2]]            (dense-mode prior mean)
  *
  * Warnings emitted:
  *   ElementWriteDenseWarning  — fires on W[0,0] = 5 (Kronecker → dense)
  *   MatmulApproxWarning       — NOT emitted here (small-cov regime)
+ *   DenseCovarianceInfo       — fires on Wdense = matrix_gm_full(...)
+ *                               (residual s_2/s_1 > 1e-3 for this Sigma)
  * ===================================================================== */

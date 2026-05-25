@@ -277,3 +277,21 @@ python3 src/SOGA.py -f programs/Example/matrix_gm_advanced.soga
 # Grammar sync check
 bash scripts/check_grammar_sync.sh
 ```
+
+## Known issues
+
+The stress test campaign (2026-05-25) uncovered four latent bugs in the
+matrix-GM extension.  They are documented in full in
+[`docs/LIMITATIONS.md`](LIMITATIONS.md).
+
+**Quick reference (do not use these combinations until fixed):**
+
+| Bug | Broken combination | Workaround |
+|-----|--------------------|------------|
+| C1 / Path 5 | `observe(X[i,j] op c)` followed by `Y = A @ X` or `Y = X @ B` | Apply affine ops before observe, or use a separate matrix variable |
+| C7 | `matrix_gm_full(M, Sigma_dense)` followed by `Y = A @ X` or `Y = X @ B` | Use `matrix_gm(M, U, V)` if Kronecker factors are known; or restrict to extract/observe ops |
+| Gap 3 | `y0 = X[0,0]` before `observe(X[1,0] > c)` with correlated rows | Extract scalars AFTER observe statements |
+| F4 | `y = X[0,0]` before `X[0,0] = 5.0` (element write) | Extract scalars AFTER element writes if covariance is needed |
+
+See [`docs/LIMITATIONS.md`](LIMITATIONS.md) for source locations, test probes, and
+the follow-up plan reference.

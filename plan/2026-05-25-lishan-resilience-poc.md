@@ -140,14 +140,14 @@ if not monotonic and MC confirms: COUNTEREXAMPLE_FOUND
 
 ## Sub-tasks (atomic, milestone-organized)
 
-### M0 — Branch setup + scaffold (2 days)
+### M0 — Branch setup + scaffold (2 days) [#6]
 
 - [ ] **[0.1]** [iter:1] [area:setup] Create branch `feat/lishan-resilience-poc` from `feat/matrix-gm-integration`. Push with `--set-upstream`.
 - [ ] **[0.2]** [iter:1] [area:experiments] Create `experiments/lishan_resilience_2026-05-25/` directory with subdirs `results/`, `figures/`, `lib/`. Add `config.json` schema (seed, ε, v_sweep, p_sweep, p_fault).
 - [ ] **[0.3]** [iter:1] [agent:soga-internal-expert] [area:experiments] **A matrix specification (Codex iter 1 R1, R5)**: extract the deterministic kernel matrix `A_kernel` from `programs/Example/lishan_2mm_32x32.soga` and save as `experiments/.../A_kernel.npz` (32×32 float64). Document its structure in `config.json` (e.g., banded with values {0.0, 0.1, 0.2, 0.3, 0.5, 1.0} per the existing `.soga` literal). The plan supports any A; K_max=161 is the upper bound. If A=I_32 is preferred for the headline plot (cleanest K=6 reduction), generate a second config `A_identity.npz` and run BOTH as plot variants. Verify `lishan_2mm_32x32.soga` runs end-to-end; capture baseline `(M_D, U_D, V_D)`. Store in `experiments/.../results/baseline_DUV.npz`.
 - [ ] **[0.4]** [iter:1] [area:tests] Create `experiments/lishan_resilience_2026-05-25/tests/test_smoke.py` with import-test + baseline-loadability test.
 
-### M1 — Fault model module (3 days)
+### M1 — Fault model module (3 days) [#7]
 
 - [ ] **[1.1]** [iter:1] [agent:gaussian-mixture-expert] [area:experiments/lib/fault_model.py] Implement `FaultClass` enum (SIGN, HIGH_EXP, LOW_EXP, HIGH_MANTISSA, LOW_MANTISSA) with class-specific exact formulas vs moment-matched approximations (corrected per Codex iter 1 C3):
   - **SIGN/EXP**: return list of (sub_class_k, P_sub, δ_deterministic) — EXACT representation as discrete sub-components (4 for HIGH-EXP, 4 for LOW-EXP, 1 for SIGN)
@@ -164,7 +164,7 @@ if not monotonic and MC confirms: COUNTEREXAMPLE_FOUND
   - **NEW edge case (Codex iter 1)**: mantissa moment-match validation — compare moment-matched Var[δ|v]·A² against full discrete-mixture expansion on m=n=2 case; max rel err on Pr(SDC) < 5%
 - [ ] **[1.5]** [iter:1] [area:lib] Implement `tail_gauss(mu_post, sigma_post, threshold) -> P_SDC` using `scipy.stats.norm.logsf`/`logcdf` + `logsumexp` per H2. Vectorize over array inputs.
 
-### M2 — MC reference (2 days)
+### M2 — MC reference (2 days) [#8]
 
 - [ ] **[2.1]** [iter:2] [area:experiments/simulate_fi_mc.py] Implement `flip_bit(value, bit_index) -> float32` via `struct.pack('!f', value)`, XOR, `struct.unpack`. Verify on 5 known cases (sign flip on 1.0 → -1.0, etc.).
 - [ ] **[2.2]** [iter:2] [area:experiments/simulate_fi_mc.py] Implement `simulate_one_fi(A, B, fault_cell, bit) -> D_perturbed`. Apply `flip_bit` on `B[fault_cell]`, recompute `D = A @ B_perturbed`. Pure numpy float32.
@@ -172,7 +172,7 @@ if not monotonic and MC confirms: COUNTEREXAMPLE_FOUND
 - [ ] **[2.4]** [iter:2] [area:experiments] CLI script `run_mc_step1.py` that calls `simulate_v_sweep` and saves CSV `results/mc_step1.csv` with columns `(v, MSK, SDC, OTR)`.
 - [ ] **[2.5]** [iter:2] [area:tests] Smoke test: run `run_mc_step1.py` with 3 v-points × 50 samples; assert runtime < 30s and CSV well-formed.
 
-### M3 — SOGA analytical prediction (3 days)
+### M3 — SOGA analytical prediction (3 days) [#9]
 
 - [ ] **[3.1]** [iter:2] [agent:soga-internal-expert] [area:experiments/predict_resilience_soga.py] Implement `compute_baseline(A, M_B, U_B, V_B) -> (M_D, U_D, V_D)` using `libMatrixGaussian.MatrixGaussian` constructor + `_matrix_affine_left` directly. Cross-validate against `lishan_2mm_32x32.soga` output.
 - [ ] **[3.2]** [iter:2] [agent:gaussian-mixture-expert] [area:experiments/predict_resilience_soga.py] Implement `compute_per_cell_SDC(M_D, U_D, V_D, A, v, eps, p_fault) -> {(r,s): (P_MSK, P_SDC, P_OTR)}` per the aggregate formula (Q6 of gm-expert memo). Use H4 symmetry reduction: per output cell only j=s faults shift the mean. Per Codex iter 1 R1: K_per_cell = 1 + 5·m_distinct where m_distinct is the number of distinct nonzero values among `{A[r,i] : i ∈ [m]}`. For A=I_32 worst case is K=6; for full-A worst case is K=161.
@@ -181,13 +181,13 @@ if not monotonic and MC confirms: COUNTEREXAMPLE_FOUND
 - [ ] **[3.5]** [iter:2] [agent:test-engineer] [area:tests/test_predict_soga.py] Validation: K reduction (worst case K=1+5·m, A-dependent) must match K=full expansion (1 + 5·m·n) on a small case m=n=4. Run both, compare per-cell `P_SDC` element-wise (max |Δ| < 1e-10 for SIGN/EXP-only computation; max rel err < 5% when MANTISSA classes included, since mantissa is moment-matched). Test both A=I_4 (K=6 per cell) and A=full (K=21 per cell). This certifies the symmetry reduction AND the mantissa moment-match bound.
 - [ ] **[3.6]** [iter:2] [area:experiments] CLI script `run_soga_step1.py` for the v-sweep. Output CSV `results/soga_step1.csv`.
 
-### M4 — Step 1 verification (1 day)
+### M4 — Step 1 verification (1 day) [#10]
 
 - [ ] **[4.1]** [iter:3] [area:experiments/run_sweep.py] Orchestrator script combining MC + SOGA Step 1; compute Pearson correlation per curve (MSK, SDC, OTR).
 - [ ] **[4.2]** [iter:3] [area:experiments/figures] Plot `resilience_vs_input_value.png` with 3 curves overlaid: MC (solid), SOGA (dashed), per category. Plot title carries input-side disclaimer.
 - [ ] **[4.3]** [iter:3] [area:tests/test_step1_acceptance.py] Acceptance gate (corrected per Codex iter 1 M6): assert `pearson(MC, SOGA) > 0.90` per curve as PRIMARY threshold (down from 0.95; 10-point Pearson is statistically fragile at 1000 MC samples). Fallback `> 0.85` with documented gap explanation. Alternative path: increase MC samples to 3000 per v-point if Pearson < 0.90 on first run. Also: `max_rel_err < 10%` on MSK/SDC, `max_abs_err < 5%` on OTR.
 
-### M5 — Step 3 parametric counterexample (3 days)
+### M5 — Step 3 parametric counterexample (3 days) [#11]
 
 - [ ] **[5.1]** [iter:3] [agent:gaussian-mixture-expert] [area:experiments/lib/bimodal_prior.py] Implement `bimodal_to_matrix_gaussian(p, V_low, V_high, m, n) -> (M_B, U_B, V_B)` using moment-matching:
   - `M_B = (p·V_high + (1-p)·V_low) · ones(m,n)`
@@ -206,7 +206,7 @@ if not monotonic and MC confirms: COUNTEREXAMPLE_FOUND
 - [ ] **[5.6]** [iter:3] [area:experiments/figures] Plot `resilience_vs_bimodal_p.png` with curves + MC error bars at validated points + monotonicity annotation.
 - [ ] **[5.7]** [iter:3] [area:experiments] If counterexample found: write `experiments/.../counterexample_analysis.md` with physical intuition (why the non-monotonic regime exists) + MC confirmation.
 
-### M6 — Deliverable bundle (2 days)
+### M6 — Deliverable bundle (2 days) [#12]
 
 - [ ] **[6.1]** [iter:4] [agent:documentation-writer] [area:experiments/REPORT.md] Synthesis: (1) setup, (2) Strada Q honesty disclaimer (top-front), (3) Step 1 results + figure, (4) Step 3 results + figure, (5) discussion (citing `docs/research-notes/06-input-side-fault-modeling.md`), (6) reproduction instructions.
 - [ ] **[6.2]** [iter:4] [area:experiments/lishan_pitch.ipynb] Front-door notebook: interactive sliders for `ε`, `p_fault`, `v` (Step 1) and `p` (Step 3); live plot updates; cell with one-paragraph framing for Lishan. Use `ipywidgets` if available, else parameterized cells.

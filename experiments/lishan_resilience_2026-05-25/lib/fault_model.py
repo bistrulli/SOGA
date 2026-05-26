@@ -274,9 +274,11 @@ def get_low_mantissa_component() -> MantissaSubComponent:
 # H1: Overflow pre-classification (log-space)
 # ---------------------------------------------------------------------------
 
-# float32 max exponent is 127; overflow when log|value| + k*log(2) > 127*log(2)
+# float32 max value is 3.4028235e+38; overflow when log|value| > log(float32_max)
+# Use np.finfo(np.float32).max rather than 127*log(2) = 88.03, which
+# underestimates by ~0.7 nats (true log(float32_max) = 88.72).
 _LOG2 = float(np.log(2.0))
-_FLOAT32_MAX_LOG = 127.0 * _LOG2  # log of float32 max
+_FLOAT32_MAX_LOG = float(np.log(np.finfo(np.float32).max))  # = 88.7228...
 
 
 def check_overflow(

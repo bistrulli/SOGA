@@ -191,13 +191,13 @@ Given 21-point sweep Pr(SDC | p_k):
 
 ## Sub-tasks (atomic, milestone-organized)
 
-### R0 — Setup + design lock (0.5 days)
+### R0 — Setup + design lock (0.5 days) [#14](https://github.com/bistrulli/SOGA/issues/14)
 
 - [ ] **[R0.1]** [iter:5] [area:experiments/lib] Write `lib/DESIGN_BIT_EXACT.md` design doc: rationale, IEEE 754 references, the 4 specialist+Codex-found bug fixes (NaN-only guard NOT Inf, float32-cast delta, native endianness, OTR aggregation semantics), comparison vs 5-class, scope.
 - [ ] **[R0.2]** [iter:5] [agent:test-engineer] [area:tests/test_bit_fault_table.py] Write 5 hand-computed sanity tests (T1-T5 per test-engineer Q1): sign(1.0)→-1.0, bit 23→2.0, bit 22→1.5, bit 30→+Inf, sign(0)→-0 (assert via `math.copysign`, not `==`). All tests RED initially.
 - [ ] **[R0.3]** [iter:5] [agent:soga-internal-expert] [area:experiments] **CODEX F1 CRITICAL**: read `/Users/emilio-imt/git/SOGA/experiments/lishan_resilience_2026-05-25/simulate_fi_mc.py` carefully. Document in `lib/DESIGN_BIT_EXACT.md § OTR_SEMANTICS` whether MC reports per-execution-OTR (any cell non-finite → 1.0) or per-cell-averaged-OTR (mean fraction of non-finite cells). This determines the analytical formula in R2.2b.
 
-### R1 — Bit-fault table module (1 day, agent:numerical-stability-expert)
+### R1 — Bit-fault table module (1 day, agent:numerical-stability-expert) [#15](https://github.com/bistrulli/SOGA/issues/15)
 
 - [ ] **[R1.1]** [iter:5] [agent:numerical-stability-expert] [area:lib/bit_fault_table.py] Implement scalar `compute_xor_shift(v, bit_idx)` WITH all 3 fixes:
   - NaN/Inf input guard (early return)
@@ -210,7 +210,7 @@ Given 21-point sweep Pr(SDC | p_k):
 - [ ] **[R1.3]** [iter:5] [agent:test-engineer] [area:tests/test_bit_fault_table.py] 100-random-v validation: `np.random.default_rng(42).uniform(-30, 30, 100)` exponents, all 32 bits each. Assert bit-perfect match against MC `flip_bit` via `numpy.equal` on bit patterns (NOT float `==` due to NaN payload subtleties).
 - [ ] **[R1.4]** [iter:5] [agent:numerical-stability-expert] [area:tests/test_bit_fault_table.py] 10 IEEE 754 edge cases (T6-T10 per test-engineer Q1 + extras): smallest subnormal, +Inf input + 31 (→-Inf), +Inf + 30 (→1.0), +Inf + 22 (→NaN), fmax + 0 (unchanged at float32 precision), NaN input guard, -0 sign flip → +0, denormal sign flip, denormal exp flip, scalar-vs-vectorized cross-check.
 
-### R2 — Analytical aggregation rewrite (1.5 days, agent:soga-internal-expert)
+### R2 — Analytical aggregation rewrite (1.5 days, agent:soga-internal-expert) [#16](https://github.com/bistrulli/SOGA/issues/16)
 
 - [ ] **[R2.1]** [iter:5] [area:scripts] `git mv predict_resilience_soga.py predict_resilience_soga_5class.py` (preserves `git log --follow` history per soga-internal Q2).
 - [ ] **[R2.2]** [iter:5] [agent:soga-internal-expert] [area:predict_resilience_soga.py] Implement NEW bit-exact `predict_resilience_soga.py` exposing same names (predict_v_sweep, predict_bimodal_sweep, compute_baseline, compute_per_cell_SDC) but with 32-bit loop instead of 5-class. Reuse compute_baseline and affine_left from matrix-GM (no SOGA core changes per Q3).
@@ -222,7 +222,7 @@ Given 21-point sweep Pr(SDC | p_k):
   - K=33 reduction vs K_full validation at m=n=4
 - [ ] **[R2.5]** [iter:5] [area:scripts] Add `--mode {bit_exact, 5_class}` flag to `run_soga_step1.py`, `run_step3.py`, `run_sweep.py`. Default `bit_exact`. **BACKWARD-COMPATIBILITY NOTICE (per Codex iter 1 F6)**: this is a DELIBERATE behavioral change — existing scripts/CI invoking these runners without `--mode` will get bit-exact results (intentional refinement primary). MITIGATION: (a) emit a clear runtime banner `"[MODE] Using bit_exact fault model (refinement primary; --mode 5_class for legacy)"` at script start; (b) document the breaking change in `lib/DESIGN_BIT_EXACT.md` and `CHANGELOG` section of REPORT.md; (c) bump `config_version: 2` in config.json (was 1); old configs missing the field default to `1` with deprecation warning.
 
-### R3 — Step 1 re-validate (0.5 days)
+### R3 — Step 1 re-validate (0.5 days) [#17](https://github.com/bistrulli/SOGA/issues/17)
 
 - [ ] **[R3.1]** [iter:5] [area:scripts] Re-run v_sweep with `--mode bit_exact`, save `results/soga_step1_bitexact.csv`.
 - [ ] **[R3.2]** [iter:5] [area:figures] 3-panel figure `figures/resilience_vs_input_value_3panel.png` (MC | 5-class | bit-exact). Shows bit-exact convergence to MC.
@@ -233,7 +233,7 @@ Given 21-point sweep Pr(SDC | p_k):
   - `max(|soga_MSK − mc_MSK|) < 1%` absolute
   - Re-run at n=3000 if first n=1000 fails Pearson (escalation path)
 
-### R4 — Step 3 bimodal Bernoulli with bit-exact (1 day, agent:gaussian-mixture-expert)
+### R4 — Step 3 bimodal Bernoulli with bit-exact (1 day, agent:gaussian-mixture-expert) [#18](https://github.com/bistrulli/SOGA/issues/18)
 
 - [ ] **[R4.1]** [iter:5] [agent:gaussian-mixture-expert] [area:predict_resilience_soga.py] Plumb bit-exact into existing `predict_bimodal_sweep(use_two_component=True)` path (NO changes to `lib/bimodal_prior.py` per soga-internal Q4 — that module is pure input-distribution math). The 2-component dispatch already works; just bit-exact the inner kernel.
 - [ ] **[R4.2]** [iter:5] [area:scripts] Re-run p_sweep with `--mode bit_exact`, save `results/step3_soga_bitexact.csv`. 21 p-points {0.0, 0.05, …, 1.0}.
@@ -245,14 +245,14 @@ Given 21-point sweep Pr(SDC | p_k):
 - [ ] **[R4.4]** [iter:5] [area:scripts] MC validation at 4 points `p ∈ {0.0, 0.5, p_critical, 1.0}` with 5000 samples each, seed=42. Binomial CI half-width ≤ 0.007.
 - [ ] **[R4.5]** [iter:5] [area:experiments] If non-monotonicity detected per gm-expert Q6 rules: write `counterexample_analysis.md` with physical intuition (which p, which bit pattern, why) + MC support + figure highlight. If monotone confirmed: append "monotonicity confirmation" section to REPORT.md.
 
-### R5 — Documentation overhaul (0.5 days, agent:documentation-writer)
+### R5 — Documentation overhaul (0.5 days, agent:documentation-writer) [#19](https://github.com/bistrulli/SOGA/issues/19)
 
 - [ ] **[R5.1]** [iter:6] [agent:documentation-writer] [area:experiments/REPORT.md] Rewrite: introduce "Methodological hierarchy" section (5-class historical → bit-exact primary); update all numerical tables; remove L1/L2 "known limitations" section (or move to "Historical iterations"); maintain Strada Q disclaimer.
 - [ ] **[R5.2]** [iter:6] [agent:documentation-writer] [area:lishan_pitch.ipynb] Add "Approximation hierarchy" section (MC → bit-exact analytical → 5-class fast approximation); add mode selector widget (dropdown or radio); narrative cell explaining input-side fault interpretability for Lishan.
 - [ ] **[R5.3]** [iter:6] [agent:documentation-writer] [area:docs/research-notes/06-input-side-fault-modeling.md] Update Section 4 positioning paragraph: "SOGA matches MC reference at IEEE 754 bit precision (analytical) at ~1000× speedup; gap is purely MC sampling noise."
 - [ ] **[R5.4]** [iter:6] [agent:documentation-writer] [area:lishan_discussion_package/] Update README.md (1-page) with bit-exact primary result; update setup.md (CLI now needs `--mode`); regenerate figures/ from new CSVs.
 
-### R6 — Final QA + cross-review (0.5 days)
+### R6 — Final QA + cross-review (0.5 days) [#20](https://github.com/bistrulli/SOGA/issues/20)
 
 - [ ] **[R6.1]** [iter:6] [agent:code-reviewer] [area:final] Code review on full refinement diff (`git diff aa212f2d..HEAD` or against R0 baseline).
 - [ ] **[R6.2]** [iter:6] [agent:codex-cross-reviewer] [area:final] Codex cross-review on cumulative artifact (Phase F of /iterate). Focus: (a) bit-XOR correctness vs IEEE 754 spec; (b) "MC analytical" claim soundness; (c) Pearson > 0.95 achievability; (d) Step 3 monotonicity test rigor; (e) backward-compat preservation.

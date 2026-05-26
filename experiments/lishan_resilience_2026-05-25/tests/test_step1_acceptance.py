@@ -225,16 +225,12 @@ class TestModelAccuracyDocumentation:
     detectors if the model is improved.
     """
 
-    @pytest.mark.xfail(
-        reason=(
-            "KNOWN LIMITATION: Pearson MSK fails because MSK curves are nearly flat "
-            "(scale-invariant with relative threshold). Pearson on flat vectors is noise. "
-            "See LIMITATIONS.md: Strada Q mantissa moment-match overestimates SDC by ~38x "
-            "for A=I_32. Correlation metric is not appropriate for this regime."
-        ),
-        strict=False,
-    )
-    def test_pearson_msk_primary_xfail(self, sweep_results, cfg):
+    def test_pearson_msk_primary(self, sweep_results, cfg):
+        """Pearson MSK passes with bit-exact predictor (xfail promoted in R6.3).
+
+        Was xfail under 5-class model (MSK overestimation mismatch). Now passes
+        because bit-exact predictor aligns MSK/OTR curves correctly with MC.
+        """
         r, _ = stats.pearsonr(sweep_results["mc_msk"], sweep_results["sg_msk"])
         threshold = cfg["step1"]["pearson_threshold_primary"]
         assert r > threshold, f"Pearson MSK={r:.3f} < {threshold}"

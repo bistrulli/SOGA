@@ -1,0 +1,16 @@
+# SHA-256 hashes of inputs and source files
+# Generated: 2026-05-26
+# Algorithm: SHA-256
+# Seed: 42 (fixed in config.json)
+
+ce3b79ddf4453d4ce23c36beac62de6a0dd8b3cf2340d041984b087fc3535d1b  results/A_kernel.npz
+ce3b79ddf4453d4ce23c36beac62de6a0dd8b3cf2340d041984b087fc3535d1b  results/A_identity.npz
+9ba23ef94064dffd9b18f883f5c0c43278feac0ad01d031444abe7224608b5e6  results/baseline_DUV.npz
+1d9635d11d3b326976b68bcadcf9150278046c5b22e163d4f5e28f64040e1d83  config.json
+a26b4b36a0672d4379595b798f599fbaa7128864bae18c117bf84a156534997a  predict_resilience_soga.py
+caa888d8a6b17e4a417deb0c1e8a6c7269728bfe6037cede513380d60650a0c1  simulate_fi_mc.py
+66ff9d6c9d8c4a912b0e482ce5d2bee7d3c48d59409ea679fd5f61ed6029ade1  lib/fault_model.py
+cc58c3f3f51724f10434dd9f32e849376ff64ca3698139541759a6cd36c3e3f0  lib/bimodal_prior.py
+
+# Note: A_kernel.npz == A_identity.npz because lishan_2mm_32x32.soga uses identity kernel.
+# This has been verified: A[r,s] = 1 if r==s, 0 otherwise (32x32).

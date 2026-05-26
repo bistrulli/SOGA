@@ -1,0 +1,20 @@
+VERDICT: APPROVE_WITH_CHANGES
+
+FINDINGS:
+- (a) `float32`-cast delta fix is correctly specified; denormal/subnormal handling is correct if the exact pack/unpack path is used.
+- (a) The NaN/Inf guard is over-broad for a function claimed as “bit-XOR exact”: guarding `Inf` diverges from MC/IEEE behavior (e.g., `+Inf` with bit 30 should become `1.0`). This also conflicts with your own R1.4 edge-case list.
+- (a) Native-endian vectorized `view(np.uint32)` can be correct for significance-based bit indexing, but the plan does not prove scalar/vector parity cross-platform; this is an unresolved portability risk unless explicitly tested.
+- (b) The “MC analytical” claim has a semantic gap for OTR: MC uses execution-level OTR (`any non-finite => OTR=1`), while plan text describes per-cell OTR accumulation (`is_special[bit]` per output cell).
+- (b) Aggregation text under-specifies residual probability mass from faults outside a cell’s dependency set. Even if implemented as residual MSK, this must be explicit to avoid normalization mistakes.
+- (c) Pearson > 0.95 is achievable in some runs but still partly aspirational with 10 v-points and low SDC rates; fallback policy is inconsistent (constraints allow >0.90 with noise note, acceptance section hard-codes >0.95).
+- (d) MONOTONE threshold is strict enough, but NON-MONOTONE calibration is weak around `wrong_sign >= 5`; and if 3 curves are tested, `binom_p < 0.01` should be multiplicity-corrected (Bonferroni ~0.0033).
+- (e) Backward compatibility is not fully preserved if runner default is `--mode bit_exact`; unchanged legacy invocations will silently change behavior.
+- (f,g) Scope is mostly disciplined, but risk register misses key risks: non-finite parity mismatch, OTR semantic mismatch, multiple-testing inflation, and default-mode behavioral break.
+
+RECOMMENDATIONS:
+- Split semantics from policy: keep a true `flip_exact_ieee(v, bit)` path (no NaN/Inf guard), and apply guards only in a separate wrapper used by aggregators.
+- Define OTR exactly as MC does (`Pr(any non-finite output)`), then implement that analytical equivalent; do not use per-cell OTR if claiming MC equivalence.
+- Add a hard parity gate: scalar vs vectorized bit-pattern equality across all 32 bits on random + IEEE edge cases, with explicit endian-invariance assertions.
+- Reconcile acceptance rules: `>0.95` primary, documented fallback (`>0.90`) tied to MC uncertainty/CI trigger.
+- Tighten Step 3 stats: predefine one-sided sign-test details, apply multiple-testing correction when evaluating 3 curves, and quantitatively define plateau exemption.
+- Preserve behavioral BC by defaulting old configs/CLI to legacy mode (or explicitly version-bump and declare a deliberate breaking change).

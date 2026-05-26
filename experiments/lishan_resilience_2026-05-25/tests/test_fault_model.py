@@ -79,12 +79,13 @@ def compute_resilience_scalar(
                 continue
 
             # Shift on output = delta * A_ri
+            # SDC = P(|D[r,s] - golden| > threshold) = tail_gauss(delta_mean, sigma, threshold)
             E_delta, Var_delta = shift_moments(float(v), fc)
-            mu_post = mu_golden + float(E_delta) * A_ri
+            delta_mean_output = float(E_delta) * A_ri
             sigma_shift = float(np.sqrt(Var_delta)) * abs(A_ri)
             sigma_post = float(np.sqrt(sigma_base**2 + sigma_shift**2))
 
-            p_sdc_c = float(tail_gauss(mu_post, sigma_post, threshold))
+            p_sdc_c = float(tail_gauss(delta_mean_output, sigma_post, threshold))
             p_sdc += p_c * p_sdc_c
 
         # Per-execution probabilities

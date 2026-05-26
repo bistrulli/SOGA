@@ -155,23 +155,22 @@ def compute_sdc_vectorized(
 
         if fc == FaultClass.SIGN:
             # delta = -2*v (deterministic, Var=0)
+            # SDC = P(|delta*A[r,i] + noise| > threshold) where noise~N(0, sigma_base^2)
+            # = tail_gauss(mu=delta*A[r,i], sigma=sigma_base, threshold)
             scale = -2.0
             E_delta = v_scalar * scale
-            Var_delta = 0.0
-            is_ovf_scalar = False  # SIGN never overflows
 
             # delta_mean on output D[r,s] = E_delta * A[r,i], shape (m, m_in)
             delta_mean_mat = E_delta * A_mat  # (m, m_in)
-            sigma_shift_mat = np.zeros_like(delta_mean_mat)
 
-            # mu_post[r, s, i] = mu_golden[r, s] + delta_mean_mat[r, i]
-            # But we sum over i weighted by p_fault_cell
-            # shape: broadcast (m,n,1) + (m,1,m_in) → (m,n,m_in) then sum over i
-            mu_post = mu_golden[:, :, None] + delta_mean_mat[:, None, :]  # (m, n, m_in)
+            # SDC: P(|delta + noise| > threshold) where noise ~ N(0, sigma_base^2)
+            # mu_shift[r, i] = delta_mean_mat[r, i] (shift relative to baseline)
+            # Shape broadcast: delta_mean_mat[:, None, :] has shape (m, 1, m_in)
+            # No s-dependence in delta (for flat B input): mu_shift independent of s
+            mu_shift = delta_mean_mat[:, None, :]  # (m, 1, m_in) → broadcast to (m, n, m_in)
             sigma_post = sigma_base[:, :, None]  # (m, n, 1) (Var_delta=0)
 
-            p_sdc_mat = _tail_gauss_broadcast(mu_post, sigma_post, threshold[:, :, None])
-            # p_sdc_mat: (m, n, m_in); sum over i weighted by p_fault_cell
+            p_sdc_mat = _tail_gauss_broadcast(mu_shift, sigma_post, threshold[:, :, None])
             p_sdc_contribution = p_c * p_fault_cell * p_sdc_mat.sum(axis=2)  # (m, n)
             p_sdc_total += p_sdc_contribution
 
@@ -189,10 +188,7 @@ def compute_sdc_vectorized(
                 log_mag = log_abs_v + log_scale + log_abs_A  # (m, m_in)
                 is_ovf = log_mag > _FLOAT32_MAX_LOG  # (m, m_in) bool
 
-                # OTR contribution: per (r,s), sum over i where is_ovf
-                # D[r,s] OTR if the fault at (i,s) for this k causes overflow
-                # = p_fault_cell * p_c * p_sub * sum_i(is_ovf[r,i])
-                # This is the same for all s (no s-dependence in overflow check)
+                # OTR contribution: sum over i where is_ovf
                 otr_per_r = (is_ovf * p_fault_cell * p_c * p_sub).sum(axis=1)  # (m,)
                 p_otr_total += otr_per_r[:, None]  # broadcast to (m, n)
 
@@ -201,17 +197,15 @@ def compute_sdc_vectorized(
                 if not non_ovf.any():
                     continue
 
-                delta_mean_mat = E_delta_k * A_mat  # (m, m_in)
-                # Zero out overflow cases
-                delta_mean_mat_safe = np.where(non_ovf, delta_mean_mat, 0.0)
+                # delta_mean shift on output D[r,s] = E_delta_k * A[r,i]
+                # SDC = P(|delta_mean * A[r,i] + noise| > threshold)
+                delta_mean_mat = np.where(non_ovf, E_delta_k * A_mat, 0.0)  # (m, m_in)
 
-                mu_post = mu_golden[:, :, None] + delta_mean_mat_safe[:, None, :]  # (m,n,m_in)
+                mu_shift = delta_mean_mat[:, None, :]  # (m, 1, m_in) relative shift
                 sigma_post = sigma_base[:, :, None]  # Var_delta=0 for exact EXP
 
-                p_sdc_mat = _tail_gauss_broadcast(mu_post, sigma_post, threshold[:, :, None])
+                p_sdc_mat = _tail_gauss_broadcast(mu_shift, sigma_post, threshold[:, :, None])
                 # Zero out overflow positions
-                p_sdc_mat = np.where(non_ovf[None, :, :].transpose(1, 0, 2), p_sdc_mat, 0.0)
-                # Note: need shape alignment (m, n, m_in)
                 p_sdc_mat = np.where(
                     non_ovf[:, None, :],  # (m, 1, m_in)
                     p_sdc_mat,
@@ -222,22 +216,24 @@ def compute_sdc_vectorized(
                 p_sdc_total += p_sdc_contribution
 
         else:  # MANTISSA classes (moment-matched)
-            # E_delta = 0 (sign symmetry)
-            # Var_delta = v^2 * E_2p2
+            # E_delta = 0 (sign symmetry) → mean shift on output = 0
+            # Var_delta = v^2 * E_2p2 → sigma_shift on D[r,s] = sigma_delta * |A[r,i]|
+            # SDC = P(|noise_total| > threshold) where noise_total ~ N(0, sigma_shift^2 + sigma_base^2)
+            # = tail_gauss(mu=0, sigma=sigma_post, threshold) for each (r,s,i)
             E_2p2 = HIGH_MANTISSA_E2P2 if fc == FaultClass.HIGH_MANTISSA else LOW_MANTISSA_E2P2
             Var_delta = v_scalar**2 * E_2p2
             sigma_delta_scalar = float(np.sqrt(Var_delta))
 
             # sigma_shift on D[r,s] = sigma_delta * |A[r,i]|
             sigma_shift_mat = sigma_delta_scalar * np.abs(A_mat)  # (m, m_in)
-            # mu_post = mu_golden (no mean shift; E[delta]=0)
-            mu_post = mu_golden[:, :, None]  # (m, n, 1) broadcast over i
+            # mu_shift = 0 (E[delta]=0 by sign symmetry)
+            mu_shift = np.zeros((m, 1, m_in))  # (m, 1, m_in) all zeros
 
             sigma_post = np.sqrt(
                 sigma_base[:, :, None]**2 + sigma_shift_mat[:, None, :]**2
             )  # (m, n, m_in)
 
-            p_sdc_mat = _tail_gauss_broadcast(mu_post, sigma_post, threshold[:, :, None])
+            p_sdc_mat = _tail_gauss_broadcast(mu_shift, sigma_post, threshold[:, :, None])
             p_sdc_contribution = p_c * p_fault_cell * p_sdc_mat.sum(axis=2)  # (m, n)
             p_sdc_total += p_sdc_contribution
 
@@ -387,11 +383,16 @@ def compute_per_cell_SDC(
                         delta_mean_on_output = float(E_delta) * A_ri
                         sigma_shift_on_output = float(np.sqrt(max(Var_delta, 0.0))) * abs(A_ri)
 
-                        mu_post = mu_golden + delta_mean_on_output
+                        # SDC = P(|D[r,s] - D_golden[r,s]| > threshold)
+                        #      = P(|delta_mean + noise| > threshold)
+                        #      = tail_gauss(delta_mean, sigma_post, threshold)
+                        # NOT tail_gauss(mu_golden + delta_mean, ...) which would be
+                        # P(|D[r,s]| > threshold) rather than P(|D[r,s] - golden| > threshold)
+                        mu_shift = delta_mean_on_output  # shift relative to baseline
                         sigma_post = float(np.sqrt(sigma_base**2 + sigma_shift_on_output**2))
 
                         # H2: tail probability in log-space
-                        p_sdc_c = float(tail_gauss(mu_post, sigma_post, threshold))
+                        p_sdc_c = float(tail_gauss(mu_shift, sigma_post, threshold))
                         p_sdc_from_col_s += p_fault_cell * p_c * p_sdc_c
 
                 # Total per-execution probabilities

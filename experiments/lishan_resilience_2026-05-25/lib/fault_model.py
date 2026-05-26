@@ -545,12 +545,15 @@ def mantissa_moment_match_validation(
     threshold = eps * abs(mu_golden) if abs(mu_golden) > 0 else eps * abs(A_ri * v) + 1e-30
 
     # Moment-matched version
+    # SDC = P(|delta| > threshold) where delta ~ N(0, sigma_delta_post^2 + sigma_base^2)
+    # (mu_golden cancels out: SDC is about the SHIFT, not the absolute value)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", MantissaApproximationWarning)
         _, var_delta = shift_moments(v, fault_class)
     sigma_delta_post = float(np.sqrt(var_delta)) * abs(A_ri)
     sigma_post_mm = float(np.sqrt(sigma_base**2 + sigma_delta_post**2))
-    p_sdc_mm = float(tail_gauss(mu_golden, sigma_post_mm, threshold))
+    # mu_shift = E[delta] = 0 for MANTISSA (sign symmetry)
+    p_sdc_mm = float(tail_gauss(0.0, sigma_post_mm, threshold))
 
     # Full discrete-mixture version
     if fault_class == FaultClass.HIGH_MANTISSA:
@@ -565,9 +568,8 @@ def mantissa_moment_match_validation(
     for exp in bit_exponents:
         for sign in [+1.0, -1.0]:
             delta = sign * v * (2.0 ** float(exp)) * A_ri
-            mu_scenario = mu_golden + delta
-            sigma_scenario = sigma_base
-            p_sdc_exact += weight * float(tail_gauss(mu_scenario, sigma_scenario, threshold))
+            # SDC = P(|delta + noise| > threshold) where noise ~ N(0, sigma_base^2)
+            p_sdc_exact += weight * float(tail_gauss(delta, sigma_base, threshold))
 
     # Relative error
     denom = max(abs(p_sdc_exact), 1e-10)

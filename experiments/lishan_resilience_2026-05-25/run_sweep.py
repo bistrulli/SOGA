@@ -1,5 +1,5 @@
 """
-M4.1 — Step 1 orchestrator: combined MC + SOGA sweep with Pearson correlation.
+M4.1 / R2.5 — Step 1 orchestrator: combined MC + SOGA sweep with Pearson correlation.
 
 HONESTY DISCLAIMER: Input-side fault model. NOT register-level injection.
 Strada Q discipline.
@@ -7,13 +7,15 @@ Strada Q discipline.
 Runs both simulate_v_sweep (MC) and predict_v_sweep (SOGA analytical) and
 computes Pearson correlation per curve (MSK, SDC, OTR).
 
-Acceptance criteria (per plan M4.3):
-    Pearson > 0.90 PRIMARY (fallback > 0.85 with documented gap)
-    max_rel_err < 10% on MSK/SDC
-    max_abs_err < 5% on OTR
+Acceptance criteria (bit_exact primary, per plan R3.3):
+    Pearson > 0.95 PRIMARY (SDC + MSK only; OTR uses abs err due to sparseness)
+    max_rel_err < 2% on SDC; max_abs_err < 1% on OTR/MSK
+    OTR: max abs err < 1% absolute
 
 Usage:
-    python3 experiments/lishan_resilience_2026-05-25/run_sweep.py [--n-samples N]
+    python3 experiments/lishan_resilience_2026-05-25/run_sweep.py [--n-samples N] [--mode {bit_exact,5_class}]
+
+BEHAVIORAL CHANGE (config_version 1->2): default mode is 'bit_exact' (refinement primary).
 """
 
 from __future__ import annotations
@@ -33,7 +35,6 @@ EXP_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, EXP_DIR)
 
 from simulate_fi_mc import simulate_v_sweep
-from predict_resilience_soga import predict_v_sweep
 
 
 def compute_pearson(mc_vals: list, soga_vals: list) -> float:
@@ -65,8 +66,23 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--v-subset", nargs="+", type=float, default=None)
     parser.add_argument("--upgrade-samples", action="store_true",
-                        help="Auto-upgrade to 3000 samples if Pearson < 0.90")
+                        help="Auto-upgrade to 3000 samples if Pearson < 0.95")
+    parser.add_argument(
+        "--mode", choices=["bit_exact", "5_class"], default="bit_exact",
+        help="Fault model mode: bit_exact (default, primary) or 5_class (legacy)",
+    )
     args = parser.parse_args()
+
+    # Runtime banner (R2.5 backward-compat notice)
+    if args.mode == "bit_exact":
+        print("[MODE] Using bit_exact fault model (refinement primary; --mode 5_class for legacy)")
+        from predict_resilience_soga import predict_v_sweep
+    else:
+        warnings.warn(
+            "[DEPRECATED] 5_class mode is a historical reference with known L1/L2 limitations.",
+            DeprecationWarning, stacklevel=1,
+        )
+        from predict_resilience_soga_5class import predict_v_sweep
 
     config_path = os.path.join(EXP_DIR, "config.json")
     with open(config_path) as f:

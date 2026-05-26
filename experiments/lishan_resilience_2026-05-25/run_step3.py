@@ -1,5 +1,5 @@
 """
-M5.3 — Step 3 SOGA bimodal p-sweep.
+M5.3 / R2.5 — Step 3 SOGA bimodal p-sweep.
 
 HONESTY DISCLAIMER: Input-side fault model. NOT register-level injection.
 Strada Q discipline.
@@ -9,11 +9,14 @@ For A=I_32 (sparse, m_dense=1 < 16): uses 2-component GM path.
 Computes Kendall's tau for monotonicity of SDC vs p.
 
 Usage:
-    python3 experiments/lishan_resilience_2026-05-25/run_step3.py
+    python3 experiments/lishan_resilience_2026-05-25/run_step3.py [--mode {bit_exact,5_class}]
+
+BEHAVIORAL CHANGE (config_version 1->2): default mode is 'bit_exact' (refinement primary).
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import os
@@ -27,7 +30,6 @@ from scipy import stats as spstats
 EXP_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, EXP_DIR)
 
-from predict_resilience_soga import predict_bimodal_sweep
 from lib.bimodal_prior import p_critical_sdc
 
 
@@ -40,6 +42,24 @@ def compute_kendall_tau(x: list, y: list) -> float:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Step 3 SOGA bimodal p-sweep")
+    parser.add_argument(
+        "--mode", choices=["bit_exact", "5_class"], default="bit_exact",
+        help="Fault model mode: bit_exact (default, primary) or 5_class (legacy)",
+    )
+    args = parser.parse_args()
+
+    # Runtime banner (R2.5 backward-compat notice)
+    if args.mode == "bit_exact":
+        print("[MODE] Using bit_exact fault model (refinement primary; --mode 5_class for legacy)")
+        from predict_resilience_soga import predict_bimodal_sweep
+    else:
+        warnings.warn(
+            "[DEPRECATED] 5_class mode is a historical reference with known L1/L2 limitations.",
+            DeprecationWarning, stacklevel=1,
+        )
+        from predict_resilience_soga_5class import predict_bimodal_sweep
+
     config_path = os.path.join(EXP_DIR, "config.json")
     with open(config_path) as f:
         cfg = json.load(f)

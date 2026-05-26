@@ -1,8 +1,10 @@
 {
   "description": "Lishan resilience POC \u2014 input-side fault propagation for 2MM 32x32 float32",
   "date": "2026-05-25",
+  "config_version": 2,
+  "fault_model_mode": "bit_exact",
   "branch": "feat/lishan-resilience-poc",
-  "plan": "plan/2026-05-25-lishan-resilience-poc.md",
+  "plan": "plan/2026-05-26-bit-exact-fault-model.md",
   "honesty_disclaimer": "Input-side fault model (faults injected into B before kernel execution). NOT equivalent to register-level bit-flip injection (SASSIFI/NVBitFI). Adjacent methodology; Strada Q discipline.",
   "seed": 42,
   "eps": 0.001,

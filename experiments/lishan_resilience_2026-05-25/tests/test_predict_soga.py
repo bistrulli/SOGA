@@ -34,7 +34,12 @@ REPO_ROOT = os.path.dirname(os.path.dirname(EXP_DIR))
 sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 sys.path.insert(0, EXP_DIR)
 
-from predict_resilience_soga import compute_baseline, compute_per_cell_SDC, aggregate_results
+# M3.5 tests validate the 5-class moment-matched model's internal K-reduction.
+# After the bit-exact refinement, the primary model is predict_resilience_soga.py (bit-exact).
+# The 5-class model is preserved as predict_resilience_soga_5class.py (historical reference).
+# These tests import from the 5-class model to maintain their original validation semantics.
+from predict_resilience_soga import compute_baseline, aggregate_results  # common API
+from predict_resilience_soga_5class import compute_per_cell_SDC  # 5-class specific
 from lib.fault_model import (
     FaultClass, FAULT_CLASS_PROB, check_overflow, shift_moments, tail_gauss,
     MantissaApproximationWarning,

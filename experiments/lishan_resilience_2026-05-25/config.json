@@ -1,0 +1,150 @@
+{
+  "description": "Lishan resilience POC \u2014 input-side fault propagation for 2MM 32x32 float32",
+  "date": "2026-05-25",
+  "branch": "feat/lishan-resilience-poc",
+  "plan": "plan/2026-05-25-lishan-resilience-poc.md",
+  "honesty_disclaimer": "Input-side fault model (faults injected into B before kernel execution). NOT equivalent to register-level bit-flip injection (SASSIFI/NVBitFI). Adjacent methodology; Strada Q discipline.",
+  "seed": 42,
+  "eps": 0.001,
+  "kernel": {
+    "m": 32,
+    "n": 32,
+    "dtype": "float32",
+    "operation": "2MM",
+    "description": "D = A @ B where A is a fixed kernel matrix and B is the random input"
+  },
+  "A_configs": {
+    "A_identity": {
+      "file": "A_identity.npz",
+      "description": "A = I_32 (identity). D[r,s] = B[r,s]. K_per_cell = 6 (1 baseline + 5 fault classes).",
+      "K_per_cell": 6,
+      "m_dense": 1,
+      "use_bimodal_GM": true,
+      "note": "m_dense=1 < 16 threshold => 2-component GM primary path for Step 3"
+    },
+    "A_kernel": {
+      "file": "A_kernel.npz",
+      "description": "A extracted from lishan_2mm_32x32.soga. A = I_32 (identity per .soga comment).",
+      "K_per_cell_max": 161,
+      "m_dense": 1,
+      "use_bimodal_GM": true,
+      "note": "Same as A_identity since .soga uses identity. K_max=1+5*32=161 general upper bound.",
+      "verified_is_identity": true,
+      "baseline_verified": {
+        "M_D_zero": true,
+        "U_D_identity": true,
+        "V_D_identity": true
+      }
+    }
+  },
+  "fault_model": {
+    "p_fault": 0.01,
+    "description": "Probability of at least one fault event per kernel execution",
+    "classes": {
+      "SIGN": {
+        "bits": [
+          31
+        ],
+        "P_class": 0.03125,
+        "type": "EXACT"
+      },
+      "HIGH_EXP": {
+        "bits": [
+          27,
+          28,
+          29,
+          30
+        ],
+        "P_class": 0.125,
+        "type": "EXACT"
+      },
+      "LOW_EXP": {
+        "bits": [
+          23,
+          24,
+          25,
+          26
+        ],
+        "P_class": 0.125,
+        "type": "EXACT"
+      },
+      "HIGH_MANTISSA": {
+        "bits": "16-22",
+        "P_class": 0.21875,
+        "type": "APPROXIMATE_MOMENT_MATCHED"
+      },
+      "LOW_MANTISSA": {
+        "bits": "0-15",
+        "P_class": 0.5,
+        "type": "APPROXIMATE_MOMENT_MATCHED"
+      }
+    },
+    "mantissa_approx_target": "< 5% relative error on Pr(SDC), enforced by M3.5 cross-validation"
+  },
+  "step1": {
+    "v_sweep": [
+      -100.0,
+      -10.0,
+      -1.0,
+      -0.1,
+      -0.01,
+      0.01,
+      0.1,
+      1.0,
+      10.0,
+      100.0
+    ],
+    "mc_n_samples": 1000,
+    "mc_n_samples_fallback": 3000,
+    "pearson_threshold_primary": 0.9,
+    "pearson_threshold_fallback": 0.85,
+    "max_rel_err_MSK_SDC": 0.1,
+    "max_abs_err_OTR": 0.05
+  },
+  "step3": {
+    "p_sweep_n": 21,
+    "p_sweep": [
+      0.0,
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3,
+      0.35,
+      0.4,
+      0.45,
+      0.5,
+      0.55,
+      0.6,
+      0.65,
+      0.7,
+      0.75,
+      0.8,
+      0.85,
+      0.9,
+      0.95,
+      1.0
+    ],
+    "V_low": 0.0,
+    "V_high": 1.0,
+    "mc_validate_points": [
+      0.0,
+      0.5,
+      "p_critical",
+      1.0
+    ],
+    "mc_n_samples": 1000,
+    "bimodal_warning_range": [
+      0.2,
+      0.8
+    ],
+    "m_dense_threshold": 16,
+    "monotonicity_tau_threshold": 0.9,
+    "counterexample_tau_threshold": 0.5
+  },
+  "reproducibility": {
+    "hashes_file": "HASHES.txt",
+    "config_hash_algorithm": "sha256"
+  }
+}

@@ -1,0 +1,49 @@
+/* Lishan prototype: 2x2 matmul decomposed into scalar ops with intermediate
+   Bernoulli fault injection.
+
+   Goal: validate that SOGA correctly propagates a Gaussian Mixture through a
+   Bernoulli sign-flip branch followed by a subsequent affine update.
+
+   Matrix definition: A = [[1, 1], [_, _]] (first row); only D[0,0] computed.
+   Input: B[0,0], B[1,0] iid N(VALUE_V, 1e-12). Small variance approximates
+   point-mass while avoiding Tallis division-by-zero (per gaussian-mixture-expert
+   memo Q5).
+
+   Sequence (mirrors register-level FMA cascade for one output cell):
+     acc = 0
+     acc = acc + b00            // partial sum after FMA #1
+     bern fault (p=0.01): acc = -acc
+     acc = acc + b10            // partial sum after FMA #2 — propagates fault per-component
+
+   Expected closed form (per gaussian-mixture-expert memo Q2):
+     acc ~ (1-p)·N((1+1)·v, 2·sigma_b^2) + p·N((1-1)·v, 2·sigma_b^2)
+         = (1-p)·N(2v, 2*sigma_b^2) + p·N(0, 2*sigma_b^2)
+
+   For v=1, p=0.01, sigma_b^2=1e-12:
+     E[acc]   = 2v(1-p)          = 1.98
+     Var[acc] = 2*sigma_b^2 + 4*v^2*p*(1-p) ≈ 0.0396
+*/
+
+/* Input B (one column, two cells) */
+b00 = gauss(VALUE_V, 1e-12);
+b10 = gauss(VALUE_V, 1e-12);
+
+/* Accumulator initialization */
+acc = 0;
+
+/* FMA #1: partial += a00 * b00 with a00 = 1 */
+acc = acc + b00;
+
+/* Intermediate fault injection: Bernoulli sign flip with prob VALUE_P */
+fault = gm([VALUE_1MP, VALUE_P], [0, 1], [0, 0]);
+if fault == 1 {
+    acc = 0 - acc;
+} else {
+    acc = acc;
+} end if;
+
+/* FMA #2: partial += a01 * b10 with a01 = 1 (per-component propagation test) */
+acc = acc + b10;
+
+/* Final output cell */
+d00 = acc;

@@ -1,0 +1,41 @@
+{
+  "experiment": "lishan_polybench_2mm_register_level_replica",
+  "plan": "plan/2026-05-28-polybench-2mm-register-level-replica.md",
+  "run_id": "orchestrate_2026-05-29_07-40-52",
+  "date": "2026-05-31",
+  "kernel": {
+    "source": "PolyBench/C 4.2.1 linear-algebra/kernels/2mm",
+    "alpha": 1, "beta": 0, "shape": "square NxN", "dtype": "int32",
+    "A_init": "(i*j+1) % N", "C_init": "(i*(j+3)+1) % N",
+    "B_input": "flat v (swept)"
+  },
+  "Ns": [4, 8],
+  "N2_note": "N=2 not run separately; the prototype (commit 77a1a0a8) covers the 2x2 sign-flip case and the engine propagation is validated exhaustively at N=4 and N=8 (validate_soga_vs_mc.py).",
+  "v_sweep": [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 24, 32, 48, 64, 96, 128],
+  "fault_model": {
+    "sites": "2*N^3 int32 accumulator FMA sites, uniform site + uniform bit 0..31",
+    "categorical": "65-class signed {0, +-2^b for b=0..31} (R7, unconditional)",
+    "single_fault_per_kernel": true
+  },
+  "metric": {
+    "sdc_definition": "relative tolerance: |D_pert-D_base| > eps*|D_base| (threshold 0 at base=0)",
+    "eps_grid": [1.0, 4.0, 16.0],
+    "rationale": "eps=0 proved input-value-independent (degenerate); relative eps>0 exposes the v/norm dependence. The normalized shape is QUALITATIVELY consistent (always monotone decreasing) across eps but NOT exactly eps-invariant: normalized per-kernel susceptibility at max norm spans ~0.69-0.74 over eps in {1,4,16} (~5pp spread). See iter_1_finding.md.",
+    "per_kernel": "frac. injections changing ANY output cell",
+    "per_cell": "mean over injections of frac. output cells changed"
+  },
+  "methods": {
+    "mc_register": "EXACT enumeration over all (site,bit) injections (no sampling)",
+    "mc_input_side": "EXACT enumeration over all (B-cell,bit) injections",
+    "soga": "SOGA engine per-cell fault propagation; multipliers asserted == C[k][s]; aggregated over all sites with multiplicity; v-independent shifts reused across v-sweep"
+  },
+  "seeds": "none required (exact enumeration is deterministic)",
+  "deviations_from_plan": [
+    "eps=0 -> relative eps>0 (iter_1_finding.md): eps=0 gives degenerate flat/saturated SDC",
+    "metric pivoted from absolute MSK to normalized susceptibility-vs-norm SHAPE (user goal 2026-05-29)",
+    "exact enumeration replaces n=10^4 Monte Carlo (zero sampling noise)",
+    "v-grid expanded from {-1,0,1,6} to a 17-point norm sweep to trace the curve",
+    "33-class skipped; 65-class signed used directly (R7; sign irrelevant for |shift|>thr)",
+    "per-kernel computed exactly (any-cell-changes); union bound not used (R2 moot)"
+  ]
+}

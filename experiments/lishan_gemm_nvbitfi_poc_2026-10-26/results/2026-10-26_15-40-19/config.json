@@ -1,0 +1,44 @@
+{
+ "n": 512,
+ "unroll": 4,
+ "small": 1000,
+ "large": 30000,
+ "seed": 20261026,
+ "eps_grid": [
+  1e-06,
+  1e-05,
+  0.0001,
+  0.0005,
+  0.001,
+  0.01,
+  0.1
+ ],
+ "run_id": "2026-10-26_15-40-19",
+ "git_commit": "956d1e285843df9bb258dceb35de3e15b5b07c74",
+ "class_counts_per_thread": {
+  "LDG.c": 1,
+  "FMUL.beta": 1,
+  "LDG.a": 512,
+  "LDG.b": 512,
+  "FMUL.alpha": 512,
+  "FFMA": 512,
+  "S2R/IMAD.idx": 6,
+  "IMAD.addr_c": 1,
+  "IMAD.addr_a": 1,
+  "IMAD.addr_b": 1,
+  "IADD.ptr_a.lo": 128,
+  "IADD.ptr_a.hi": 128,
+  "IADD.ptr_b.lo": 128,
+  "IADD.ptr_b.hi": 128,
+  "IADD.k": 128
+ },
+ "arith_share": 0.7595405705816969,
+ "dists": [
+  "U[0,1]",
+  "N(0,1/3)",
+  "Sparse10%",
+  "U[0,10]"
+ ],
+ "B_C0": "U[0,1] fixed, seed_fixed=seed",
+ "A_seed": "seed + dist_index"
+}
